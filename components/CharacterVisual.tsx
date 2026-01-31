@@ -63,7 +63,10 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'PIERCE':
         return 'scale(1) rotate(-2deg) translateX(15px)';
       case 'SWING':
-        return 'scale(1) rotate(10deg) skewX(-5deg)';
+        // 如果是最后一帧（第4帧，爆发击中帧），取消旋转和倾斜，增加稳定感
+        return frame === 4 
+          ? 'scale(1) rotate(0deg) skewX(0deg) translateX(20px)' 
+          : 'scale(1) rotate(10deg) skewX(-5deg)';
       case 'THROW':
         return 'scale(1) rotate(0deg) translateY(-5px)';
       case 'ATTACK':
@@ -94,7 +97,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
         `}
-        style={{ transform: getFrameTransform(), transition: state === 'IDLE' ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
+        style={{ transform: getFrameTransform(), transition: (state === 'IDLE' || state === 'SWING') ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
       >
         <img 
           src={`${basePath}character.png`} 
