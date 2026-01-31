@@ -26,26 +26,21 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   accessory
 }) => {
   /**
-   * 图片资源命名约定：
-   * HOME: home1.png, home2.png... (主界面悠闲动画)
-   * IDLE: idle1.png, idle2.png... (战斗待机动画)
-   * RUN: run1.png, run2.png...
-   * ATTACK: atk1.png, atk2.png...
-   * HURT: hurt1.png...
-   * DODGE: dodge1.png...
+   * 图片资源加载路径：根目录下的 images/ 文件夹
    */
   const getCharacterSource = () => {
     const safeFrame = frame > 0 ? frame : 1;
+    const basePath = 'images/';
     
     // 基础路径映射
-    if (state === 'HOME') return `home${safeFrame}.png`;
-    if (state === 'IDLE') return `idle${safeFrame}.png`;
-    if (state === 'RUN') return `run${safeFrame}.png`;
-    if (state === 'ATTACK') return `atk${safeFrame}.png`;
-    if (state === 'HURT') return `hurt${safeFrame}.png`;
-    if (state === 'DODGE') return `dodge${safeFrame}.png`;
+    if (state === 'HOME') return `${basePath}home${safeFrame}.png`;
+    if (state === 'IDLE') return `${basePath}idle${safeFrame}.png`;
+    if (state === 'RUN') return `${basePath}run${safeFrame}.png`;
+    if (state === 'ATTACK') return `${basePath}atk${safeFrame}.png`;
+    if (state === 'HURT') return `${basePath}hurt${safeFrame}.png`;
+    if (state === 'DODGE') return `${basePath}dodge${safeFrame}.png`;
     
-    return "character.png"; 
+    return `${basePath}character.png`; 
   };
 
   const getFrameTransform = () => {
@@ -103,11 +98,14 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           className="w-full h-full object-contain drop-shadow-2xl"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            // 兜底策略
-            target.src = "character.png";
-            target.onerror = () => {
-                target.src = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=" + (isNpc ? 'npc' : 'player') + "&backgroundColor=ffffff";
-            };
+            // 兜底策略：先尝试加载 images/ 目录下的 character.png
+            if (!target.src.endsWith('images/character.png')) {
+              target.src = "images/character.png";
+            } else {
+              // 最终兜底：使用 DiceBear 生成的 SVG 占位符
+              target.onerror = null;
+              target.src = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=" + (isNpc ? 'npc' : 'player') + "&backgroundColor=ffffff";
+            }
           }}
         />
 
