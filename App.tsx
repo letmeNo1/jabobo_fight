@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CharacterData, Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 import { WEAPONS, SKILLS, DRESSINGS } from './constants';
@@ -22,6 +21,12 @@ const INITIAL_DATA: CharacterData = {
   isConcentrated: false
 };
 
+interface BattleResult {
+  isWin: boolean;
+  gold: number;
+  exp: number;
+}
+
 const App: React.FC = () => {
   const [player, setPlayer] = useState<CharacterData>(() => {
     const saved = localStorage.getItem('qfight_save');
@@ -29,6 +34,7 @@ const App: React.FC = () => {
   });
   const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS'>('HOME');
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
+  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
 
   useEffect(() => {
     localStorage.setItem('qfight_save', JSON.stringify(player));
@@ -91,20 +97,33 @@ const App: React.FC = () => {
   };
 
   const handleBattleWin = (gainedGold: number, gainedExp: number) => {
+    setBattleResult({ isWin: true, gold: gainedGold, exp: gainedExp });
     let newExp = player.exp + gainedExp;
     let nextLvlThreshold = player.level * 100;
     let tempPlayer = { ...player, gold: player.gold + gainedGold, exp: newExp };
-    if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
-    else setPlayer(tempPlayer);
-    setView('HOME');
+    
+    if (newExp >= nextLvlThreshold) {
+      handleLevelUp(tempPlayer);
+    } else {
+      setPlayer(tempPlayer);
+    }
   };
 
   const handleBattleLoss = (gainedExp: number) => {
+    setBattleResult({ isWin: false, gold: 0, exp: gainedExp });
     let newExp = player.exp + gainedExp;
     let nextLvlThreshold = player.level * 100;
     let tempPlayer = { ...player, exp: newExp };
-    if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
-    else setPlayer(tempPlayer);
+    
+    if (newExp >= nextLvlThreshold) {
+      handleLevelUp(tempPlayer);
+    } else {
+      setPlayer(tempPlayer);
+    }
+  };
+
+  const closeResult = () => {
+    setBattleResult(null);
     setView('HOME');
   };
 
@@ -134,10 +153,52 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {levelUpResults.length > 0 && (
+      {/* 战斗结算界面弹窗 */}
+      {battleResult && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-4 backdrop-blur-sm">
+          <div className={`bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border-t-8 transform animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-gray-500'}`}>
+            <div className="text-center mb-6">
+              <div className={`text-6xl mb-4 ${battleResult.isWin ? 'animate-bounce' : 'grayscale'}`}>
+                {battleResult.isWin ? '🏆' : '💀'}
+              </div>
+              <h2 className={`text-3xl font-black italic tracking-tighter ${battleResult.isWin ? 'text-orange-500' : 'text-gray-500'}`}>
+                {battleResult.isWin ? '大 获 全 胜' : '惜 败 离 场'}
+              </h2>
+            </div>
+            
+            <div className="space-y-4 mb-8">
+              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <span className="text-gray-400 font-bold text-sm">获得金币</span>
+                <span className="text-xl font-black text-yellow-600">+{battleResult.gold}</span>
+              </div>
+              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <span className="text-gray-400 font-bold text-sm">获得经验</span>
+                <span className="text-xl font-black text-blue-600">+{battleResult.exp}</span>
+              </div>
+            </div>
+
+            {/* 如果同时升级了，在这里合并显示简略信息 */}
+            {levelUpResults.length > 0 && (
+              <div className="mb-6 p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
+                <p className="text-orange-600 font-black text-sm animate-pulse">✨ 等级提升至 Lv.{player.level} ✨</p>
+              </div>
+            )}
+
+            <button 
+              onClick={closeResult}
+              className={`w-full py-4 rounded-2xl font-black text-white shadow-lg transition-transform active:scale-95 ${battleResult.isWin ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-200' : 'bg-gray-700 hover:bg-gray-800 shadow-gray-200'}`}
+            >
+              确 定
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 升级详细面板（仅在关闭战斗结算且有升级结果时显示） */}
+      {levelUpResults.length > 0 && !battleResult && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-orange-500 text-center">🎉 升级啦！</h2>
+            <h2 className="text-xl font-bold mb-4 text-orange-500 text-center">🎉 升级奖励详情</h2>
             <ul className="space-y-2 mb-6 text-sm">
               {levelUpResults.map((r, i) => <li key={i} className="text-gray-700 bg-gray-50 p-2 rounded">{r}</li>)}
             </ul>
@@ -190,6 +251,14 @@ const App: React.FC = () => {
       {view === 'SKILLS' && (
         <SkillList player={player} onBack={() => setView('HOME')} />
       )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes popIn {
+          from { opacity: 0; transform: scale(0.8) translateY(20px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-popIn { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      `}} />
     </div>
   );
 };

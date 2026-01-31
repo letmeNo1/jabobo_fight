@@ -13,7 +13,7 @@ const Profile: React.FC<ProfileProps> = ({ player }) => {
   useEffect(() => {
     const timer = setInterval(() => {
       setFrame(prev => (prev % 2) + 1);
-    }, 800); // 主界面动画较慢，每 0.8s 呼吸一次
+    }, 800);
     return () => clearInterval(timer);
   }, []);
 
@@ -28,7 +28,6 @@ const Profile: React.FC<ProfileProps> = ({ player }) => {
         <CharacterVisual 
           state="HOME"
           frame={frame}
-          isWinking={true}
           accessory={{
             head: getDressingName('HEAD'),
             body: getDressingName('BODY'),
