@@ -15,6 +15,7 @@ interface CharacterVisualProps {
     body?: string;
     weapon?: string;
   };
+  isMobile?: boolean;
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -24,10 +25,17 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   frame = 1,
   className = "",
   weaponId,
-  accessory
+  accessory,
+  isMobile = false
 }) => {
   const basePath = 'Images/';
-  const BASE_SCALE = 1.3; // 全局放大30%
+  
+  // PC 端累计放大系数 1.7，移动端在此基础上缩小 50% (1.7 * 0.5 = 0.85)
+  const BASE_SCALE = isMobile ? 0.85 : 1.7; 
+
+  // 根据缩放比例动态计算容器尺寸
+  const containerWidth = isMobile ? 140 : 270;
+  const containerHeight = isMobile ? 160 : 310;
 
   // Configuration for each animation state: prefix for filename and number of frames
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
@@ -52,43 +60,41 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
     switch (state) {
       case 'HOME': {
-        const offset = (f % 2 === 0) ? '-8px' : '0px';
+        const offset = (f % 2 === 0) ? (isMobile ? '-5px' : '-10px') : '0px';
         const scale = (f % 2 === 0) ? 1.02 * BASE_SCALE : 1.0 * BASE_SCALE;
         return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
       }
       case 'IDLE':
         return `scale(${BASE_SCALE}) rotate(0deg)`;
       case 'RUN': {
-        const bounce = (f % 2 === 0) ? 'translateY(-4px)' : 'translateY(0px)';
+        const bounce = (f % 2 === 0) ? (isMobile ? '-2px' : '-5px') : '0px';
         const tilt = (f % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
         return `${bounce} ${tilt} scale(${BASE_SCALE})`;
       }
       case 'JUMP':
-        // 移除角度变化，仅保留垂直位移，应用全局缩放
-        return `translateY(-20px) scale(${BASE_SCALE * 1.05})`;
+        return `translateY(${isMobile ? '-15px' : '-30px'}) scale(${BASE_SCALE * 1.05})`;
       case 'CLEAVE':
-        // 砸地瞬间，不再压扁（移除scaleY/scaleX形变），保持全局缩放并增加着地感
-        return `translateY(35px) scale(${BASE_SCALE})`;
+        return `translateY(0px) scale(${BASE_SCALE})`;
       case 'SLASH':
         return `scale(${BASE_SCALE}) rotate(0deg) translateX(5px)`;
       case 'PIERCE':
         return `scale(${BASE_SCALE}) rotate(-2deg) translateX(15px)`;
       case 'SWING':
-        const swingScale = f === 4 ? BASE_SCALE : BASE_SCALE;
+        const swingScale = BASE_SCALE;
         const swingRot = f === 4 ? 'rotate(0deg)' : 'rotate(10deg)';
         const swingSkew = f === 4 ? 'skewX(0deg)' : 'skewX(-5deg)';
-        const swingX = f === 4 ? 'translateX(20px)' : '';
+        const swingX = f === 4 ? (isMobile ? 'translateX(12px)' : 'translateX(25px)') : '';
         return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(-5px)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateY(${isMobile ? '-4px' : '-8px'})`;
       case 'PUNCH':
         return f === 2 
-          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(15px)` 
-          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-5px)`;
+          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(${isMobile ? '10px' : '20px'})` 
+          : `scale(${BASE_SCALE}) rotate(0deg) translateX(${isMobile ? '-4px' : '-8px'})`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
-        return `translate(-8px, 2px) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
+        return `translate(${isMobile ? '-5px' : '-10px'}, ${isMobile ? '2px' : '4px'}) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
       default:
         return `scale(${BASE_SCALE}) rotate(0deg)`;
     }
@@ -97,20 +103,20 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   const showBaseImage = !state || !STATE_CONFIGS[state];
 
   return (
-    <div className={`relative flex flex-col items-center select-none group ${className}`} style={{ width: '208px', height: '234px' }}>
+    <div className={`relative flex flex-col items-center select-none group ${className}`} style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
       
       {/* Dynamic shadow based on state */}
-      <div className={`absolute bottom-6 h-5 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
-        ${state === 'RUN' ? 'w-24 opacity-40 scale-x-110' : 'w-28 animate-pulse'}
-        ${state === 'JUMP' || state === 'CLEAVE' ? 'w-20 opacity-10 scale-x-50' : ''}
-        ${state === 'HOME' ? 'w-32 opacity-20 scale-x-110' : ''}
+      <div className={`absolute bottom-6 h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
+        ${state === 'RUN' ? (isMobile ? 'w-16' : 'w-32') + ' opacity-40 scale-x-110' : (isMobile ? 'w-20' : 'w-36') + ' animate-pulse'}
+        ${state === 'JUMP' || state === 'CLEAVE' ? (isMobile ? 'w-12' : 'w-24') + ' opacity-10 scale-x-50' : ''}
+        ${state === 'HOME' ? (isMobile ? 'w-24' : 'w-40') + ' opacity-20 scale-x-110' : ''}
         ${state === 'HURT' ? 'scale-x-75 opacity-20' : ''}
-        ${state === 'IDLE' ? 'w-28 opacity-20 scale-x-100' : ''}
+        ${state === 'IDLE' ? (isMobile ? 'w-20' : 'w-36') + ' opacity-20 scale-x-100' : ''}
       `}></div>
 
       {/* Main character container */}
       <div 
-        className={`relative w-44 h-52 flex items-center justify-center
+        className={`relative ${isMobile ? 'w-28 h-32' : 'w-56 h-64'} flex items-center justify-center
           ${isDizzy ? 'animate-dizzy filter grayscale contrast-125' : ''} 
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
@@ -186,22 +192,22 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
         {/* Dizzy overlay */}
         {isDizzy && (
-          <div className="absolute -top-10 left-0 w-full flex justify-center pointer-events-none z-50">
-            <span className="text-4xl animate-spin">💫</span>
+          <div className={`absolute ${isMobile ? '-top-6' : '-top-14'} left-0 w-full flex justify-center pointer-events-none z-50`}>
+            <span className={`${isMobile ? 'text-2xl' : 'text-5xl'} animate-spin`}>💫</span>
           </div>
         )}
       </div>
 
       {/* Floating labels for equipment */}
-      <div className={`absolute -top-12 flex flex-col items-center gap-1.5 pointer-events-none z-20 transition-opacity duration-300 ${state !== 'IDLE' && state !== 'HOME' ? 'opacity-0 scale-75' : 'opacity-100'}`}>
+      <div className={`absolute ${isMobile ? '-top-8' : '-top-16'} flex flex-col items-center gap-1 transition-opacity duration-300 ${state !== 'IDLE' && state !== 'HOME' ? 'opacity-0 scale-75' : 'opacity-100'}`}>
         {accessory?.head && (
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-[11px] text-white px-3.5 py-1.5 rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20">
-            <span className="text-xs">👑</span> {accessory.head}
+          <div className={`${isMobile ? 'text-[9px] px-2 py-0.5' : 'text-xs px-4 py-2'} bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20`}>
+            <span className={isMobile ? 'text-[10px]' : 'text-sm'}>👑</span> {accessory.head}
           </div>
         )}
         {accessory?.body && (
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-[11px] text-white px-3.5 py-1.5 rounded-full shadow-md font-black whitespace-nowrap flex items-center gap-1 border border-white/20">
-            <span className="text-xs">👕</span> {accessory.body}
+          <div className={`${isMobile ? 'text-[9px] px-2 py-0.5' : 'text-xs px-4 py-2'} bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-full shadow-md font-black whitespace-nowrap flex items-center gap-1 border border-white/20`}>
+            <span className={isMobile ? 'text-[10px]' : 'text-sm'}>👕</span> {accessory.body}
           </div>
         )}
       </div>
@@ -209,9 +215,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes dizzy {
           0% { transform: rotate(0deg) translate(0, 0); }
-          25% { transform: rotate(3deg) translate(-2px, 1px); }
-          50% { transform: rotate(0deg) translate(2px, -1px); }
-          75% { transform: rotate(-3deg) translate(-1px, 2px); }
+          25% { transform: rotate(3deg) translate(-3px, 1px); }
+          50% { transform: rotate(0deg) translate(3px, -1px); }
+          75% { transform: rotate(-3deg) translate(-1px, 3px); }
           100% { transform: rotate(0deg) translate(0, 0); }
         }
         .animate-dizzy { animation: dizzy 0.5s linear infinite; }

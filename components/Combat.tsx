@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
@@ -186,7 +187,9 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
-      const meleeDistance = 440 * dir; 
+      
+      // 距离进一步拉远后，近战冲锋位移从 720 增加到 820
+      const meleeDistance = 800 * dir; 
 
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
 
@@ -206,7 +209,6 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 80));
           
-          // 执行砸地动作，保持 activeWeaponId 传递以确保武器跟随
           atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
           setShaking('SCREEN'); 
           executeHit(Math.floor(dmg * 1.15), isP, hitType);
@@ -254,10 +256,11 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
               if (i === 2) {
                 const containerRect = containerRef.current?.getBoundingClientRect();
                 const pRect = pRef.current?.getBoundingClientRect();
-                const nRect = nRef.current?.getBoundingClientRect();
-                if (containerRect && pRect && nRect) {
+                // FIX: Removed the line 'const nRect = nRect?.getBoundingClientRect() || containerRect;' which caused a self-referencing error
+                if (containerRect && pRect && nRef.current) {
+                  const targetRect = nRef.current.getBoundingClientRect();
                   const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
-                  const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
+                  const nCenterX = (targetRect.left - containerRect.left + targetRect.width / 2) / uiScale;
                   const startX = isP ? pCenterX : nCenterX;
                   const targetX = isP ? nCenterX : pCenterX;
                   const p1Id = ++projectileCounter.current;
@@ -410,9 +413,10 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                 </div>
               ))}
            </div>
-           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: '1000px', height: '450px', transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
+           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: '1200px', height: '450px', transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               <div className="relative w-full h-full flex items-end justify-center pb-0">
-                <div className="w-full h-72 flex justify-between px-32 relative">
+                {/* 初始距离进一步拉远：px 减小至 4 (1rem)，极致推向边缘 */}
+                <div className="w-full h-72 flex justify-between px--4 relative">
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
                     <div className={`${shaking === 'P' ? 'animate-shake' : ''} ${['CLEAVE', 'PUNCH'].includes(pVisual.state) ? 'animate-vibrate' : ''}`}>
                       <CharacterVisual 
@@ -420,10 +424,11 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                         frame={pVisual.frame} 
                         weaponId={pVisual.weaponId}
                         accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} 
+                        isMobile={isMobile}
                       />
                     </div>
                     {effects.filter(e => e.isPlayer).map(e => (
-                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
                     ))}
                   </div>
                   <div ref={nRef} className="relative z-20" style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
@@ -434,11 +439,12 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                           state={nVisual.state} 
                           frame={nVisual.frame} 
                           weaponId={nVisual.weaponId}
+                          isMobile={isMobile}
                         />
                       </div>
                     </div>
                     {effects.filter(e => !e.isPlayer).map(e => (
-                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
                     ))}
                   </div>
                 </div>
