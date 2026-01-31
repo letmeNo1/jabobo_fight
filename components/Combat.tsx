@@ -29,7 +29,8 @@ interface VisualEffect {
   color: string;
 }
 
-type AttackModule = 'MELEE_FAST' | 'MELEE_HEAVY' | 'MELEE_DASH' | 'RANGED';
+// 定义五大核心动作模组
+type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW';
 
 const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
   const [logs, setLogs] = useState<BattleLog[]>([]);
@@ -40,47 +41,71 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
   const [pVisual, setPVisual] = useState<{ state: VisualState; frame: number }>({ state: 'IDLE', frame: 1 });
   const [nVisual, setNVisual] = useState<{ state: VisualState; frame: number }>({ state: 'IDLE', frame: 1 });
   
-  const [pOffset, setPOffset] = useState(0);
-  const [nOffset, setNOffset] = useState(0);
+  const [pOffset, setPOffset] = useState({ x: 0, y: 0 });
+  const [nOffset, setNOffset] = useState({ x: 0, y: 0 });
   const [moveDuration, setMoveDuration] = useState(400);
 
   const [shaking, setShaking] = useState<'P' | 'N' | 'SCREEN' | null>(null);
   const [effects, setEffects] = useState<VisualEffect[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
+  const [uiScale, setUiScale] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
 
   const logEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const effectCounter = useRef(0);
 
-  // 模组名称映射
   const moduleNameMap: Record<AttackModule, string> = {
-    MELEE_FAST: '轻快模组',
-    MELEE_HEAVY: '重击模组',
-    MELEE_DASH: '瞬步模组',
-    RANGED: '远程模组'
+    CLEAVE: '劈',
+    SLASH: '砍',
+    PIERCE: '刺',
+    SWING: '挥舞',
+    THROW: '投掷'
   };
 
-  // 动作模组映射函数
+  // 视口与全屏适配逻辑
+  useEffect(() => {
+    const handleResize = () => {
+      const cw = window.innerWidth;
+      const mobile = cw < 768;
+      setIsMobile(mobile);
+      
+      const targetW = 1000;
+      // 保持舞台坐标系的缩放，以适配不同宽度
+      setUiScale(Math.min(cw / targetW, 1));
+      
+      // 锁定外部滚动条，保证全屏无外滚动
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      document.body.style.height = '100vh';
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.height = '';
+    };
+  }, []);
+
   const getModuleByAction = (type: 'WEAPON' | 'SKILL' | 'BARE', id?: string): AttackModule => {
-    if (type === 'BARE') return 'MELEE_FAST';
-    
+    if (type === 'BARE') return 'SLASH';
     if (type === 'WEAPON' && id) {
-      const w = WEAPONS.find(item => item.id === id);
-      if (!w) return 'MELEE_FAST';
-      if (w.type === WeaponType.LARGE) return 'MELEE_HEAVY';
-      if (w.type === WeaponType.SMALL) return 'MELEE_FAST';
-      if (w.type === WeaponType.MEDIUM) return 'MELEE_DASH';
-      if (w.type === WeaponType.THROW) return 'RANGED';
+      if (['w2', 'w3', 'w4', 'w8'].includes(id)) return 'CLEAVE';
+      if (['w1', 'w9', 'w16', 'w17'].includes(id)) return 'PIERCE';
+      if (['w7', 'w11', 'w13', 'w18'].includes(id)) return 'SWING';
+      if (['w12', 'w19', 'w20', 'w21', 'w22', 'w23', 'w24'].includes(id)) return 'THROW';
+      if (['w5', 'w6', 'w10', 'w14', 'w15'].includes(id)) return 'SLASH';
     }
-
     if (type === 'SKILL' && id) {
-      const rangedSkills = ['s19', 's20', 's22', 's23', 's26', 's29', 's30'];
-      if (rangedSkills.includes(id)) return 'RANGED';
-      const dashSkills = ['s24', 's25', 's27'];
-      if (dashSkills.includes(id)) return 'MELEE_DASH';
-      return 'MELEE_FAST';
+      if (['s19', 's22', 's25', 's26', 's29'].includes(id)) return 'THROW';
+      if (['s20', 's30'].includes(id)) return 'CLEAVE';
+      if (['s24'].includes(id)) return 'PIERCE';
+      if (['s23', 's27'].includes(id)) return 'SLASH';
     }
-
-    return 'MELEE_FAST';
+    return 'SLASH';
   };
 
   useEffect(() => {
@@ -118,14 +143,13 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     const combatTimer = setTimeout(async () => {
       const isP = turn === 'P';
       const atk = isP ? fighters.p : fighters.n;
-      const def = isP ? fighters.n : fighters.p;
 
       if (atk.hp <= 0) return;
 
-      let actionName = "普通攻击";
+      let actionDesc = "普通攻击";
       let dmg = 0;
       let hitType: 'NORMAL' | 'SKILL' = 'NORMAL';
-      let currentModule: AttackModule = 'MELEE_FAST';
+      let currentModule: AttackModule = 'SLASH';
 
       const roll = Math.random();
       const activeSkills = SKILLS.filter(s => atk.skills.includes(s.id) && s.category === SkillCategory.ACTIVE);
@@ -133,76 +157,95 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
 
       if (roll < 0.3 && activeSkills.length > 0) {
         const skill = activeSkills[Math.floor(Math.random() * activeSkills.length)];
-        actionName = `使用了技能【${skill.name}】`;
+        actionDesc = `使用了技能【${skill.name}】`;
         hitType = 'SKILL';
         dmg = 15 + atk.level * 1.5; 
         currentModule = getModuleByAction('SKILL', skill.id);
       } else if (roll < 0.7 && ownedWeapons.length > 0) {
         const weapon = ownedWeapons[Math.floor(Math.random() * ownedWeapons.length)];
-        actionName = `挥动【${weapon.name}】`;
+        actionDesc = `挥动了【${weapon.name}】`;
         dmg = Math.floor(weapon.baseDmg[0] + Math.random() * (weapon.baseDmg[1] - weapon.baseDmg[0]));
         currentModule = getModuleByAction('WEAPON', weapon.id);
       } else {
-        actionName = "空手攻击";
+        actionDesc = "空手挥了一拳";
         dmg = Math.floor(atk.str * (0.8 + Math.random() * 0.4));
         currentModule = getModuleByAction('BARE');
       }
 
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
-      const moveDistance = isP ? 340 : -340;
+      const dir = isP ? 1 : -1;
+      const meleeDistance = 420 * dir;
 
-      // 日志输出增加模组前缀
-      const moduleTag = moduleNameMap[currentModule];
       setLogs(l => [...l, { 
         attacker: atk.name, 
-        text: `[${moduleTag}] ${actionName}` 
+        text: `[${moduleNameMap[currentModule]}模组] ${actionDesc}` 
       }]);
 
       switch (currentModule) {
-        case 'MELEE_FAST':
+        case 'CLEAVE': 
           setMoveDuration(250);
           atkSetter({ state: 'RUN', frame: 1 });
-          offsetSetter(moveDistance);
+          offsetSetter({ x: meleeDistance * 0.5, y: 0 });
           await new Promise(r => setTimeout(r, 250));
-          atkSetter({ state: 'ATTACK', frame: 1 });
+          setMoveDuration(300);
+          atkSetter({ state: 'JUMP', frame: 1 });
+          offsetSetter({ x: meleeDistance, y: -120 });
+          await new Promise(r => setTimeout(r, 250));
+          setMoveDuration(50);
+          offsetSetter({ x: meleeDistance, y: 0 });
+          await new Promise(r => setTimeout(r, 50));
+          atkSetter({ state: 'CLEAVE', frame: 1 });
+          setShaking('SCREEN');
+          executeHit(Math.floor(dmg * 1.15), isP, hitType);
+          await new Promise(r => setTimeout(r, 450));
+          setShaking(null);
+          offsetSetter({ x: 0, y: 0 });
+          break;
+
+        case 'PIERCE': 
+          setMoveDuration(150);
+          atkSetter({ state: 'RUN', frame: 1 });
+          offsetSetter({ x: meleeDistance, y: 0 });
+          await new Promise(r => setTimeout(r, 150));
+          atkSetter({ state: 'PIERCE', frame: 1 });
           executeHit(Math.floor(dmg), isP, hitType);
           await new Promise(r => setTimeout(r, 350));
-          offsetSetter(0);
+          offsetSetter({ x: 0, y: 0 });
           break;
 
-        case 'MELEE_HEAVY':
-          setMoveDuration(500);
+        case 'SWING': 
+          setMoveDuration(400);
           atkSetter({ state: 'RUN', frame: 1 });
-          offsetSetter(moveDistance * 0.8);
-          await new Promise(r => setTimeout(r, 500));
-          atkSetter({ state: 'ATTACK', frame: 1 });
-          setShaking('SCREEN');
-          executeHit(Math.floor(dmg * 1.25), isP, hitType);
-          await new Promise(r => setTimeout(r, 500));
-          setShaking(null);
-          offsetSetter(0);
-          break;
-
-        case 'MELEE_DASH':
-          setMoveDuration(100);
-          atkSetter({ state: 'RUN', frame: 1 });
-          offsetSetter(moveDistance);
-          await new Promise(r => setTimeout(r, 100));
-          atkSetter({ state: 'ATTACK', frame: 1 });
+          offsetSetter({ x: meleeDistance * 0.6, y: 20 });
+          await new Promise(r => setTimeout(r, 200));
+          offsetSetter({ x: meleeDistance, y: 0 });
+          await new Promise(r => setTimeout(r, 200));
+          atkSetter({ state: 'SWING', frame: 1 });
           executeHit(Math.floor(dmg), isP, hitType);
-          await new Promise(r => setTimeout(r, 300));
-          offsetSetter(0);
+          await new Promise(r => setTimeout(r, 400));
+          offsetSetter({ x: 0, y: 0 });
           break;
 
-        case 'RANGED':
+        case 'THROW': 
           setMoveDuration(0);
-          atkSetter({ state: 'ATTACK', frame: 1 });
+          atkSetter({ state: 'THROW', frame: 1 });
           setFlash(isP ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)');
           await new Promise(r => setTimeout(r, 200));
           executeHit(Math.floor(dmg), isP, 'SKILL');
           await new Promise(r => setTimeout(r, 400));
           setFlash(null);
+          break;
+
+        case 'SLASH': 
+          setMoveDuration(300);
+          atkSetter({ state: 'RUN', frame: 1 });
+          offsetSetter({ x: meleeDistance, y: 0 });
+          await new Promise(r => setTimeout(r, 300));
+          atkSetter({ state: 'SLASH', frame: 1 });
+          executeHit(Math.floor(dmg), isP, hitType);
+          await new Promise(r => setTimeout(r, 400));
+          offsetSetter({ x: 0, y: 0 });
           break;
       }
 
@@ -247,7 +290,7 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
 
       if (target.hp <= 0) {
         setBattleOver(true);
-        setLogs(l => [...l, { attacker: '系统', text: `🏁 ${target.name} 败北了！` }]);
+        setLogs(l => [...l, { attacker: '系统', text: `🏁 ${target.name} 倒下了！` }]);
         setTimeout(() => isPAttacking ? onWin(prev.p.level * 20, prev.p.level * 30) : onLoss(prev.p.level * 10), 1200);
       }
 
@@ -266,17 +309,17 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     const ownedSkills = SKILLS.filter(s => fighter.skills.includes(s.id));
 
     return (
-      <div className={`mt-2 flex flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
+      <div className={`mt-3 flex flex-col gap-1.5 ${align === 'right' ? 'items-end' : 'items-start'}`}>
         <div className={`flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
           {ownedWeapons.map(w => (
-            <span key={w.id} className="px-1 py-0.5 bg-slate-800/80 text-orange-400 text-[8px] font-bold rounded border border-orange-500/30">
+            <span key={w.id} className="px-2 py-0.5 bg-slate-800/95 text-orange-400 text-[10px] font-black rounded border border-orange-500/40 shadow-sm">
               ⚔️ {w.name}
             </span>
           ))}
         </div>
         <div className={`flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
           {ownedSkills.map(s => (
-            <span key={s.id} className="px-1 py-0.5 bg-slate-800/80 text-blue-400 text-[8px] font-bold rounded border border-blue-500/30">
+            <span key={s.id} className="px-2 py-0.5 bg-slate-800/95 text-blue-400 text-[10px] font-black rounded border border-blue-500/40 shadow-sm">
               📜 {s.name}
             </span>
           ))}
@@ -286,121 +329,170 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
   };
 
   return (
-    <div className={`fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center overflow-hidden transition-all ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
-      {flash && <div className="absolute inset-0 z-[110] pointer-events-none animate-pulse" style={{ backgroundColor: flash }}></div>}
+    <div ref={containerRef} className={`fixed inset-0 z-[200] bg-black flex flex-col h-screen w-screen overflow-hidden ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
+      {flash && <div className="absolute inset-0 z-[160] pointer-events-none animate-pulse" style={{ backgroundColor: flash }}></div>}
 
-      <div className="relative w-full max-w-[1024px] aspect-video bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-x-4 border-slate-700 flex items-end justify-center pb-20 shadow-2xl">
-        
-        <div className="absolute top-6 w-full px-10 flex justify-between items-start">
-          <div className="w-80">
-            <div className="flex justify-between text-white text-xs font-black mb-1.5 drop-shadow-md">
-              <span className="bg-orange-600 px-2 py-0.5 rounded-l italic">YOU</span>
-              <span className="bg-slate-700 px-2 py-0.5 rounded-r">Lv.{fighters.p.level}</span>
-              <span className="ml-auto font-mono">{Math.ceil(fighters.p.hp)}/{fighters.p.maxHp}</span>
-            </div>
-            <div className="h-4 bg-gray-900 rounded-full border-2 border-slate-600 shadow-inner overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500" style={{ width: `${(fighters.p.hp/fighters.p.maxHp)*100}%` }}></div>
-            </div>
-            {renderAssets(fighters.p, 'left')}
-          </div>
-
-          <div className="mt-1 text-white/5 font-black text-6xl italic select-none">VS</div>
-
-          <div className="w-80 text-right">
-            <div className="flex justify-between text-white text-xs font-black mb-1.5 drop-shadow-md">
-              <span className="font-mono">{Math.ceil(fighters.n.hp)}/{fighters.n.maxHp}</span>
-              <span className="ml-auto bg-slate-700 px-2 py-0.5 rounded-l">Lv.{fighters.n.level}</span>
-              <span className="bg-red-600 px-2 py-0.5 rounded-r italic">ENEMY</span>
-            </div>
-            <div className="h-4 bg-gray-900 rounded-full border-2 border-slate-600 shadow-inner overflow-hidden">
-              <div className="h-full bg-gradient-to-l from-red-600 to-rose-400 transition-all duration-500 ml-auto" style={{ width: `${(fighters.n.hp/fighters.n.maxHp)*100}%` }}></div>
-            </div>
-            {renderAssets(fighters.n, 'right')}
-          </div>
-        </div>
-
-        <div className="absolute bottom-16 w-[90%] h-1 bg-white/5 blur-sm"></div>
-
-        <div className="w-full h-64 flex justify-between px-32 relative">
-          
-          <div className={`relative z-10 ${shaking === 'P' ? 'animate-shake' : ''}`}
-               style={{ 
-                 transform: `translateX(${pOffset}px)`, 
-                 transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` 
-               }}>
-            <CharacterVisual 
-              state={pVisual.state} frame={pVisual.frame}
-              accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }}
-            />
-            {effects.filter(e => e.isPlayer).map(e => (
-              <div key={e.id} className="absolute -top-16 left-1/2 z-[120] pointer-events-none animate-damage">
-                <div className="text-5xl font-black italic drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" style={{ color: e.color }}>
-                  {e.text}
+      {/* 舞台区域 - 使用 items-end 确保人物战斗画面紧贴日志栏 */}
+      <div className="relative w-full flex-grow flex flex-col items-center justify-end bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden shadow-inner">
+           
+           {/* 状态栏：固定在全屏最顶部 */}
+           <div 
+             className="absolute top-4 w-full px-12 flex justify-between items-start z-[250] pointer-events-none"
+             style={{ 
+               transform: `scale(${uiScale})`,
+               transformOrigin: 'top center'
+             }}
+           >
+              {/* Player HP */}
+              <div className="w-[380px] pointer-events-auto">
+                <div className="flex justify-between items-end text-white text-xs font-black mb-1.5 drop-shadow-lg uppercase tracking-tight">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-orange-600 px-4 py-1 rounded-l italic text-sm">Player</span>
+                    <span className="bg-slate-700/80 px-3 py-1 rounded-r border-r border-slate-500/30">Lv.{fighters.p.level}</span>
+                  </div>
+                  <span className="ml-auto font-mono text-xl text-emerald-400">{Math.ceil(fighters.p.hp)}</span>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          <div className={`relative z-10 ${shaking === 'N' ? 'animate-shake' : ''}`}
-               style={{ 
-                 transform: `translateX(${nOffset}px)`, 
-                 transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` 
-               }}>
-            <div style={{ transform: 'scaleX(-1)' }}>
-              <CharacterVisual isNpc={true} state={nVisual.state} frame={nVisual.frame} />
-            </div>
-            {effects.filter(e => !e.isPlayer).map(e => (
-              <div key={e.id} className="absolute -top-16 left-1/2 z-[120] pointer-events-none animate-damage">
-                <div className="text-5xl font-black italic drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]" style={{ color: e.color }}>
-                  {e.text}
+                <div className="h-6 bg-black/60 rounded-full border border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                  <div className="h-full bg-gradient-to-r from-emerald-600 via-green-500 to-emerald-400 transition-all duration-500 relative" style={{ width: `${(fighters.p.hp/fighters.p.maxHp)*100}%` }}>
+                      <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
+                  </div>
                 </div>
+                {!isMobile && renderAssets(fighters.p, 'left')}
               </div>
-            ))}
-          </div>
-        </div>
+
+              {/* Enemy HP */}
+              <div className="w-[380px] text-right pointer-events-auto">
+                <div className="flex justify-between items-end text-white text-xs font-black mb-1.5 drop-shadow-lg uppercase tracking-tight">
+                  <span className="font-mono text-xl text-rose-400">{Math.ceil(fighters.n.hp)}</span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="bg-slate-700/80 px-3 py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span>
+                    <span className="bg-red-600 px-4 py-1 rounded-r italic text-sm">Enemy</span>
+                  </div>
+                </div>
+                <div className="h-6 bg-black/60 rounded-full border border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                  <div className="h-full bg-gradient-to-l from-red-700 via-rose-600 to-red-500 transition-all duration-500 ml-auto relative" style={{ width: `${(fighters.n.hp/fighters.n.maxHp)*100}%` }}>
+                      <div className="absolute inset-0 bg-white/10 animate-pulse"></div>
+                  </div>
+                </div>
+                {!isMobile && renderAssets(fighters.n, 'right')}
+              </div>
+           </div>
+
+           {/* VS 背景装饰 */}
+           <div className="absolute top-[20%] text-white/10 font-black text-[12rem] italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10">VS</div>
+
+           {/* 战斗核心区域：紧贴底部 */}
+           <div 
+             className="relative flex flex-col items-center justify-end transition-transform duration-300"
+             style={{ 
+               width: '1000px', 
+               height: '450px',
+               transform: `scale(${uiScale})`,
+               transformOrigin: 'bottom center'
+             }}
+           >
+              <div className="relative w-full h-full flex items-end justify-center pb-0">
+                <div className="w-full h-72 flex justify-between px-32 relative">
+                  {/* Player Fighter */}
+                  <div className={`relative z-20 ${shaking === 'P' ? 'animate-shake' : ''}`}
+                       style={{ 
+                         transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, 
+                         transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` 
+                       }}>
+                    <CharacterVisual 
+                      state={pVisual.state} frame={pVisual.frame}
+                      accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }}
+                    />
+                    {effects.filter(e => e.isPlayer).map(e => (
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center">
+                        <div className="text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Enemy Fighter */}
+                  <div className={`relative z-20 ${shaking === 'N' ? 'animate-shake' : ''}`}
+                       style={{ 
+                         transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, 
+                         transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` 
+                       }}>
+                    <div style={{ transform: 'scaleX(-1)' }}>
+                      <CharacterVisual isNpc={true} state={nVisual.state} frame={nVisual.frame} />
+                    </div>
+                    {effects.filter(e => !e.isPlayer).map(e => (
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center">
+                        <div className="text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* 地板装饰线：紧贴分界线 */}
+                <div className="absolute bottom-0 w-3/4 h-[4px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              </div>
+           </div>
       </div>
 
-      <div className="w-full max-w-[1024px] flex-grow bg-slate-900 border-t-2 border-slate-700 p-4 overflow-y-auto">
-        <div className="max-w-2xl mx-auto space-y-1.5">
+      {/* 日志区域 - 底部固定并支持内滚动 */}
+      <div className="w-full bg-slate-950 p-4 md:p-6 overflow-y-auto custom-scrollbar border-t border-slate-800 shrink-0 z-[260]" 
+           style={{ 
+             height: isMobile ? '125px' : '30vh',
+             maxHeight: '350px'
+           }}>
+        <div className="max-w-2xl mx-auto space-y-2">
           {logs.map((log, i) => (
-            <div key={i} className={`p-2 rounded border-l-4 text-xs shadow-sm animate-popIn ${log.attacker === '你' ? 'bg-blue-900/20 border-blue-500 text-blue-200' : log.attacker === '系统' ? 'bg-orange-900/30 border-orange-500 text-orange-200 font-bold' : 'bg-red-900/20 border-red-500 text-red-200'}`}>
-              <span className="font-black opacity-60 mr-2">[{log.attacker}]</span> {log.text}
+            <div key={i} className={`px-4 py-2.5 rounded-xl border-l-4 text-sm shadow-md animate-popIn ${
+              log.attacker === '你' 
+                ? 'bg-blue-950/20 border-blue-500 text-blue-100' 
+                : log.attacker === '系统' 
+                  ? 'bg-orange-900/20 border-orange-500 text-orange-100 font-bold' 
+                  : 'bg-red-950/20 border-red-500 text-red-100'
+            }`}>
+              <div className="flex items-center">
+                <span className="font-black opacity-30 mr-3 uppercase text-[10px] shrink-0">[{log.attacker}]</span>
+                <span className="tracking-tight font-medium truncate md:whitespace-normal">{log.text}</span>
+              </div>
             </div>
           ))}
-          <div ref={logEndRef} />
+          <div ref={logEndRef} className="h-1" />
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes damagePop {
-          0% { opacity: 0; transform: translate(-50%, 40px) scale(0.4); }
-          15% { opacity: 1; transform: translate(-50%, -20px) scale(1.4); }
-          80% { opacity: 1; transform: translate(-50%, -60px) scale(1.1); }
-          100% { opacity: 0; transform: translate(-50%, -100px) scale(1); }
+          0% { opacity: 0; transform: translateY(20px) scale(0.4); }
+          15% { opacity: 1; transform: translateY(-40px) scale(1.3); }
+          80% { opacity: 1; transform: translateY(-100px) scale(1); }
+          100% { opacity: 0; transform: translateY(-160px) scale(0.7); }
         }
-        .animate-damage { animation: damagePop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1.2) forwards; }
+        .animate-damage { animation: damagePop 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
         
         @keyframes heavyShake {
           0%, 100% { transform: translate(0, 0); }
-          10%, 30%, 50%, 70%, 90% { transform: translate(-5px, -5px); }
-          20%, 40%, 60%, 80% { transform: translate(5px, 5px); }
+          10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); }
+          20%, 40%, 60%, 80% { transform: translate(6px, 6px); }
         }
-        .animate-heavyShake { animation: heavyShake 0.4s ease-out forwards; }
+        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
 
         @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          20% { transform: translateX(-15px); }
-          40% { transform: translateX(12px); }
-          60% { transform: translateX(-8px); }
-          80% { transform: translateX(4px); }
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-15px, 5px); }
+          50% { transform: translate(12px, -4px); }
+          75% { transform: translate(-8px, 3px); }
         }
-        .animate-shake { animation: shake 0.15s ease-in-out; }
+        .animate-shake { animation: shake 0.2s ease-in-out; }
         
         @keyframes popIn {
-          from { opacity: 0; transform: translateX(-10px); }
-          to { opacity: 1; transform: translateX(0); }
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-popIn { animation: popIn 0.2s ease-out forwards; }
+        .animate-popIn { animation: popIn 0.3s ease-out forwards; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
       `}} />
     </div>
   );

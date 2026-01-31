@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME';
+export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW';
 
 interface CharacterVisualProps {
   isNpc?: boolean;
@@ -31,30 +31,48 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     RUN: { prefix: 'run', count: 5 },
     ATTACK: { prefix: 'atk', count: 4 },
     HURT: { prefix: 'hurt', count: 1 },
-    DODGE: { prefix: 'dodge', count: 1 }
+    DODGE: { prefix: 'dodge', count: 1 },
+    JUMP: { prefix: 'jump', count: 1 },
+    CLEAVE: { prefix: 'cleave', count: 4 },
+    SLASH: { prefix: 'slash', count: 4 },
+    PIERCE: { prefix: 'pierce', count: 4 },
+    SWING: { prefix: 'swing', count: 4 },
+    THROW: { prefix: 'throw', count: 3 } 
   };
 
   const getFrameTransform = () => {
-    if (state === 'HOME') {
+    switch (state) {
+      case 'HOME': {
         const offset = (frame % 2 === 0) ? '-8px' : '0px';
         const scale = (frame % 2 === 0) ? '1.02' : '1.0';
-        return `translateY(${offset}) scale(${scale})`;
-    }
-    if (state === 'IDLE') {
-        return (frame % 2 === 0) ? 'scale-y-[0.98]' : 'scale-y-100';
-    }
-    if (state === 'RUN') {
+        return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
+      }
+      case 'IDLE':
+        return 'scale(1) rotate(0deg)';
+      case 'RUN': {
         const bounce = (frame % 2 === 0) ? 'translateY(-4px)' : 'translateY(0px)';
         const tilt = (frame % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
         return `${bounce} ${tilt}`;
+      }
+      case 'JUMP':
+        return 'rotate(0deg) translateY(-10px) scale(1)';
+      case 'CLEAVE':
+        return 'scale(1) rotate(0deg) translateY(10px)';
+      case 'SLASH':
+        return 'scale(1) rotate(-8deg) translateX(5px)';
+      case 'PIERCE':
+        return 'scale(1) rotate(-2deg) translateX(15px)';
+      case 'SWING':
+        return 'scale(1) rotate(10deg) skewX(-5deg)';
+      case 'THROW':
+        return 'scale(1) rotate(0deg) translateY(-5px)';
+      case 'ATTACK':
+        return 'scale(1) rotate(-5deg)';
+      case 'HURT':
+        return 'translate(-8px, 2px) scale(0.9) rotate(5deg)';
+      default:
+        return 'rotate(0deg)';
     }
-    if (state === 'ATTACK') {
-        return 'scale(1.1) rotate(-5deg)';
-    }
-    if (state === 'HURT') {
-        return 'translate(-5px, 0) scale(0.95)';
-    }
-    return '';
   };
 
   const showBaseImage = !state || !STATE_CONFIGS[state];
@@ -64,8 +82,10 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       
       <div className={`absolute bottom-4 h-5 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-20 opacity-40 scale-x-110' : 'w-24 animate-pulse'}
+        ${state === 'JUMP' || state === 'CLEAVE' ? 'w-16 opacity-10 scale-x-50' : ''}
         ${state === 'HOME' ? 'w-28 opacity-20 scale-x-110' : ''}
         ${state === 'HURT' ? 'scale-x-75 opacity-20' : ''}
+        ${state === 'IDLE' ? 'w-24 opacity-20 scale-x-100' : ''}
       `}></div>
 
       <div 
@@ -74,7 +94,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
         `}
-        style={{ transform: getFrameTransform(), transition: 'transform 0.1s ease-out' }}
+        style={{ transform: getFrameTransform(), transition: state === 'IDLE' ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
       >
         <img 
           src={`${basePath}character.png`} 
@@ -96,8 +116,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           const isActiveState = state === sName;
           if (!isActiveState) return null;
 
-          // 计算当前循环下的实际显示帧
-          // 例如：frame=6, count=5 -> 显示第1帧
           const currentFrame = ((frame - 1) % config.count) + 1;
 
           return Array.from({ length: config.count }).map((_, i) => {

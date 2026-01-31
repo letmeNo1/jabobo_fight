@@ -5,6 +5,7 @@ import Profile from './components/Profile';
 import Combat from './components/Combat';
 import DressingRoom from './components/DressingRoom';
 import SkillList from './components/SkillList';
+import TestPanel from './components/TestPanel';
 
 const INITIAL_DATA: CharacterData = {
   level: 1,
@@ -32,7 +33,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('qfight_save');
     return saved ? JSON.parse(saved) : INITIAL_DATA;
   });
-  const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS'>('HOME');
+  const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST'>('HOME');
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
 
@@ -55,21 +56,10 @@ const App: React.FC = () => {
     const isNextGuaranteed = newData.isConcentrated;
     const roll = Math.random();
     
-    const weaponCount = newData.weapons.length;
-    let mustGetWeapon = false;
-    if (nextLvl === 5 && weaponCount < 1) mustGetWeapon = true;
-    if (nextLvl === 10 && weaponCount < 2) mustGetWeapon = true;
-    if (nextLvl === 15 && weaponCount < 3) mustGetWeapon = true;
+    const pool = [...WEAPONS.filter(w => !newData.weapons.includes(w.id)).map(w => ({ type: 'WEAPON', item: w })), 
+                  ...SKILLS.filter(s => !newData.skills.includes(s.id) && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))];
 
-    if (mustGetWeapon || isNextGuaranteed || roll < 0.9) {
-      const availableWeapons = WEAPONS.filter(w => !newData.weapons.includes(w.id));
-      const availableSkills = SKILLS.filter(s => 
-        !newData.skills.includes(s.id) && (!s.minLevel || nextLvl >= s.minLevel)
-      );
-
-      const pool = [...availableWeapons.map(w => ({ type: 'WEAPON', item: w })), 
-                    ...availableSkills.map(s => ({ type: 'SKILL', item: s }))];
-
+    if (isNextGuaranteed || roll < 0.9) {
       if (pool.length > 0) {
         const choice = pool[Math.floor(Math.random() * pool.length)];
         if (choice.type === 'WEAPON') {
@@ -101,12 +91,8 @@ const App: React.FC = () => {
     let newExp = player.exp + gainedExp;
     let nextLvlThreshold = player.level * 100;
     let tempPlayer = { ...player, gold: player.gold + gainedGold, exp: newExp };
-    
-    if (newExp >= nextLvlThreshold) {
-      handleLevelUp(tempPlayer);
-    } else {
-      setPlayer(tempPlayer);
-    }
+    if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
+    else setPlayer(tempPlayer);
   };
 
   const handleBattleLoss = (gainedExp: number) => {
@@ -114,100 +100,58 @@ const App: React.FC = () => {
     let newExp = player.exp + gainedExp;
     let nextLvlThreshold = player.level * 100;
     let tempPlayer = { ...player, exp: newExp };
-    
-    if (newExp >= nextLvlThreshold) {
-      handleLevelUp(tempPlayer);
-    } else {
-      setPlayer(tempPlayer);
-    }
-  };
-
-  const closeResult = () => {
-    setBattleResult(null);
-    setView('HOME');
-  };
-
-  const handleReset = () => {
-    if (window.confirm('确定要重置人物吗？')) {
-      localStorage.removeItem('qfight_save');
-      setPlayer(INITIAL_DATA);
-      setView('HOME');
-    }
+    if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
+    else setPlayer(tempPlayer);
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 min-h-screen font-sans text-gray-800">
+    <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-4 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-4">
         <h1 className="text-xl md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
-        <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="flex items-center space-x-4">
+          <button onClick={() => setView('TEST')} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors">实验室</button>
           <div className="flex space-x-3 text-sm font-medium">
             <span>💰 {player.gold}</span>
             <span>✨ Lv.{player.level}</span>
           </div>
-          <button 
-            onClick={handleReset}
-            className="text-[10px] bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 px-2 py-1 rounded transition-colors uppercase font-bold"
-          >
-            重置
-          </button>
         </div>
       </header>
 
-      {/* 战斗结算界面弹窗 */}
       {battleResult && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-4 backdrop-blur-sm">
-          <div className={`bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl border-t-8 transform animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-gray-500'}`}>
-            <div className="text-center mb-6">
-              <div className={`text-6xl mb-4 ${battleResult.isWin ? 'animate-bounce' : 'grayscale'}`}>
-                {battleResult.isWin ? '🏆' : '💀'}
-              </div>
-              <h2 className={`text-3xl font-black italic tracking-tighter ${battleResult.isWin ? 'text-orange-500' : 'text-gray-500'}`}>
-                {battleResult.isWin ? '大 获 全 胜' : '惜 败 离 场'}
-              </h2>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4 backdrop-blur-md">
+          <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] border-t-[12px] transform animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-500'}`}>
+            <div className="text-center mb-8">
+              <div className={`text-7xl mb-4 filter drop-shadow-xl ${battleResult.isWin ? 'animate-bounce' : 'grayscale brightness-50'}`}>{battleResult.isWin ? '🏆' : '💀'}</div>
+              <h2 className={`text-4xl font-black italic tracking-tighter uppercase ${battleResult.isWin ? 'text-orange-500' : 'text-slate-600'}`}>{battleResult.isWin ? 'Victory' : 'Defeat'}</h2>
+              <p className="text-slate-400 text-xs font-bold tracking-[0.2em] mt-1 uppercase">{battleResult.isWin ? '大获全胜' : '惜败离场'}</p>
             </div>
-            
-            <div className="space-y-4 mb-8">
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <span className="text-gray-400 font-bold text-sm">获得金币</span>
-                <span className="text-xl font-black text-yellow-600">+{battleResult.gold}</span>
+            <div className="space-y-4 mb-10">
+              <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-inner">
+                <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Gained Gold</span>
+                <span className="text-2xl font-black text-yellow-600">+{battleResult.gold}</span>
               </div>
-              <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <span className="text-gray-400 font-bold text-sm">获得经验</span>
-                <span className="text-xl font-black text-blue-600">+{battleResult.exp}</span>
+              <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-inner">
+                <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Gained Exp</span>
+                <span className="text-2xl font-black text-blue-600">+{battleResult.exp}</span>
               </div>
             </div>
-
-            {/* 如果同时升级了，在这里合并显示简略信息 */}
-            {levelUpResults.length > 0 && (
-              <div className="mb-6 p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
-                <p className="text-orange-600 font-black text-sm animate-pulse">✨ 等级提升至 Lv.{player.level} ✨</p>
-              </div>
-            )}
-
-            <button 
-              onClick={closeResult}
-              className={`w-full py-4 rounded-2xl font-black text-white shadow-lg transition-transform active:scale-95 ${battleResult.isWin ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-200' : 'bg-gray-700 hover:bg-gray-800 shadow-gray-200'}`}
-            >
-              确 定
-            </button>
+            <button onClick={() => {setBattleResult(null); setView('HOME');}} className={`w-full py-5 rounded-3xl font-black text-white text-lg shadow-xl transition-all active:scale-95 ${battleResult.isWin ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 shadow-orange-200' : 'bg-gradient-to-r from-slate-700 to-slate-800 hover:brightness-110 shadow-slate-200'}`}>打扫战场</button>
           </div>
         </div>
       )}
 
-      {/* 升级详细面板（仅在关闭战斗结算且有升级结果时显示） */}
       {levelUpResults.length > 0 && !battleResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-orange-500 text-center">🎉 升级奖励详情</h2>
-            <ul className="space-y-2 mb-6 text-sm">
-              {levelUpResults.map((r, i) => <li key={i} className="text-gray-700 bg-gray-50 p-2 rounded">{r}</li>)}
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[310] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl border-b-8 border-blue-500 animate-popIn">
+            <h2 className="text-2xl font-black mb-6 text-blue-600 text-center italic tracking-tight">✨ Level Up Bonus!</h2>
+            <ul className="space-y-2 mb-8 text-sm">
+              {levelUpResults.map((r, i) => (
+                <li key={i} className="text-slate-700 bg-blue-50/50 p-3 rounded-2xl border border-blue-100 font-medium">
+                  {r.startsWith('获得新') ? <span className="text-orange-600 font-bold">🎁 {r}</span> : r}
+                </li>
+              ))}
             </ul>
-            <button 
-              onClick={() => setLevelUpResults([])}
-              className="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition"
-            >
-              太棒了
-            </button>
+            <button onClick={() => setLevelUpResults([])} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-200">收下了！</button>
           </div>
         </div>
       )}
@@ -216,48 +160,26 @@ const App: React.FC = () => {
         <div className="flex flex-col md:grid md:grid-cols-2 gap-6 md:gap-8">
           <Profile player={player} />
           <div className="space-y-4">
-            <button onClick={() => setView('COMBAT')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all flex items-center justify-center space-x-2 active:scale-95">
-              <span>⚔️</span> <span>开启对决</span>
-            </button>
+            <button onClick={() => setView('COMBAT')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
             <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">
-                📜 秘籍
-              </button>
-              <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">
-                👗 装扮
-              </button>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">成长进度</h3>
-                <span className="text-[10px] text-gray-500">{player.exp} / {player.level * 100} EXP</span>
-              </div>
-              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                <div className="bg-orange-400 h-full transition-all duration-500" style={{ width: `${(player.exp / (player.level * 100)) * 100}%` }}></div>
-              </div>
+              <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
+              <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
             </div>
           </div>
         </div>
       )}
 
-      {view === 'COMBAT' && (
-        <Combat player={player} onWin={handleBattleWin} onLoss={handleBattleLoss} />
-      )}
-
-      {view === 'DRESSING' && (
-        <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />
-      )}
-
-      {view === 'SKILLS' && (
-        <SkillList player={player} onBack={() => setView('HOME')} />
-      )}
+      {view === 'COMBAT' && <Combat player={player} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
+      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />}
+      {view === 'SKILLS' && <SkillList player={player} onBack={() => setView('HOME')} />}
+      {view === 'TEST' && <TestPanel player={player} onBack={() => setView('HOME')} />}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes popIn {
-          from { opacity: 0; transform: scale(0.8) translateY(20px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
+          0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .animate-popIn { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-popIn { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
       `}} />
     </div>
   );
