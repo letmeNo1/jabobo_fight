@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW';
+export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
 
 interface CharacterVisualProps {
   isNpc?: boolean;
@@ -8,6 +8,7 @@ interface CharacterVisualProps {
   state?: VisualState;
   frame?: number; 
   className?: string;
+  weaponId?: string; // 当前手持/攻击中的武器ID
   accessory?: {
     head?: string;
     body?: string;
@@ -21,6 +22,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   state = 'IDLE',
   frame = 1,
   className = "",
+  weaponId,
   accessory
 }) => {
   const basePath = 'Images/';
@@ -33,42 +35,48 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     HURT: { prefix: 'hurt', count: 1 },
     DODGE: { prefix: 'dodge', count: 1 },
     JUMP: { prefix: 'jump', count: 1 },
-    CLEAVE: { prefix: 'cleave', count: 4 },
-    SLASH: { prefix: 'slash', count: 4 },
+    CLEAVE: { prefix: 'cleave', count: 1 },
+    SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 3 } 
+    THROW: { prefix: 'throw', count: 3 },
+    PUNCH: { prefix: 'punch', count: 2 }
   };
 
   const getFrameTransform = () => {
+    const f = ((frame - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1;
+
     switch (state) {
       case 'HOME': {
-        const offset = (frame % 2 === 0) ? '-8px' : '0px';
-        const scale = (frame % 2 === 0) ? '1.02' : '1.0';
+        const offset = (f % 2 === 0) ? '-8px' : '0px';
+        const scale = (f % 2 === 0) ? '1.02' : '1.0';
         return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
       }
       case 'IDLE':
         return 'scale(1) rotate(0deg)';
       case 'RUN': {
-        const bounce = (frame % 2 === 0) ? 'translateY(-4px)' : 'translateY(0px)';
-        const tilt = (frame % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
+        const bounce = (f % 2 === 0) ? 'translateY(-4px)' : 'translateY(0px)';
+        const tilt = (f % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
         return `${bounce} ${tilt}`;
       }
       case 'JUMP':
         return 'rotate(0deg) translateY(-10px) scale(1)';
       case 'CLEAVE':
-        return 'scale(1) rotate(0deg) translateY(10px)';
+        return 'translateY(25px) scaleY(0.9) scaleX(1.1)';
       case 'SLASH':
-        return 'scale(1) rotate(-8deg) translateX(5px)';
+        return 'scale(1) rotate(0deg) translateX(5px)';
       case 'PIERCE':
         return 'scale(1) rotate(-2deg) translateX(15px)';
       case 'SWING':
-        // 如果是最后一帧（第4帧，爆发击中帧），取消旋转和倾斜，增加稳定感
-        return frame === 4 
+        return f === 4 
           ? 'scale(1) rotate(0deg) skewX(0deg) translateX(20px)' 
           : 'scale(1) rotate(10deg) skewX(-5deg)';
       case 'THROW':
         return 'scale(1) rotate(0deg) translateY(-5px)';
+      case 'PUNCH':
+        return f === 2 
+          ? 'scale(1.1) rotate(-8deg) translateX(15px)' 
+          : 'scale(1) rotate(0deg) translateX(-5px)';
       case 'ATTACK':
         return 'scale(1) rotate(-5deg)';
       case 'HURT':
@@ -97,7 +105,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
         `}
-        style={{ transform: getFrameTransform(), transition: (state === 'IDLE' || state === 'SWING') ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
+        style={{ transform: getFrameTransform(), transition: (state === 'IDLE' || state === 'SWING' || state === 'PUNCH' || state === 'CLEAVE') ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
       >
         <img 
           src={`${basePath}character.png`} 
@@ -126,19 +134,38 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
             const isTargetFrame = (frameIndex === currentFrame);
 
             return (
-              <img 
-                key={`${sName}-${frameIndex}`}
-                src={`${basePath}${config.prefix}${frameIndex}.png`}
-                className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
-                style={{ 
-                    opacity: isTargetFrame ? 1 : 0,
-                    zIndex: isTargetFrame ? 20 : 10,
-                    transition: 'none' 
-                }}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none'; 
-                }}
-              />
+              <React.Fragment key={`${sName}-${frameIndex}`}>
+                {/* 角色动作图层 */}
+                <img 
+                  src={`${basePath}${config.prefix}${frameIndex}.png`}
+                  className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
+                  style={{ 
+                      opacity: isTargetFrame ? 1 : 0,
+                      zIndex: isTargetFrame ? 20 : 10,
+                      transition: 'none' 
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'; 
+                  }}
+                />
+                
+                {/* 武器动作叠加图层 */}
+                {weaponId && (
+                  <img 
+                    src={`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`}
+                    className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none"
+                    style={{ 
+                        opacity: isTargetFrame ? 1 : 0,
+                        zIndex: isTargetFrame ? 30 : 15,
+                        transition: 'none',
+                        mixBlendMode: 'normal'
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.opacity = '0';
+                    }}
+                  />
+                )}
+              </React.Fragment>
             );
           });
         })}

@@ -28,6 +28,7 @@ const Profile: React.FC<ProfileProps> = ({ player }) => {
         <CharacterVisual 
           state="HOME"
           frame={frame}
+          weaponId={player.dressing.WEAPON}
           accessory={{
             head: getDressingName('HEAD'),
             body: getDressingName('BODY'),

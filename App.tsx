@@ -41,6 +41,14 @@ const App: React.FC = () => {
     localStorage.setItem('qfight_save', JSON.stringify(player));
   }, [player]);
 
+  const resetProgress = () => {
+    if (window.confirm('确定要重置所有进度吗？此操作不可撤销，您的等级、金币和装备将被清空。')) {
+      setPlayer(INITIAL_DATA);
+      localStorage.removeItem('qfight_save');
+      setView('HOME');
+    }
+  };
+
   const handleLevelUp = (currentData: CharacterData) => {
     const nextLvl = currentData.level + 1;
     const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
@@ -108,9 +116,10 @@ const App: React.FC = () => {
     <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-4 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-4">
         <h1 className="text-xl md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
-        <div className="flex items-center space-x-4">
-          <button onClick={() => setView('TEST')} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors">实验室</button>
-          <div className="flex space-x-3 text-sm font-medium">
+        <div className="flex items-center space-x-3">
+          <button onClick={resetProgress} className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-rose-100">重置进度</button>
+          <button onClick={() => setView('TEST')} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-indigo-100">实验室</button>
+          <div className="flex space-x-3 text-sm font-black text-slate-600">
             <span>💰 {player.gold}</span>
             <span>✨ Lv.{player.level}</span>
           </div>
