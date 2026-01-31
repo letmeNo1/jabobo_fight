@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME';
 
@@ -18,40 +18,48 @@ interface CharacterVisualProps {
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
   isNpc = false, 
-  isWinking = false, 
   isDizzy = false,
   state = 'IDLE',
   frame = 1,
   className = "",
   accessory
 }) => {
-  /**
-   * 图片资源加载路径：根目录下的 images/ 文件夹
-   */
-  const getCharacterSource = () => {
-    const safeFrame = frame > 0 ? frame : 1;
-    const basePath = 'images/';
-    
-    // 基础路径映射
-    if (state === 'HOME') return `${basePath}home${safeFrame}.png`;
-    if (state === 'IDLE') return `${basePath}idle${safeFrame}.png`;
-    if (state === 'RUN') return `${basePath}run${safeFrame}.png`;
-    if (state === 'ATTACK') return `${basePath}atk${safeFrame}.png`;
-    if (state === 'HURT') return `${basePath}hurt${safeFrame}.png`;
-    if (state === 'DODGE') return `${basePath}dodge${safeFrame}.png`;
-    
-    return `${basePath}character.png`; 
+  const basePath = 'images/';
+
+  // 定义每个状态对应的总帧数，用于预渲染
+  const stateFrameConfigs: Record<VisualState, number> = {
+    HOME: 2,
+    IDLE: 2,
+    RUN: 5,
+    ATTACK: 4,
+    HURT: 1,
+    DODGE: 1
   };
+
+  // 状态对应的文件名前缀
+  const statePrefixes: Record<VisualState, string> = {
+    HOME: 'home',
+    IDLE: 'idle',
+    RUN: 'run',
+    ATTACK: 'atk',
+    HURT: 'hurt',
+    DODGE: 'dodge'
+  };
+
+  // 计算当前状态的所有图片路径，用于预加载和渲染
+  const currentFrames = useMemo(() => {
+    const count = stateFrameConfigs[state] || 1;
+    const prefix = statePrefixes[state];
+    return Array.from({ length: count }, (_, i) => `${basePath}${prefix}${i + 1}.png`);
+  }, [state]);
 
   const getFrameTransform = () => {
     if (state === 'HOME') {
-        // 主界面：更大幅度的平滑上下浮动
         const offset = frame % 2 === 0 ? '-8px' : '0px';
         const scale = frame % 2 === 0 ? '1.02' : '1.0';
         return `translateY(${offset}) scale(${scale})`;
     }
     if (state === 'IDLE') {
-        // 战斗待机：紧凑的呼吸感
         const bounce = frame % 2 === 0 ? 'scale-y-[0.98]' : 'scale-y-100';
         return bounce;
     }
@@ -75,6 +83,15 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   return (
     <div className={`relative flex flex-col items-center select-none group ${className}`} style={{ width: '160px', height: '180px' }}>
       
+      {/* 预加载所有状态的资源池 (隐藏) */}
+      <div className="hidden">
+        {Object.entries(stateFrameConfigs).map(([s, count]) => 
+          Array.from({ length: count }).map((_, i) => (
+            <img key={`${s}-${i}`} src={`${basePath}${statePrefixes[s as VisualState]}${i+1}.png`} />
+          ))
+        )}
+      </div>
+
       {/* 底部阴影 */}
       <div className={`absolute bottom-4 h-5 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-20 opacity-40 scale-x-110' : 'w-24 animate-pulse'}
@@ -82,32 +99,35 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         ${state === 'HURT' ? 'scale-x-75 opacity-20' : ''}
       `}></div>
 
-      {/* 角色图片容器 */}
+      {/* 角色图片容器：通过 opacity 切换帧，防止 src 切换产生的白屏闪烁 */}
       <div 
-        className={`relative w-36 h-44 transition-all duration-300 flex items-center justify-center
+        className={`relative w-36 h-44 flex items-center justify-center
           ${isDizzy ? 'animate-dizzy filter grayscale contrast-125' : ''} 
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
           ${state === 'DODGE' ? 'opacity-70' : ''}
         `}
-        style={{ transform: getFrameTransform() }}
+        style={{ transform: getFrameTransform(), transition: 'transform 0.15s ease-out' }}
       >
-        <img 
-          src={getCharacterSource()} 
-          alt={`${state} Frame ${frame}`} 
-          className="w-full h-full object-contain drop-shadow-2xl"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            // 兜底策略：先尝试加载 images/ 目录下的 character.png
-            if (!target.src.endsWith('images/character.png')) {
-              target.src = "images/character.png";
-            } else {
-              // 最终兜底：使用 DiceBear 生成的 SVG 占位符
-              target.onerror = null;
-              target.src = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=" + (isNpc ? 'npc' : 'player') + "&backgroundColor=ffffff";
-            }
-          }}
-        />
+        {currentFrames.map((src, index) => (
+          <img 
+            key={src}
+            src={src} 
+            alt={state}
+            className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl transition-opacity duration-0
+              ${(frame === index + 1) ? 'opacity-100' : 'opacity-0'}
+            `}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.endsWith('images/character.png')) {
+                target.src = "images/character.png";
+              } else {
+                target.onerror = null;
+                target.src = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=" + (isNpc ? 'npc' : 'player');
+              }
+            }}
+          />
+        ))}
 
         {isDizzy && (
           <div className="absolute -top-6 left-0 w-full flex justify-center pointer-events-none">
