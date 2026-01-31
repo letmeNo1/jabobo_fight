@@ -69,10 +69,10 @@ if __name__ == "__main__":
     # 2. 处理后图片保存目录（自动创建，无需手动建）
     OUTPUT_DIRECTORY = "images_with_transparent_border"
     # 3. 透明边框尺寸（像素）：可自定义上下左右，比如只加左右边框则top=0, bottom=0
-    BORDER_TOP = 100     # 顶部透明边框
-    BORDER_BOTTOM = 100  # 底部透明边框
-    BORDER_LEFT = 100    # 左侧透明边框
-    BORDER_RIGHT = 100   # 右侧透明边框
+    BORDER_TOP = 300     # 顶部透明边框
+    BORDER_BOTTOM = 300  # 底部透明边框
+    BORDER_LEFT = 300    # 左侧透明边框
+    BORDER_RIGHT = 300   # 右侧透明边框
     # 4. 可选：指定只处理某类格式，比如只处理png：img_formats=('png',)
     SUPPORT_FORMATS = ('png', 'jpg', 'jpeg', 'bmp', 'gif')
 

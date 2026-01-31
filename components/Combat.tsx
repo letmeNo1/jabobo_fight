@@ -206,7 +206,7 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 80));
           
-          // 还原为简单的单帧砸地逻辑，保留绑定武器
+          // 执行砸地动作，保持 activeWeaponId 传递以确保武器跟随
           atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
           setShaking('SCREEN'); 
           executeHit(Math.floor(dmg * 1.15), isP, hitType);

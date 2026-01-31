@@ -65,7 +65,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
         
-        // 还原为简单的单帧逻辑
+        // 执行砸地动作，保持 currentWeaponId 以预览绑定效果
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
         await new Promise(r => setTimeout(r, 800));
         break;
@@ -253,7 +253,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
           
           <div className="p-6 bg-slate-50 border-t border-slate-100">
             <h4 className="text-[11px] font-black text-indigo-600 uppercase mb-2 flex items-center gap-2"><span className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></span>实验室公告</h4>
-            <p className="text-[12px] text-slate-500 leading-relaxed italic font-medium">砸地模组已还原为经典的起跑-跳跃-单帧砸地逻辑。武器将继续保持同步绑定。</p>
+            <p className="text-[12px] text-slate-500 leading-relaxed italic font-medium">砸地模组已还原。JUMP 和 CLEAVE 角度锁定为 0°，武器绑定已同步。</p>
           </div>
         </div>
       </div>
