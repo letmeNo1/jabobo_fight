@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CharacterData } from '../types';
 import { DRESSINGS } from '../constants';
 import CharacterVisual from './CharacterVisual';
@@ -9,6 +8,15 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ player }) => {
+  const [frame, setFrame] = useState(1);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFrame(prev => (prev % 2) + 1);
+    }, 800); // 主界面动画较慢，每 0.8s 呼吸一次
+    return () => clearInterval(timer);
+  }, []);
+
   const getDressingName = (part: 'HEAD' | 'BODY' | 'WEAPON') => {
     const id = player.dressing[part];
     return DRESSINGS.find(d => d.id === id)?.name;
@@ -18,6 +26,8 @@ const Profile: React.FC<ProfileProps> = ({ player }) => {
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
       <div className="relative w-56 h-56 mx-auto flex items-center justify-center mb-6">
         <CharacterVisual 
+          state="HOME"
+          frame={frame}
           isWinking={true}
           accessory={{
             head: getDressingName('HEAD'),

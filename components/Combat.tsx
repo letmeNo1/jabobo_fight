@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
-import CharacterVisual from './CharacterVisual';
+import CharacterVisual, { VisualState } from './CharacterVisual';
 
 interface CombatProps {
   player: CharacterData;
@@ -43,8 +43,13 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
   const [turn, setTurn] = useState<'P' | 'N'>('P');
   const [battleOver, setBattleOver] = useState(false);
   const [animating, setAnimating] = useState<'P' | 'N' | null>(null);
-  const [pFrame, setPFrame] = useState(0); 
-  const [nFrame, setNFrame] = useState(0); 
+  
+  // 视觉状态管理
+  const [pState, setPState] = useState<VisualState>('IDLE');
+  const [nState, setNState] = useState<VisualState>('IDLE');
+  const [pFrame, setPFrame] = useState(1); 
+  const [nFrame, setNFrame] = useState(1); 
+
   const [shaking, setShaking] = useState<'P' | 'N' | null>(null);
   const [effects, setEffects] = useState<VisualEffect[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -53,22 +58,28 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
+  // 帧动画循环逻辑
   useEffect(() => {
-    let interval: number | null = null;
-    if (animating === 'P') {
-      interval = window.setInterval(() => {
-        setPFrame(prev => (prev % 5) + 1);
-      }, 80);
-    } else if (animating === 'N') {
-      interval = window.setInterval(() => {
-        setNFrame(prev => (prev % 5) + 1);
-      }, 80);
-    } else {
-      setPFrame(0);
-      setNFrame(0);
-    }
-    return () => { if (interval) clearInterval(interval); };
-  }, [animating]);
+    const pTimer = setInterval(() => {
+        setPFrame(prev => {
+            if (pState === 'IDLE') return (prev % 2) + 1; // 待机2帧呼吸
+            if (pState === 'RUN') return (prev % 5) + 1; // 奔跑5帧
+            if (pState === 'ATTACK') return (prev % 4) + 1; // 攻击4帧
+            return 1;
+        });
+    }, pState === 'IDLE' ? 600 : 100);
+
+    const nTimer = setInterval(() => {
+        setNFrame(prev => {
+            if (nState === 'IDLE') return (prev % 2) + 1;
+            if (nState === 'RUN') return (prev % 5) + 1;
+            if (nState === 'ATTACK') return (prev % 4) + 1;
+            return 1;
+        });
+    }, nState === 'IDLE' ? 600 : 100);
+
+    return () => { clearInterval(pTimer); clearInterval(nTimer); };
+  }, [pState, nState]);
 
   useEffect(() => {
     const npcLevel = Math.max(1, player.level + Math.floor(Math.random() * 5) - 2);
@@ -162,8 +173,15 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
       return;
     }
 
+    // 状态切换至 奔跑
+    if (currentTurn === 'P') setPState('RUN'); else setNState('RUN');
     setAnimating(currentTurn);
-    await new Promise(r => setTimeout(r, 600));
+    
+    // 等待冲刺到一半
+    await new Promise(r => setTimeout(r, 400));
+    
+    // 切换至 攻击
+    if (currentTurn === 'P') setPState('ATTACK'); else setNState('ATTACK');
 
     const procRate = 0.2 + attacker.spd * 0.005;
     let actionTaken = false;
@@ -184,9 +202,15 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
 
     if (!actionTaken) executeNormalAttack(attacker, defender);
 
+    await new Promise(r => setTimeout(r, 400));
+    
+    // 动作结束，撤回并恢复 IDLE
     setAnimating(null);
+    setPState('IDLE');
+    setNState('IDLE');
+    
     updateStatus(attacker);
-    setTimeout(endTurn, 800);
+    setTimeout(endTurn, 400);
   };
 
   const executeNormalAttack = (atk: Fighter, def: Fighter) => {
@@ -224,12 +248,26 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     if (!opts.mustHit && Math.random() < dodgeChance) {
       addLog({ attacker: def.name, text: `身轻如燕，闪过了这招！` });
       triggerEffect('MISS', def.isPlayer, 'status');
+      
+      // 闪避状态
+      if (def.isPlayer) setPState('DODGE'); else setNState('DODGE');
+      setTimeout(() => {
+        if (def.isPlayer) setPState('IDLE'); else setNState('IDLE');
+      }, 500);
+      
       return false;
     }
 
     const dmg = Math.floor(base * (0.8 + Math.random() * 0.4));
     setShaking(def.isPlayer ? 'P' : 'N');
     triggerEffect(`-${dmg}`, def.isPlayer);
+    
+    // 受击状态
+    if (def.isPlayer) setPState('HURT'); else setNState('HURT');
+    setTimeout(() => {
+        if (def.isPlayer) setPState('IDLE'); else setNState('IDLE');
+    }, 400);
+
     def.hp = Math.max(0, def.hp - dmg);
     setTimeout(() => setShaking(null), 150);
 
@@ -287,7 +325,6 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
           
           {/* 状态 UI 覆盖层 */}
           <div className="absolute top-2 left-0 w-full px-4 md:px-8 flex justify-between items-start">
-             {/* 玩家侧 UI */}
              <div className="w-[45%] md:w-[38%]">
                 <div className="flex justify-between items-end mb-1">
                    <div className="flex items-center space-x-1">
@@ -299,15 +336,11 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                 <div className="h-2 md:h-4 bg-gray-200 rounded-full border border-white shadow-inner overflow-hidden">
                    <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(fighters.p.hp/fighters.p.maxHp)*100}%` }}></div>
                 </div>
-                {/* 技能武器展示 */}
                 {renderArsenal(fighters.p, 'start')}
              </div>
-             
              <div className="flex flex-col items-center">
                 <div className="px-1.5 md:px-5 py-0.5 md:py-2 bg-orange-500 text-white rounded-full font-black text-[9px] md:text-lg italic shadow-lg">VS</div>
              </div>
-
-             {/* 对手侧 UI */}
              <div className="w-[45%] md:w-[38%] text-right">
                 <div className="flex justify-between items-end mb-1">
                    <span className="text-[7px] md:text-[10px] font-bold text-gray-400">{fighters.n.hp}/{fighters.n.maxHp}</span>
@@ -319,18 +352,18 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                 <div className="h-2 md:h-4 bg-gray-200 rounded-full border border-white shadow-inner overflow-hidden">
                    <div className="h-full bg-red-500 transition-all duration-500 ml-auto" style={{ width: `${(fighters.n.hp/fighters.n.maxHp)*100}%` }}></div>
                 </div>
-                {/* 技能武器展示 */}
                 {renderArsenal(fighters.n, 'end')}
              </div>
           </div>
 
           {/* 角色 1 (左) */}
           <div className={`relative transition-transform duration-500 ease-in-out mb-4 md:mb-12 scale-[0.55] md:scale-100 origin-bottom
-            ${animating === 'P' ? 'translate-x-[35vw] md:translate-x-[32rem] scale-[0.65] md:scale-110 z-10' : ''} 
+            ${animating === 'P' ? 'translate-x-[70vw] md:translate-x-[54rem] scale-[0.65] md:scale-110 z-10' : ''} 
             ${shaking === 'P' ? 'animate-shake' : ''}`}>
              <CharacterVisual 
                isWinking={turn === 'P'} 
                isDizzy={fighters.p.statuses['眩晕']>0} 
+               state={pState}
                frame={pFrame}
                accessory={{
                  head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name,
@@ -346,13 +379,13 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
 
           {/* 角色 2 (右) */}
           <div className={`relative transition-transform duration-500 ease-in-out mb-4 md:mb-12 scale-[0.55] md:scale-100 origin-bottom
-            ${animating === 'N' ? '-translate-x-[35vw] md:-translate-x-[32rem] scale-[0.65] md:scale-110 z-10' : ''} 
+            ${animating === 'N' ? '-translate-x-[70vw] md:-translate-x-[54rem] scale-[0.65] md:scale-110 z-10' : ''} 
             ${shaking === 'N' ? 'animate-shake' : ''}`}>
              <div className="scale-x-[-1]">
                <CharacterVisual 
                  isNpc={true} 
                  isDizzy={fighters.n.statuses['眩晕']>0} 
-                 isWinking={turn === 'N'} 
+                 state={nState}
                  frame={nFrame}
                 />
              </div>
@@ -363,7 +396,6 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
              ))}
           </div>
 
-          {/* 阴影底座 */}
           <div className="absolute bottom-4 md:bottom-10 left-0 w-full flex justify-around px-8 md:px-72">
             <div className="w-16 md:w-36 h-4 md:h-9 bg-black/5 rounded-[100%] blur-lg md:blur-2xl"></div>
             <div className="w-16 md:w-36 h-4 md:h-9 bg-black/5 rounded-[100%] blur-lg md:blur-2xl"></div>
