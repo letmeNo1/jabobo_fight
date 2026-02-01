@@ -5,6 +5,7 @@ import CharacterVisual, { VisualState } from './CharacterVisual';
 
 interface TestPanelProps {
   player: CharacterData;
+  isDebugMode?: boolean;
   onBack: () => void;
 }
 
@@ -14,7 +15,7 @@ interface Projectile {
   targetX: number;
 }
 
-const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
+const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
   const [selectedWeaponId, setSelectedWeaponId] = useState<string>(player.dressing.WEAPON || 'w1');
   const [visual, setVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ 
     state: 'IDLE', 
@@ -46,14 +47,16 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
   const runModule = async (module: VisualState) => {
     if (isAnimating) return;
     setIsAnimating(true);
-    const dir = 250; 
+    // 实验室位移同步缩短 20%: 250 * 0.8 = 200
+    const dir = 200; 
     const currentWeaponId = selectedWeaponId;
 
     switch (module) {
       case 'CLEAVE':
         setMoveDuration(200);
         setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: 80, y: 0 });
+        // 起手位移同步缩短 20%: 80 * 0.8 = 64
+        setOffset({ x: 64, y: 0 });
         await new Promise(r => setTimeout(r, 200));
         
         setMoveDuration(450);
@@ -107,7 +110,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
 
       case 'SWING':
         setMoveDuration(600);
-        setOffset({ x: 80, y: 0 });
+        // 起手位移同步缩短 20%: 80 * 0.8 = 64
+        setOffset({ x: 64, y: 0 });
         for(let i=1; i<=3; i++) {
           setVisual({ state: 'SWING', frame: i, weaponId: currentWeaponId });
           await new Promise(r => setTimeout(r, 200));
@@ -209,6 +213,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
                 state={visual.state} 
                 frame={visual.frame} 
                 weaponId={visual.weaponId}
+                debug={isDebugMode}
                 className="scale-[1.35]" 
                 accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} 
               />

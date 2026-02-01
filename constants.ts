@@ -3,7 +3,7 @@ import { Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 
 export const WEAPONS: Weapon[] = [
   // LARGE
-  { id: 'w1', name: '青龙戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避' },
+  { id: 'w1', name: '方天画戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避' },
   { id: 'w2', name: '三叉戟', type: WeaponType.LARGE, baseDmg: [25, 50], description: '10%概率MISS，攻击后休息1回合' },
   { id: 'w3', name: '充气锤子', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率让对方跳过1回合' },
   { id: 'w4', name: '开山斧', type: WeaponType.LARGE, baseDmg: [12, 18], description: '5%概率被攻击前反击，5%概率让对方跳过1回合' },

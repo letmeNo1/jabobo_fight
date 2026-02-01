@@ -6,6 +6,14 @@ import Combat from './components/Combat';
 import DressingRoom from './components/DressingRoom';
 import SkillList from './components/SkillList';
 import TestPanel from './components/TestPanel';
+import LoadingScreen from './components/LoadingScreen';
+
+// 定义全局资源缓存映射
+declare global {
+  interface Window {
+    assetMap: Map<string, string>;
+  }
+}
 
 const INITIAL_DATA: CharacterData = {
   level: 1,
@@ -22,6 +30,40 @@ const INITIAL_DATA: CharacterData = {
   isConcentrated: false
 };
 
+// IndexedDB 助手函数，用于持久化存储大型二进制素材
+const DB_NAME = 'QFightAssetsDB';
+const STORE_NAME = 'images';
+
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getCachedAsset = async (db: IDBDatabase, key: string): Promise<Blob | null> => {
+  return new Promise((resolve) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => resolve(null);
+  });
+};
+
+const cacheAsset = async (db: IDBDatabase, key: string, blob: Blob): Promise<void> => {
+  return new Promise((resolve) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.put(blob, key);
+    transaction.oncomplete = () => resolve();
+  });
+};
+
 interface BattleResult {
   isWin: boolean;
   gold: number;
@@ -36,6 +78,88 @@ const App: React.FC = () => {
   const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST'>('HOME');
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+  const [isDebugMode, setIsDebugMode] = useState(false);
+  
+  const [loading, setLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [totalAssets, setTotalAssets] = useState(0);
+
+  useEffect(() => {
+    window.assetMap = new Map<string, string>();
+    const assetBase = 'Images/';
+    const stateConfigs: Record<string, number> = {
+      home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
+      jump: 1, cleave: 1, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
+    };
+
+    const coreImages = ['character.png'];
+    const animationImages: string[] = [];
+    Object.entries(stateConfigs).forEach(([prefix, count]) => {
+      for (let i = 1; i <= count; i++) {
+        animationImages.push(`${prefix}${i}.png`);
+        WEAPONS.forEach(w => {
+          animationImages.push(`${w.id}_${prefix}${i}.png`);
+        });
+      }
+    });
+
+    const allPaths = [...coreImages, ...animationImages].map(p => `${assetBase}${p}`);
+    setTotalAssets(allPaths.length);
+
+    const loadAll = async () => {
+      let db: IDBDatabase | null = null;
+      try {
+        db = await initDB();
+      } catch (e) {
+        console.warn("IndexedDB init failed, falling back to memory cache", e);
+      }
+
+      let loadedCount = 0;
+      const CHUNK_SIZE = 20;
+
+      for (let i = 0; i < allPaths.length; i += CHUNK_SIZE) {
+        const chunk = allPaths.slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map(async (path) => {
+          try {
+            let blob: Blob | null = null;
+            
+            // 1. 尝试从本地持久化存储(IndexedDB)读取
+            if (db) {
+              blob = await getCachedAsset(db, path);
+            }
+
+            // 2. 如果本地没有，则发起网络请求下载
+            if (!blob) {
+              const response = await fetch(path);
+              if (response.ok) {
+                blob = await response.blob();
+                // 3. 下载完成后存入本地持久化存储
+                if (db) await cacheAsset(db, path, blob);
+              }
+            }
+
+            // 4. 将 Blob 转换为可在界面使用的 URL 存入全局 Map
+            if (blob) {
+              const blobUrl = URL.createObjectURL(blob);
+              window.assetMap.set(path, blobUrl);
+            }
+          } catch (err) {
+            // 忽略 404 等错误
+          } finally {
+            loadedCount++;
+            setLoadProgress(loadedCount);
+          }
+        }));
+      }
+      setTimeout(() => setLoading(false), 800);
+    };
+
+    loadAll();
+
+    return () => {
+      window.assetMap.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('qfight_save', JSON.stringify(player));
@@ -49,24 +173,32 @@ const App: React.FC = () => {
     }
   };
 
+  const clearAssetCache = () => {
+    if (window.confirm('确定要清除所有本地素材缓存并重新下载吗？这通常用于解决显示异常。')) {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => {
+        window.location.reload();
+      };
+      request.onerror = () => {
+        alert('清除失败，请手动清理浏览器数据。');
+      };
+    }
+  };
+
   const handleLevelUp = (currentData: CharacterData) => {
     const nextLvl = currentData.level + 1;
     const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
     let newData = { ...currentData, level: nextLvl, exp: 0 };
     newData.maxHp = 50 + nextLvl * 10;
-
     const stats = ['str', 'agi', 'spd'] as const;
     const randomStat = stats[Math.floor(Math.random() * stats.length)];
     const bonus = newData.isConcentrated ? 2 : 1;
     newData[randomStat] += bonus;
     results.push(`基础属性：${randomStat === 'str' ? '力量' : randomStat === 'agi' ? '敏捷' : '速度'} +${bonus}`);
-
     const isNextGuaranteed = newData.isConcentrated;
     const roll = Math.random();
-    
     const pool = [...WEAPONS.filter(w => !newData.weapons.includes(w.id)).map(w => ({ type: 'WEAPON', item: w })), 
                   ...SKILLS.filter(s => !newData.skills.includes(s.id) && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))];
-
     if (isNextGuaranteed || roll < 0.9) {
       if (pool.length > 0) {
         const choice = pool[Math.floor(Math.random() * pool.length)];
@@ -89,7 +221,6 @@ const App: React.FC = () => {
       newData.isConcentrated = true;
       results.push(`进入「潜心状态」：本次无奖励，下次必出且本次属性加成翻倍！`);
     }
-
     setPlayer(newData);
     setLevelUpResults(results);
   };
@@ -112,14 +243,28 @@ const App: React.FC = () => {
     else setPlayer(tempPlayer);
   };
 
+  if (loading) {
+    return <LoadingScreen progress={loadProgress} total={totalAssets} />;
+  }
+
   return (
-    <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-4 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
-        <div className="flex items-center space-x-3">
-          <button onClick={resetProgress} className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-rose-100">重置进度</button>
-          <button onClick={() => setView('TEST')} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-500 px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-indigo-100">实验室</button>
-          <div className="flex space-x-3 text-sm font-black text-slate-600">
+    <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-3 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
+        <h1 className="text-lg md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
+        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1.5 bg-slate-50 px-2 md:px-3 py-1 rounded-full border border-slate-200">
+            <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase">调试</span>
+            <button 
+              onClick={() => setIsDebugMode(!isDebugMode)}
+              className={`w-7 h-3.5 md:w-8 md:h-4 rounded-full relative transition-colors ${isDebugMode ? 'bg-orange-500' : 'bg-slate-300'}`}
+            >
+              <div className={`absolute top-0.5 w-2.5 h-2.5 md:w-3 md:h-3 bg-white rounded-full transition-transform ${isDebugMode ? 'translate-x-3 md:translate-x-4.5' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+          <button onClick={clearAssetCache} className="text-[9px] md:text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 px-2.5 md:px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-emerald-100">重装素材</button>
+          <button onClick={resetProgress} className="text-[9px] md:text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-500 px-2.5 md:px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-rose-100">重置</button>
+          <button onClick={() => setView('TEST')} className="text-[9px] md:text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-500 px-2.5 md:px-3 py-1 rounded-full font-black uppercase tracking-tighter transition-colors active:scale-95 border border-indigo-100">实验室</button>
+          <div className="flex space-x-2 md:space-x-3 text-xs md:text-sm font-black text-slate-600">
             <span>💰 {player.gold}</span>
             <span>✨ Lv.{player.level}</span>
           </div>
@@ -128,23 +273,23 @@ const App: React.FC = () => {
 
       {battleResult && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4 backdrop-blur-md">
-          <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] border-t-[12px] transform animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-500'}`}>
-            <div className="text-center mb-8">
-              <div className={`text-7xl mb-4 filter drop-shadow-xl ${battleResult.isWin ? 'animate-bounce' : 'grayscale brightness-50'}`}>{battleResult.isWin ? '🏆' : '💀'}</div>
-              <h2 className={`text-4xl font-black italic tracking-tighter uppercase ${battleResult.isWin ? 'text-orange-500' : 'text-slate-600'}`}>{battleResult.isWin ? 'Victory' : 'Defeat'}</h2>
+          <div className={`bg-white rounded-[2.5rem] p-8 md:p-10 w-full max-w-sm shadow-2xl border-t-[10px] md:border-t-[12px] transform animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-500'}`}>
+            <div className="text-center mb-6 md:mb-8">
+              <div className={`text-6xl md:text-7xl mb-4 filter drop-shadow-xl ${battleResult.isWin ? 'animate-bounce' : 'grayscale brightness-50'}`}>{battleResult.isWin ? '🏆' : '💀'}</div>
+              <h2 className={`text-3xl md:text-4xl font-black italic tracking-tighter uppercase ${battleResult.isWin ? 'text-orange-500' : 'text-slate-600'}`}>{battleResult.isWin ? 'Victory' : 'Defeat'}</h2>
               <p className="text-slate-400 text-xs font-bold tracking-[0.2em] mt-1 uppercase">{battleResult.isWin ? '大获全胜' : '惜败离场'}</p>
             </div>
-            <div className="space-y-4 mb-10">
-              <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-inner">
-                <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Gained Gold</span>
-                <span className="text-2xl font-black text-yellow-600">+{battleResult.gold}</span>
+            <div className="space-y-3 md:space-y-4 mb-8 md:mb-10">
+              <div className="flex justify-between items-center bg-slate-50 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner">
+                <span className="text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-widest">Gained Gold</span>
+                <span className="text-xl md:text-2xl font-black text-yellow-600">+{battleResult.gold}</span>
               </div>
-              <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-inner">
-                <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Gained Exp</span>
-                <span className="text-2xl font-black text-blue-600">+{battleResult.exp}</span>
+              <div className="flex justify-between items-center bg-slate-50 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner">
+                <span className="text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-widest">Gained Exp</span>
+                <span className="text-xl md:text-2xl font-black text-blue-600">+{battleResult.exp}</span>
               </div>
             </div>
-            <button onClick={() => {setBattleResult(null); setView('HOME');}} className={`w-full py-5 rounded-3xl font-black text-white text-lg shadow-xl transition-all active:scale-95 ${battleResult.isWin ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 shadow-orange-200' : 'bg-gradient-to-r from-slate-700 to-slate-800 hover:brightness-110 shadow-slate-200'}`}>打扫战场</button>
+            <button onClick={() => {setBattleResult(null); setView('HOME');}} className={`w-full py-4 md:py-5 rounded-2xl md:rounded-3xl font-black text-white text-base md:text-lg shadow-xl transition-all active:scale-95 ${battleResult.isWin ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 shadow-orange-200' : 'bg-gradient-to-r from-slate-700 to-slate-800 hover:brightness-110 shadow-slate-200'}`}>确定</button>
           </div>
         </div>
       )}
@@ -166,22 +311,22 @@ const App: React.FC = () => {
       )}
 
       {view === 'HOME' && (
-        <div className="flex flex-col md:grid md:grid-cols-2 gap-6 md:gap-8">
-          <Profile player={player} />
-          <div className="space-y-4">
-            <button onClick={() => setView('COMBAT')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
-              <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
+        <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8">
+          <Profile player={player} isDebugMode={isDebugMode} />
+          <div className="space-y-3 md:space-y-4">
+            <button onClick={() => setView('COMBAT')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
+            <div className="grid grid-cols-2 gap-2 md:gap-4">
+              <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
+              <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
             </div>
           </div>
         </div>
       )}
 
-      {view === 'COMBAT' && <Combat player={player} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
+      {view === 'COMBAT' && <Combat player={player} isDebugMode={isDebugMode} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
       {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />}
       {view === 'SKILLS' && <SkillList player={player} onBack={() => setView('HOME')} />}
-      {view === 'TEST' && <TestPanel player={player} onBack={() => setView('HOME')} />}
+      {view === 'TEST' && <TestPanel player={player} isDebugMode={isDebugMode} onBack={() => setView('HOME')} />}
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes popIn {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
@@ -6,6 +5,7 @@ import CharacterVisual, { VisualState } from './CharacterVisual';
 
 interface CombatProps {
   player: CharacterData;
+  isDebugMode?: boolean;
   onWin: (gold: number, exp: number) => void;
   onLoss: (exp: number) => void;
 }
@@ -40,7 +40,7 @@ interface Projectile {
 
 type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
 
-const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
+const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onLoss }) => {
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [fighters, setFighters] = useState<{ p: Fighter; n: Fighter } | null>(null);
   const [turn, setTurn] = useState<'P' | 'N' | null>(null);
@@ -188,8 +188,8 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
       
-      // 距离进一步拉远后，近战冲锋位移从 720 增加到 820
-      const meleeDistance = 800 * dir; 
+      // 攻击位移缩短 20%: 720 * 0.8 = 576
+      const meleeDistance = 576 * dir; 
 
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
 
@@ -197,7 +197,8 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
         case 'CLEAVE': 
           setMoveDuration(200);
           atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: 80 * dir, y: 0 });
+          // 起手位移同步缩短 20%: 80 * 0.8 = 64
+          offsetSetter({ x: 64 * dir, y: 0 });
           await new Promise(r => setTimeout(r, 200));
           
           setMoveDuration(450);
@@ -232,7 +233,8 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
 
         case 'SWING': 
           setMoveDuration(600); 
-          offsetSetter({ x: 120 * dir, y: 0 });
+          // 起手位移同步缩短 20%: 120 * 0.8 = 96
+          offsetSetter({ x: 96 * dir, y: 0 });
           for(let i=1; i<=3; i++) {
             atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId });
             await new Promise(r => setTimeout(r, 200)); 
@@ -256,11 +258,11 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
               if (i === 2) {
                 const containerRect = containerRef.current?.getBoundingClientRect();
                 const pRect = pRef.current?.getBoundingClientRect();
-                // FIX: Removed the line 'const nRect = nRect?.getBoundingClientRect() || containerRect;' which caused a self-referencing error
+                // Fix: Removed incorrect self-referencing variable declaration for nRect and redundant declaration.
                 if (containerRect && pRect && nRef.current) {
-                  const targetRect = nRef.current.getBoundingClientRect();
+                  const nRect = nRef.current.getBoundingClientRect();
                   const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
-                  const nCenterX = (targetRect.left - containerRect.left + targetRect.width / 2) / uiScale;
+                  const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
                   const startX = isP ? pCenterX : nCenterX;
                   const targetX = isP ? nCenterX : pCenterX;
                   const p1Id = ++projectileCounter.current;
@@ -301,7 +303,7 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 250));
           for(let i=1; i<=2; i++) {
-            atkSetter({ state: 'PUNCH', frame: i, weaponId: activeWeaponId });
+            atkSetter({ state: 'PUNCH', frame: i, weaponId: undefined });
             if (i === 2) executeHit(Math.floor(dmg), isP, hitType);
             await new Promise(r => setTimeout(r, 150));
           }
@@ -355,15 +357,15 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     const ownedWeapons = WEAPONS.filter(w => fighter.weapons.includes(w.id));
     const ownedSkills = SKILLS.filter(s => fighter.skills.includes(s.id));
     return (
-      <div className={`mt-3 flex flex-col gap-1.5 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-        <div className={`flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
+      <div className={`mt-1 md:mt-3 flex flex-col gap-0.5 md:gap-1.5 ${align === 'right' ? 'items-end' : 'items-start'}`}>
+        <div className={`flex flex-wrap gap-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
           {ownedWeapons.map(w => (
-            <span key={w.id} className="px-2 py-0.5 bg-slate-800/95 text-orange-400 text-[10px] font-black rounded border border-orange-500/40 shadow-sm">⚔️ {w.name}</span>
+            <span key={w.id} className="px-1 md:px-2 py-0.5 bg-slate-800/90 text-orange-400 text-[7px] md:text-[10px] font-black rounded border border-orange-500/30 shadow-sm whitespace-nowrap">⚔️ {w.name}</span>
           ))}
         </div>
-        <div className={`flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
+        <div className={`flex flex-wrap gap-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
           {ownedSkills.map(s => (
-            <span key={s.id} className="px-2 py-0.5 bg-slate-800/95 text-blue-400 text-[10px] font-black rounded border border-blue-500/40 shadow-sm">📜 {s.name}</span>
+            <span key={s.id} className="px-1 md:px-2 py-0.5 bg-slate-800/90 text-blue-400 text-[7px] md:text-[10px] font-black rounded border border-blue-500/30 shadow-sm whitespace-nowrap">📜 {s.name}</span>
           ))}
         </div>
       </div>
@@ -374,34 +376,51 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
     <div ref={containerRef} className={`fixed inset-0 z-[200] bg-black flex flex-col h-screen w-screen overflow-hidden ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
       {flash && <div className="absolute inset-0 z-[160] pointer-events-none animate-pulse" style={{ backgroundColor: flash }}></div>}
       <div className="relative w-full flex-grow flex flex-col items-center justify-end bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden shadow-inner">
-           <div className="absolute top-4 w-full px-12 flex justify-between items-start z-[250] pointer-events-none" style={{ transform: `scale(${uiScale})`, transformOrigin: 'top center' }}>
-              <div className="w-[380px] pointer-events-auto">
-                <div className="flex justify-between items-end text-white text-xs font-black mb-1.5 drop-shadow-lg uppercase tracking-tight">
-                  <div className="flex items-center gap-2"><span className="bg-orange-600 px-4 py-1 rounded-l italic text-sm">Player</span><span className="bg-slate-700/80 px-3 py-1 rounded-r border-r border-slate-500/30">Lv.{fighters.p.level}</span></div>
-                  <span className="ml-auto font-mono text-xl text-emerald-400">{Math.ceil(fighters.p.hp)}</span>
+           
+           {/* 顶部状态栏区域 */}
+           <div className="absolute top-2 md:top-4 inset-x-0 z-[250] pointer-events-none px-0 md:px-8">
+              <div 
+                className="absolute left-0 top-0 w-[43%] md:w-[48%] max-w-[380px] pointer-events-auto"
+                style={{ transform: `scale(${uiScale})`, transformOrigin: 'top left' }}
+              >
+                <div className="flex justify-between items-end text-white text-[8px] md:text-xs font-black mb-0.5 md:mb-1.5 drop-shadow-lg uppercase tracking-tight pl-1 md:pl-4">
+                  <div className="flex items-center gap-0.5 md:gap-2">
+                    <span className="bg-orange-600 px-1 md:px-4 py-0.5 md:py-1 rounded-l italic text-[8px] md:text-sm">PLAYER</span>
+                    <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-r border-r border-slate-500/30">Lv.{fighters.p.level}</span>
+                  </div>
+                  <span className="ml-auto font-mono text-[10px] md:text-xl text-emerald-400 pr-1">{Math.ceil(fighters.p.hp)}</span>
                 </div>
-                <div className="h-6 bg-black/60 rounded-full border border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                <div className="h-2 md:h-6 bg-black/60 rounded-r-full border-y border-r border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
                   <div className="h-full bg-gradient-to-r from-emerald-600 via-green-500 to-emerald-400 transition-all duration-500 relative" style={{ width: `${(fighters.p.hp/fighters.p.maxHp)*100}%` }}><div className="absolute inset-0 bg-white/10 animate-pulse"></div></div>
                 </div>
-                {!isMobile && renderAssets(fighters.p, 'left')}
+                <div className="pl-1 md:pl-4">{renderAssets(fighters.p, 'left')}</div>
               </div>
-              <div className="w-[380px] text-right pointer-events-auto">
-                <div className="flex justify-between items-end text-white text-xs font-black mb-1.5 drop-shadow-lg uppercase tracking-tight">
-                  <span className="font-mono text-xl text-rose-400">{Math.ceil(fighters.n.hp)}</span>
-                  <div className="flex items-center gap-2 ml-auto"><span className="bg-slate-700/80 px-3 py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span><span className="bg-red-600 px-4 py-1 rounded-r italic text-sm">Enemy</span></div>
+
+              <div 
+                className="absolute right-0 top-0 w-[43%] md:w-[48%] max-w-[380px] pointer-events-auto text-right"
+                style={{ transform: `scale(${uiScale})`, transformOrigin: 'top right' }}
+              >
+                <div className="flex justify-between items-end text-white text-[8px] md:text-xs font-black mb-0.5 md:mb-1.5 drop-shadow-lg uppercase tracking-tight pr-1 md:pr-4">
+                  <span className="font-mono text-[10px] md:text-xl text-rose-400 pl-1">{Math.ceil(fighters.n.hp)}</span>
+                  <div className="flex items-center gap-0.5 md:gap-2 ml-auto">
+                    <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span>
+                    <span className="bg-red-600 px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm">ENEMY</span>
+                  </div>
                 </div>
-                <div className="h-6 bg-black/60 rounded-full border border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+                <div className="h-2 md:h-6 bg-black/60 rounded-l-full border-y border-l border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
                   <div className="h-full bg-gradient-to-l from-red-700 via-rose-600 to-red-500 transition-all duration-500 ml-auto relative" style={{ width: `${(fighters.n.hp/fighters.n.maxHp)*100}%` }}><div className="absolute inset-0 bg-white/10 animate-pulse"></div></div>
                 </div>
-                {!isMobile && renderAssets(fighters.n, 'right')}
+                <div className="pr-1 md:pr-4">{renderAssets(fighters.n, 'right')}</div>
               </div>
            </div>
-           <div className="absolute top-[20%] text-white/10 font-black text-[12rem] italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10">VS</div>
+           
+           <div className="absolute top-[22%] text-white/[0.02] md:text-white/10 font-black text-[2.5rem] md:text-[12rem] italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10">VS</div>
+           
            <div className="absolute inset-0 z-[150] pointer-events-none overflow-hidden" style={{ transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               {projectiles.map((p, idx) => (
                 <div 
                   key={p.id}
-                  className="absolute bottom-[192px] w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white] flex items-center justify-center animate-projectile"
+                  className="absolute bottom-[192px] w-5 h-5 md:w-6 md:h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white] flex items-center justify-center animate-projectile"
                   style={{
                     left: `${p.startX}px`,
                     '--tx': `${p.targetX - p.startX}px`,
@@ -413,22 +432,22 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                 </div>
               ))}
            </div>
-           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: '1200px', height: '450px', transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
+           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: '1000px', height: '450px', transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               <div className="relative w-full h-full flex items-end justify-center pb-0">
-                {/* 初始距离进一步拉远：px 减小至 4 (1rem)，极致推向边缘 */}
-                <div className="w-full h-72 flex justify-between px--4 relative">
+                <div className="w-full h-72 flex justify-between px-12 relative">
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
                     <div className={`${shaking === 'P' ? 'animate-shake' : ''} ${['CLEAVE', 'PUNCH'].includes(pVisual.state) ? 'animate-vibrate' : ''}`}>
                       <CharacterVisual 
                         state={pVisual.state} 
                         frame={pVisual.frame} 
                         weaponId={pVisual.weaponId}
+                        debug={isDebugMode}
                         accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} 
                         isMobile={isMobile}
                       />
                     </div>
                     {effects.filter(e => e.isPlayer).map(e => (
-                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-5xl md:text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
                     ))}
                   </div>
                   <div ref={nRef} className="relative z-20" style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
@@ -439,12 +458,13 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
                           state={nVisual.state} 
                           frame={nVisual.frame} 
                           weaponId={nVisual.weaponId}
+                          debug={isDebugMode}
                           isMobile={isMobile}
                         />
                       </div>
                     </div>
                     {effects.filter(e => !e.isPlayer).map(e => (
-                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-7xl font-black italic drop-shadow-[0_4px_15_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
+                      <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-5xl md:text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
                     ))}
                   </div>
                 </div>
@@ -452,16 +472,19 @@ const Combat: React.FC<CombatProps> = ({ player, onWin, onLoss }) => {
               </div>
            </div>
       </div>
-      <div className="w-full bg-slate-950 p-4 md:p-6 overflow-y-auto custom-scrollbar border-t border-slate-800 shrink-0 z-[260]" style={{ height: isMobile ? '125px' : '30vh', maxHeight: '350px' }}>
-        <div className="max-w-2xl mx-auto space-y-2">
+      
+      {/* 底部日志系统：移动端提升至 50vh */}
+      <div className="w-full bg-slate-950 p-2.5 md:p-6 overflow-y-auto custom-scrollbar border-t border-slate-800 shrink-0 z-[260]" style={{ height: isMobile ? '50vh' : '30vh', maxHeight: isMobile ? 'none' : '350px' }}>
+        <div className="max-w-2xl mx-auto space-y-2 md:space-y-3">
           {logs.map((log, i) => (
-            <div key={i} className={`px-4 py-2.5 rounded-xl border-l-4 text-sm shadow-md animate-popIn ${log.attacker === '你' ? 'bg-blue-950/20 border-blue-500 text-blue-100' : log.attacker === '系统' ? 'bg-orange-900/20 border-orange-500 text-orange-100 font-bold' : 'bg-red-950/20 border-red-500 text-red-100'}`}>
-              <div className="flex items-center"><span className="font-black opacity-30 mr-3 uppercase text-[10px] shrink-0">[{log.attacker}]</span><span className="tracking-tight font-medium truncate md:whitespace-normal">{log.text}</span></div>
+            <div key={i} className={`px-3 md:px-5 py-2 md:py-3.5 rounded-lg md:rounded-2xl border-l-4 text-[11px] md:text-sm shadow-lg animate-popIn ${log.attacker === '你' ? 'bg-blue-950/30 border-blue-500 text-blue-100' : log.attacker === '系统' ? 'bg-orange-900/30 border-orange-500 text-orange-100 font-bold' : 'bg-red-950/30 border-red-500 text-red-100'}`}>
+              <div className="flex items-center"><span className="font-black opacity-30 mr-2 md:mr-4 uppercase text-[8px] md:text-[11px] shrink-0 tracking-widest">[{log.attacker}]</span><span className="tracking-tight font-medium leading-tight">{log.text}</span></div>
             </div>
           ))}
           <div ref={logEndRef} className="h-1" />
         </div>
       </div>
+      
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes damagePop { 0% { opacity: 0; transform: translateY(20px) scale(0.4); } 15% { opacity: 1; transform: translateY(-40px) scale(1.3); } 80% { opacity: 1; transform: translateY(-100px) scale(1); } 100% { opacity: 0; transform: translateY(-160px) scale(0.7); } }
         .animate-damage { animation: damagePop 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }

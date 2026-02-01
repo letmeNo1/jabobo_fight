@@ -16,6 +16,7 @@ interface CharacterVisualProps {
     weapon?: string;
   };
   isMobile?: boolean;
+  debug?: boolean; // New debug toggle
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -26,16 +27,29 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   className = "",
   weaponId,
   accessory,
-  isMobile = false
+  isMobile = false,
+  debug = false
 }) => {
   const basePath = 'Images/';
   
-  // PC 端累计放大系数 1.7，移动端在此基础上缩小 50% (1.7 * 0.5 = 0.85)
-  const BASE_SCALE = isMobile ? 0.85 : 1.7; 
+  // 辅助函数：从全局缓存中获取 Blob URL，彻底避免实时请求
+  const getAssetUrl = (path: string) => {
+    if (window.assetMap && window.assetMap.has(path)) {
+      return window.assetMap.get(path)!;
+    }
+    return path;
+  };
 
-  // 根据缩放比例动态计算容器尺寸
-  const containerWidth = isMobile ? 140 : 270;
-  const containerHeight = isMobile ? 160 : 310;
+  // PC 端和移动端均采用 1.7 倍放大，满足用户“移动端放大一倍”的需求
+  const BASE_SCALE = 1.7; 
+
+  // 统一容器尺寸，确保放大后的角色有足够的展示空间
+  const containerWidth = 270;
+  const containerHeight = 310;
+
+  // 内部元素在移动端略微缩小（但不影响整体模型比例），保证在 Combat 容器中的相对位置
+  const visualBaseWidth = isMobile ? 'w-48' : 'w-56';
+  const visualBaseHeight = isMobile ? 'h-56' : 'h-64';
 
   // Configuration for each animation state: prefix for filename and number of frames
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
@@ -60,19 +74,19 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
     switch (state) {
       case 'HOME': {
-        const offset = (f % 2 === 0) ? (isMobile ? '-5px' : '-10px') : '0px';
+        const offset = (f % 2 === 0) ? '-10px' : '0px';
         const scale = (f % 2 === 0) ? 1.02 * BASE_SCALE : 1.0 * BASE_SCALE;
         return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
       }
       case 'IDLE':
         return `scale(${BASE_SCALE}) rotate(0deg)`;
       case 'RUN': {
-        const bounce = (f % 2 === 0) ? (isMobile ? '-2px' : '-5px') : '0px';
+        const bounce = (f % 2 === 0) ? '-5px' : '0px';
         const tilt = (f % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
-        return `${bounce} ${tilt} scale(${BASE_SCALE})`;
+        return `translateY(${bounce}) ${tilt} scale(${BASE_SCALE})`;
       }
       case 'JUMP':
-        return `translateY(${isMobile ? '-15px' : '-30px'}) scale(${BASE_SCALE * 1.05})`;
+        return `translateY(-30px) scale(${BASE_SCALE * 1.05})`;
       case 'CLEAVE':
         return `translateY(0px) scale(${BASE_SCALE})`;
       case 'SLASH':
@@ -83,18 +97,18 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         const swingScale = BASE_SCALE;
         const swingRot = f === 4 ? 'rotate(0deg)' : 'rotate(10deg)';
         const swingSkew = f === 4 ? 'skewX(0deg)' : 'skewX(-5deg)';
-        const swingX = f === 4 ? (isMobile ? 'translateX(12px)' : 'translateX(25px)') : '';
+        const swingX = f === 4 ? 'translateX(25px)' : '';
         return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(${isMobile ? '-4px' : '-8px'})`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateY(-8px)`;
       case 'PUNCH':
         return f === 2 
-          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(${isMobile ? '10px' : '20px'})` 
-          : `scale(${BASE_SCALE}) rotate(0deg) translateX(${isMobile ? '-4px' : '-8px'})`;
+          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
+          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
-        return `translate(${isMobile ? '-5px' : '-10px'}, ${isMobile ? '2px' : '4px'}) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
+        return `translate(-10px, 4px) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
       default:
         return `scale(${BASE_SCALE}) rotate(0deg)`;
     }
@@ -103,20 +117,23 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   const showBaseImage = !state || !STATE_CONFIGS[state];
 
   return (
-    <div className={`relative flex flex-col items-center select-none group ${className}`} style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+    <div 
+      className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
+      style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
+    >
       
       {/* Dynamic shadow based on state */}
       <div className={`absolute bottom-6 h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
-        ${state === 'RUN' ? (isMobile ? 'w-16' : 'w-32') + ' opacity-40 scale-x-110' : (isMobile ? 'w-20' : 'w-36') + ' animate-pulse'}
-        ${state === 'JUMP' || state === 'CLEAVE' ? (isMobile ? 'w-12' : 'w-24') + ' opacity-10 scale-x-50' : ''}
-        ${state === 'HOME' ? (isMobile ? 'w-24' : 'w-40') + ' opacity-20 scale-x-110' : ''}
+        ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
+        ${state === 'JUMP' || state === 'CLEAVE' ? 'w-24 opacity-10 scale-x-50' : ''}
+        ${state === 'HOME' ? 'w-40 opacity-20 scale-x-110' : ''}
         ${state === 'HURT' ? 'scale-x-75 opacity-20' : ''}
-        ${state === 'IDLE' ? (isMobile ? 'w-20' : 'w-36') + ' opacity-20 scale-x-100' : ''}
+        ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
       {/* Main character container */}
       <div 
-        className={`relative ${isMobile ? 'w-28 h-32' : 'w-56 h-64'} flex items-center justify-center
+        className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
           ${isDizzy ? 'animate-dizzy filter grayscale contrast-125' : ''} 
           ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
@@ -127,7 +144,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         }}
       >
         <img 
-          src={`${basePath}character.png`} 
+          src={getAssetUrl(`${basePath}character.png`)} 
           className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-200"
           alt="base"
           style={{ 
@@ -157,7 +174,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
               <React.Fragment key={`${sName}-${frameIndex}`}>
                 {/* Character action layer */}
                 <img 
-                  src={`${basePath}${config.prefix}${frameIndex}.png`}
+                  src={getAssetUrl(`${basePath}${config.prefix}${frameIndex}.png`)}
                   className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
                   style={{ 
                       opacity: isTargetFrame ? 1 : 0,
@@ -172,7 +189,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                 {/* Weapon action overlay layer */}
                 {weaponId && (
                   <img 
-                    src={`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`}
+                    src={getAssetUrl(`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`)}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none"
                     style={{ 
                         opacity: isTargetFrame ? 1 : 0,
