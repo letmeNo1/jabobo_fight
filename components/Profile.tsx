@@ -5,9 +5,10 @@ import CharacterVisual from './CharacterVisual';
 
 interface ProfileProps {
   player: CharacterData;
+  isDebugMode?: boolean;
 }
 
-const Profile: React.FC<ProfileProps> = ({ player }) => {
+const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
   const [frame, setFrame] = useState(1);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ const Profile: React.FC<ProfileProps> = ({ player }) => {
           state="HOME"
           frame={frame}
           weaponId={player.dressing.WEAPON}
+          debug={isDebugMode}
           accessory={{
             head: getDressingName('HEAD'),
             body: getDressingName('BODY'),

@@ -5,6 +5,7 @@ import CharacterVisual, { VisualState } from './CharacterVisual';
 
 interface TestPanelProps {
   player: CharacterData;
+  isDebugMode?: boolean;
   onBack: () => void;
 }
 
@@ -14,7 +15,7 @@ interface Projectile {
   targetX: number;
 }
 
-const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
+const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
   const [selectedWeaponId, setSelectedWeaponId] = useState<string>(player.dressing.WEAPON || 'w1');
   const [visual, setVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ 
     state: 'IDLE', 
@@ -209,6 +210,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, onBack }) => {
                 state={visual.state} 
                 frame={visual.frame} 
                 weaponId={visual.weaponId}
+                debug={isDebugMode}
                 className="scale-[1.35]" 
                 accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} 
               />

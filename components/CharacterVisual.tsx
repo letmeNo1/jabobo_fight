@@ -16,6 +16,7 @@ interface CharacterVisualProps {
     weapon?: string;
   };
   isMobile?: boolean;
+  debug?: boolean; // New debug toggle
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -26,7 +27,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   className = "",
   weaponId,
   accessory,
-  isMobile = false
+  isMobile = false,
+  debug = false
 }) => {
   const basePath = 'Images/';
   
@@ -103,7 +105,10 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   const showBaseImage = !state || !STATE_CONFIGS[state];
 
   return (
-    <div className={`relative flex flex-col items-center select-none group ${className}`} style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+    <div 
+      className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
+      style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
+    >
       
       {/* Dynamic shadow based on state */}
       <div className={`absolute bottom-6 h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
