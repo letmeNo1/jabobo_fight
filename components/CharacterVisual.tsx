@@ -40,18 +40,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     return path;
   };
 
-  // PC 端和移动端均采用 1.7 倍放大，满足用户“移动端放大一倍”的需求
   const BASE_SCALE = 1.7; 
-
-  // 统一容器尺寸，确保放大后的角色有足够的展示空间
   const containerWidth = 270;
   const containerHeight = 310;
-
-  // 内部元素在移动端略微缩小（但不影响整体模型比例），保证在 Combat 容器中的相对位置
   const visualBaseWidth = isMobile ? 'w-48' : 'w-56';
   const visualBaseHeight = isMobile ? 'h-56' : 'h-64';
 
-  // Configuration for each animation state: prefix for filename and number of frames
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
     HOME: { prefix: 'home', count: 2 },
     IDLE: { prefix: 'idle', count: 2 },
@@ -68,10 +62,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     PUNCH: { prefix: 'punch', count: 2 }
   };
 
-  // Helper to calculate CSS transforms based on current state and frame
   const getFrameTransform = () => {
     const f = ((frame - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1;
-
     switch (state) {
       case 'HOME': {
         const offset = (f % 2 === 0) ? '-10px' : '0px';
@@ -121,8 +113,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
-      
-      {/* Dynamic shadow based on state */}
       <div className={`absolute bottom-6 h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
         ${state === 'JUMP' || state === 'CLEAVE' ? 'w-24 opacity-10 scale-x-50' : ''}
@@ -131,7 +121,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
-      {/* Main character container */}
       <div 
         className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
           ${isDizzy ? 'animate-dizzy filter grayscale contrast-125' : ''} 
@@ -147,19 +136,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           src={getAssetUrl(`${basePath}character.png`)} 
           className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-200"
           alt="base"
-          style={{ 
-            zIndex: 5, 
-            opacity: showBaseImage ? 1 : 0 
-          }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (!target.src.includes('dicebear')) {
-                target.src = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=" + (isNpc ? 'npc' : 'player');
-            }
-          }}
+          style={{ zIndex: 5, opacity: showBaseImage ? 1 : 0 }}
         />
 
-        {/* Action frames rendering */}
         {Object.entries(STATE_CONFIGS).map(([sName, config]) => {
           const isActiveState = state === sName;
           if (!isActiveState) return null;
@@ -169,11 +148,28 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           return Array.from({ length: config.count }).map((_, i) => {
             const frameIndex = i + 1;
             const isTargetFrame = (frameIndex === currentFrame);
+            
+            // 资源回退逻辑：如果当前帧素材不存在，回退到 Idle 帧
+            let weaponSrc = "";
+            if (weaponId) {
+              const weaponFramePath = `${basePath}${weaponId}_${config.prefix}${frameIndex}.png`;
+              const weaponIdlePath = `${basePath}${weaponId}_idle1.png`;
+              
+              if (window.assetMap?.has(weaponFramePath)) {
+                weaponSrc = window.assetMap.get(weaponFramePath)!;
+              } else if (window.assetMap?.has(weaponIdlePath)) {
+                // 回退到武器的 Idle1 帧
+                weaponSrc = window.assetMap.get(weaponIdlePath)!;
+              } else {
+                // 如果本地数据库还没准备好或完全缺失，尝试直接请求
+                weaponSrc = weaponFramePath;
+              }
+            }
 
             return (
               <React.Fragment key={`${sName}-${frameIndex}`}>
-                {/* Character action layer */}
                 <img 
+                  key={`char-${sName}-${frameIndex}`}
                   src={getAssetUrl(`${basePath}${config.prefix}${frameIndex}.png`)}
                   className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
                   style={{ 
@@ -181,24 +177,16 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                       zIndex: isTargetFrame ? 20 : 10,
                       transition: 'none' 
                   }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none'; 
-                  }}
                 />
-                
-                {/* Weapon action overlay layer */}
                 {weaponId && (
                   <img 
-                    src={getAssetUrl(`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`)}
+                    key={`weapon-${weaponId}-${sName}-${frameIndex}`}
+                    src={weaponSrc}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none"
                     style={{ 
                         opacity: isTargetFrame ? 1 : 0,
                         zIndex: isTargetFrame ? 30 : 15,
-                        transition: 'none',
-                        mixBlendMode: 'normal'
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.opacity = '0';
+                        transition: 'none'
                     }}
                   />
                 )}
@@ -207,7 +195,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           });
         })}
 
-        {/* Dizzy overlay */}
         {isDizzy && (
           <div className={`absolute ${isMobile ? '-top-6' : '-top-14'} left-0 w-full flex justify-center pointer-events-none z-50`}>
             <span className={`${isMobile ? 'text-2xl' : 'text-5xl'} animate-spin`}>💫</span>
@@ -215,7 +202,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         )}
       </div>
 
-      {/* Floating labels for equipment */}
       <div className={`absolute ${isMobile ? '-top-8' : '-top-16'} flex flex-col items-center gap-1 transition-opacity duration-300 ${state !== 'IDLE' && state !== 'HOME' ? 'opacity-0 scale-75' : 'opacity-100'}`}>
         {accessory?.head && (
           <div className={`${isMobile ? 'text-[9px] px-2 py-0.5' : 'text-xs px-4 py-2'} bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20`}>

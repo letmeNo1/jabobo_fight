@@ -2,11 +2,11 @@ import { Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 
 export const WEAPONS: Weapon[] = [
   // LARGE
-  { id: 'w1', name: '青龙戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'SWING' },
+  { id: 'w1', name: '青龙戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'PIERCE' },
   { id: 'w2', name: '三叉戟', type: WeaponType.LARGE, baseDmg: [25, 50], description: '10%概率MISS，攻击后休息1回合', module: 'CLEAVE' },
   { id: 'w3', name: '充气锤子', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率让对方跳过1回合', module: 'CLEAVE' },
-  { id: 'w4', name: '开山斧', type: WeaponType.LARGE, baseDmg: [12, 18], description: '5%概率被攻击前反击，5%概率让对方跳过1回合', module: 'SLASH' },
-  { id: 'w5', name: '关刀', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率触发连击', module: 'CLEAVE' },
+  { id: 'w4', name: '开山斧', type: WeaponType.LARGE, baseDmg: [12, 18], description: '5%概率被攻击前反击，5%概率让对方跳过1回合', module: 'CLEAVE' },
+  { id: 'w5', name: '关刀', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率触发连击', module: 'SLASH' },
   { id: 'w6', name: '狂魔镰', type: WeaponType.LARGE, baseDmg: [15, 25], description: '必中，对方无法反击', module: 'SLASH' },
   { id: 'w7', name: '棒球棒', type: WeaponType.LARGE, baseDmg: [15, 20], description: '15%概率让对方跳过1回合', module: 'SWING' },
   { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'CLEAVE' },

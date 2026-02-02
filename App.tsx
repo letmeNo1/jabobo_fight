@@ -30,7 +30,7 @@ const INITIAL_DATA: CharacterData = {
   isConcentrated: false
 };
 
-// IndexedDB 助手函数，用于持久化存储大型二进制素材
+// IndexedDB 配置
 const DB_NAME = 'QFightAssetsDB';
 const STORE_NAME = 'images';
 
@@ -76,6 +76,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : INITIAL_DATA;
   });
   const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST'>('HOME');
+  const [combatMode, setCombatMode] = useState<'NORMAL' | 'SPECIAL'>('NORMAL');
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -94,16 +95,30 @@ const App: React.FC = () => {
 
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
+    
+    const commonStates = ['home', 'idle', 'run', 'hurt', 'dodge'];
+
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
         animationImages.push(`${prefix}${i}.png`);
         WEAPONS.forEach(w => {
-          animationImages.push(`${w.id}_${prefix}${i}.png`);
+          const weaponModule = w.module.toLowerCase();
+          if (commonStates.includes(prefix) || prefix === weaponModule) {
+            animationImages.push(`${w.id}_${prefix}${i}.png`);
+          }
+        });
+        SKILLS.forEach(s => {
+          if (s.module) {
+            const skillModule = s.module.toLowerCase();
+            if (prefix === skillModule) {
+              animationImages.push(`${s.id}_${prefix}${i}.png`);
+            }
+          }
         });
       }
     });
 
-    const allPaths = [...coreImages, ...animationImages].map(p => `${assetBase}${p}`);
+    const allPaths = [...new Set([...coreImages, ...animationImages])].map(p => `${assetBase}${p}`);
     setTotalAssets(allPaths.length);
 
     const loadAll = async () => {
@@ -111,43 +126,38 @@ const App: React.FC = () => {
       try {
         db = await initDB();
       } catch (e) {
-        console.warn("IndexedDB init failed, falling back to memory cache", e);
+        console.warn("IndexedDB init failed", e);
       }
 
       let loadedCount = 0;
-      const CHUNK_SIZE = 20;
+      const CHUNK_SIZE = 25;
 
       for (let i = 0; i < allPaths.length; i += CHUNK_SIZE) {
         const chunk = allPaths.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async (path) => {
           try {
             let blob: Blob | null = null;
-            
-            // 1. 尝试从本地持久化存储(IndexedDB)读取
             if (db) {
               blob = await getCachedAsset(db, path);
             }
 
-            // 2. 如果本地没有，则发起网络请求下载
             if (!blob) {
               const response = await fetch(path);
               if (response.ok) {
                 blob = await response.blob();
-                // 3. 下载完成后存入本地持久化存储
                 if (db) await cacheAsset(db, path, blob);
               }
             }
 
-            // 4. 将 Blob 转换为可在界面使用的 URL 存入全局 Map
             if (blob) {
               const blobUrl = URL.createObjectURL(blob);
               window.assetMap.set(path, blobUrl);
             }
           } catch (err) {
-            // 忽略 404 等错误
+            // Silently ignore 404s
           } finally {
             loadedCount++;
-            setLoadProgress(loadedCount);
+            setLoadProgress(prev => prev + 1);
           }
         }));
       }
@@ -157,7 +167,10 @@ const App: React.FC = () => {
     loadAll();
 
     return () => {
-      window.assetMap.forEach(url => URL.revokeObjectURL(url));
+      window.assetMap.forEach(url => {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+      });
+      window.assetMap.clear();
     };
   }, []);
 
@@ -174,13 +187,13 @@ const App: React.FC = () => {
   };
 
   const clearAssetCache = () => {
-    if (window.confirm('确定要清除所有本地素材缓存并重新下载吗？这通常用于解决显示异常。')) {
+    if (window.confirm('确定要清除所有本地素材缓存并重新下载吗？')) {
       const request = indexedDB.deleteDatabase(DB_NAME);
       request.onsuccess = () => {
         window.location.reload();
       };
       request.onerror = () => {
-        alert('清除失败，请手动清理浏览器数据。');
+        alert('清除失败，请手动清理浏览器数据库。');
       };
     }
   };
@@ -241,6 +254,11 @@ const App: React.FC = () => {
     let tempPlayer = { ...player, exp: newExp };
     if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
     else setPlayer(tempPlayer);
+  };
+
+  const startCombat = (mode: 'NORMAL' | 'SPECIAL') => {
+    setCombatMode(mode);
+    setView('COMBAT');
   };
 
   if (loading) {
@@ -314,7 +332,8 @@ const App: React.FC = () => {
         <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8">
           <Profile player={player} isDebugMode={isDebugMode} />
           <div className="space-y-3 md:space-y-4">
-            <button onClick={() => setView('COMBAT')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
+            <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
+            <button onClick={() => startCombat('SPECIAL')} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-indigo-900/30"><span>🔱</span> <span>特殊挑战 (1/5/9)</span></button>
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
               <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
@@ -323,7 +342,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'COMBAT' && <Combat player={player} isDebugMode={isDebugMode} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
+      {view === 'COMBAT' && <Combat player={player} isSpecial={combatMode === 'SPECIAL'} isDebugMode={isDebugMode} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
       {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />}
       {view === 'SKILLS' && <SkillList player={player} onBack={() => setView('HOME')} />}
       {view === 'TEST' && <TestPanel player={player} isDebugMode={isDebugMode} onBack={() => setView('HOME')} />}

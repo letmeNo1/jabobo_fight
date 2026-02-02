@@ -5,6 +5,7 @@ import CharacterVisual, { VisualState } from './CharacterVisual';
 
 interface CombatProps {
   player: CharacterData;
+  isSpecial?: boolean;
   isDebugMode?: boolean;
   onWin: (gold: number, exp: number) => void;
   onLoss: (exp: number) => void;
@@ -38,7 +39,7 @@ interface Projectile {
   targetX: number;
 }
 
-const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onLoss }) => {
+const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode = false, onWin, onLoss }) => {
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [fighters, setFighters] = useState<{ p: Fighter; n: Fighter } | null>(null);
   const [turn, setTurn] = useState<'P' | 'N' | null>(null);
@@ -96,16 +97,26 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
   }, []);
 
   useEffect(() => {
-    const npcLevel = Math.max(1, player.level + Math.floor(Math.random() * 3) - 1);
-    const randomNpcWeapons = [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
-    const randomNpcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
+    const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
+    
+    // 如果是特殊对决，固定武器为 w1, w5, w9
+    const npcWeapons = isSpecial ? ['w1', 'w5', 'w9'] : [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
+    const npcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
 
     const npc: Fighter = {
-      name: '神秘挑战者', isPlayer: false, hp: 55 + npcLevel * 12, maxHp: 55 + npcLevel * 12,
-      str: 6 + npcLevel, agi: 5 + npcLevel, spd: 4 + npcLevel, level: npcLevel,
-      weapons: randomNpcWeapons, skills: randomNpcSkills,
+      name: isSpecial ? '精英武学大师' : '神秘挑战者', 
+      isPlayer: false, 
+      hp: (55 + npcLevel * 12) * (isSpecial ? 1.2 : 1), 
+      maxHp: (55 + npcLevel * 12) * (isSpecial ? 1.2 : 1),
+      str: 6 + npcLevel + (isSpecial ? 3 : 0), 
+      agi: 5 + npcLevel, 
+      spd: 4 + npcLevel + (isSpecial ? 2 : 0), 
+      level: npcLevel,
+      weapons: npcWeapons, 
+      skills: npcSkills,
       weaponSkin: ''
     };
+    
     const pFighter: Fighter = {
       name: '你', isPlayer: true, hp: player.maxHp, maxHp: player.maxHp, 
       str: player.str, agi: player.agi, spd: player.spd, level: player.level,
@@ -115,8 +126,8 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
 
     setFighters({ p: pFighter, n: npc });
     setTurn(pFighter.spd >= npc.spd ? 'P' : 'N');
-    setLogs([{ attacker: '系统', text: '⚔️ 遭遇战开始！' }]);
-  }, []);
+    setLogs([{ attacker: '系统', text: isSpecial ? '🔥 特殊挑战！大师携带三件精选兵器降临！' : '⚔️ 遭遇战开始！' }]);
+  }, [isSpecial]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -380,7 +391,7 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
                   <span className="font-mono text-[10px] md:text-xl text-rose-400 pl-1">{Math.ceil(fighters.n.hp)}</span>
                   <div className="flex items-center gap-0.5 md:gap-2 ml-auto">
                     <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span>
-                    <span className="bg-red-600 px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm">ENEMY</span>
+                    <span className={`${isSpecial ? 'bg-purple-600' : 'bg-red-600'} px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm`}>{isSpecial ? 'MASTER' : 'ENEMY'}</span>
                   </div>
                 </div>
                 <div className="h-2 md:h-6 bg-black/60 rounded-l-full border-y border-l border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
