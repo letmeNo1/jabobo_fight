@@ -196,7 +196,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                return (
                  <div 
                    key={p.id}
-                   className="absolute bottom-[12%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile"
+                   className="absolute bottom-[52%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile"
                    style={{
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
