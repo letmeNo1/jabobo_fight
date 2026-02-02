@@ -1,4 +1,3 @@
-
 export enum WeaponType {
   LARGE = 'LARGE',
   MEDIUM = 'MEDIUM',
@@ -13,6 +12,8 @@ export enum SkillCategory {
   SPECIAL = 'SPECIAL'
 }
 
+export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
+
 export interface Weapon {
   id: string;
   name: string;
@@ -20,6 +21,7 @@ export interface Weapon {
   baseDmg: [number, number]; // [min, max]
   effect?: string;
   description: string;
+  module: AttackModule; // 绑定的动作模组
 }
 
 export interface Skill {
@@ -28,6 +30,7 @@ export interface Skill {
   category: SkillCategory;
   description: string;
   minLevel?: number;
+  module?: AttackModule; // 主动技能绑定的动作模组
 }
 
 export interface Dressing {

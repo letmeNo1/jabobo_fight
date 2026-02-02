@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, Weapon } from '../types';
+import { CharacterData, Weapon, AttackModule } from '../types';
 import { DRESSINGS, WEAPONS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 
@@ -44,10 +44,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     }
   }, [selectedWeaponId, isAnimating]);
 
-  const runModule = async (module: VisualState) => {
+  const runModule = async (module: AttackModule) => {
     if (isAnimating) return;
     setIsAnimating(true);
-    // 实验室位移同步缩短 20%: 250 * 0.8 = 200
     const dir = 200; 
     const currentWeaponId = selectedWeaponId;
 
@@ -55,7 +54,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       case 'CLEAVE':
         setMoveDuration(200);
         setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
-        // 起手位移同步缩短 20%: 80 * 0.8 = 64
         setOffset({ x: 64, y: 0 });
         await new Promise(r => setTimeout(r, 200));
         
@@ -68,7 +66,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
         
-        // 执行砸地动作，保持 currentWeaponId 以预览绑定效果
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
         await new Promise(r => setTimeout(r, 800));
         break;
@@ -110,7 +107,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
       case 'SWING':
         setMoveDuration(600);
-        // 起手位移同步缩短 20%: 80 * 0.8 = 64
         setOffset({ x: 64, y: 0 });
         for(let i=1; i<=3; i++) {
           setVisual({ state: 'SWING', frame: i, weaponId: currentWeaponId });
@@ -151,7 +147,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         break;
 
       default:
-        setVisual({ state: module, frame: 1, weaponId: currentWeaponId });
+        // Other visual states like HURT
+        setVisual({ state: module as any, frame: 1, weaponId: currentWeaponId });
         await new Promise(r => setTimeout(r, 800));
     }
 
@@ -167,7 +164,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     return DRESSINGS.find(d => d.id === player.dressing[part])?.name;
   };
 
-  const modules: { id: VisualState; label: string; color: string }[] = [
+  const currentWeapon = WEAPONS.find(w => w.id === selectedWeaponId);
+
+  const modules: { id: AttackModule | 'HURT' | 'IDLE'; label: string; color: string }[] = [
     { id: 'CLEAVE', label: '天崩地裂 (砸地)', color: 'bg-red-600' },
     { id: 'SLASH', label: '追风逐影 (横斩)', color: 'bg-orange-600' },
     { id: 'PUNCH', label: '正拳 (空手)', color: 'bg-amber-600' },
@@ -175,7 +174,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     { id: 'SWING', label: '横扫千军 (重挥)', color: 'bg-emerald-600' },
     { id: 'THROW', label: '定海神针 (发劲)', color: 'bg-indigo-600' },
     { id: 'HURT', label: '受击反馈', color: 'bg-gray-600' },
-    { id: 'IDLE', label: '强制中断重置', color: 'bg-slate-800' },
+    { id: 'IDLE', label: '重置', color: 'bg-slate-800' },
   ];
 
   return (
@@ -205,7 +204,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           </div>
           <div className="absolute top-8 left-8 flex gap-6 z-20">
             <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">State</span><span className="font-mono font-black text-slate-800 text-2xl">{visual.state}</span></div>
-            <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">Weapon</span><span className="font-mono font-black text-slate-800 text-2xl">{selectedWeaponId}</span></div>
+            <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">Config Module</span><span className="font-mono font-black text-slate-800 text-2xl">{currentWeapon?.module || 'NONE'}</span></div>
           </div>
           <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
             <div className={['CLEAVE', 'PUNCH'].includes(visual.state) ? 'animate-vibrate' : ''}>
@@ -220,45 +219,55 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
             </div>
           </div>
           <div className="absolute bottom-[35%] w-64 h-3 bg-indigo-600/10 rounded-full blur-2xl transition-all duration-300" style={{ left: `calc(20% + ${offset.x}px)`, transform: `translateX(48px) scaleX(${isAnimating ? 1.5 : 1})`, opacity: visual.state === 'JUMP' ? 0.15 : 0.7 }}></div>
-          <div className="absolute bottom-1/4 left-0 w-full flex items-end justify-around px-8 opacity-20 pointer-events-none">{Array.from({length: 12}).map((_, i) => (<div key={i} className="h-4 w-1 bg-slate-400 rounded-full"></div>))}</div>
-          <div className="absolute bottom-1/4 left-0 w-full h-px bg-slate-300 border-b-2 border-dashed border-slate-400 opacity-30"></div>
         </div>
         
-        {/* 右侧控制栏：分为动作模组和武器库 */}
         <div className="w-full md:w-[480px] bg-white border-l border-slate-200 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.02)] z-20">
           <div className="flex-grow overflow-y-auto p-8 space-y-8 custom-scrollbar">
-            {/* 武器库测试 */}
             <section>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">武器库实时测试</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">选择武器并触发配置模组</h3>
               <div className="grid grid-cols-3 gap-2">
                 {WEAPONS.map(w => (
                   <button 
                     key={w.id} 
-                    onClick={() => setSelectedWeaponId(w.id)}
-                    className={`px-3 py-2 text-[11px] font-bold rounded-xl border transition-all ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                    onClick={() => {
+                      setSelectedWeaponId(w.id);
+                      runModule(w.module);
+                    }}
+                    disabled={isAnimating}
+                    className={`px-3 py-2 text-[10px] font-bold rounded-xl border transition-all flex flex-col items-center ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300 disabled:opacity-50'}`}
                   >
-                    {w.name}
+                    <span>{w.name}</span>
+                    <span className="text-[8px] opacity-60">[{w.module}]</span>
                   </button>
                 ))}
               </div>
             </section>
 
-            {/* 动作模组 */}
             <section>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">动作模组均衡测试</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">手动模组测试</h3>
               <div className="grid grid-cols-2 gap-3">
                 {modules.map(m => (
-                  <button key={m.id} disabled={isAnimating && m.id !== 'IDLE'} onClick={() => m.id === 'IDLE' ? (setVisual(v => ({...v, state:'IDLE', frame:1, weaponId: selectedWeaponId})), setOffset({x:0,y:0}), setIsAnimating(false)) : runModule(m.id)} className={`${m.color} text-white py-4 rounded-2xl font-black shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:opacity-40 disabled:translate-y-0 flex items-center justify-center group`}>
+                  <button 
+                    key={m.id} 
+                    disabled={isAnimating && m.id !== 'IDLE'} 
+                    onClick={() => {
+                      if(m.id === 'IDLE') {
+                        setVisual(v => ({...v, state:'IDLE', frame:1, weaponId: selectedWeaponId}));
+                        setOffset({x:0,y:0});
+                        setIsAnimating(false);
+                      } else if(m.id === 'HURT') {
+                        runModule('HURT' as any);
+                      } else {
+                        runModule(m.id as AttackModule);
+                      }
+                    }} 
+                    className={`${m.color} text-white py-4 rounded-2xl font-black shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:opacity-40 flex items-center justify-center`}
+                  >
                     <span className="tracking-tight text-sm">{m.label}</span>
                   </button>
                 ))}
               </div>
             </section>
-          </div>
-          
-          <div className="p-6 bg-slate-50 border-t border-slate-100">
-            <h4 className="text-[11px] font-black text-indigo-600 uppercase mb-2 flex items-center gap-2"><span className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></span>实验室公告</h4>
-            <p className="text-[12px] text-slate-500 leading-relaxed italic font-medium">砸地模组已还原。JUMP 和 CLEAVE 角度锁定为 0°，武器绑定已同步。</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory } from '../types';
+import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory, AttackModule } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 
@@ -37,8 +37,6 @@ interface Projectile {
   startX: number;
   targetX: number;
 }
-
-type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
 
 const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onLoss }) => {
   const [logs, setLogs] = useState<BattleLog[]>([]);
@@ -97,24 +95,6 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
     };
   }, []);
 
-  const getModuleByAction = (type: 'WEAPON' | 'SKILL' | 'BARE', id?: string): AttackModule => {
-    if (type === 'BARE') return 'PUNCH';
-    if (type === 'WEAPON' && id) {
-      if (['w2', 'w3', 'w4', 'w8'].includes(id)) return 'CLEAVE';
-      if (['w1', 'w9', 'w16', 'w17'].includes(id)) return 'PIERCE';
-      if (['w7', 'w11', 'w13', 'w18'].includes(id)) return 'SWING';
-      if (['w12', 'w19', 'w20', 'w21', 'w22', 'w23', 'w24'].includes(id)) return 'THROW';
-      if (['w5', 'w6', 'w10', 'w14', 'w15'].includes(id)) return 'SLASH';
-    }
-    if (type === 'SKILL' && id) {
-      if (['s19', 's22', 's25', 's26', 's29'].includes(id)) return 'THROW';
-      if (['s20', 's30'].includes(id)) return 'CLEAVE';
-      if (['s24'].includes(id)) return 'PIERCE';
-      if (['s23', 's27'].includes(id)) return 'SLASH';
-    }
-    return 'SLASH';
-  };
-
   useEffect(() => {
     const npcLevel = Math.max(1, player.level + Math.floor(Math.random() * 3) - 1);
     const randomNpcWeapons = [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
@@ -169,13 +149,13 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
         actionDesc = `使用了技能【${skill.name}】`;
         hitType = 'SKILL';
         dmg = 15 + atk.level * 1.5; 
-        currentModule = getModuleByAction('SKILL', skill.id);
+        currentModule = skill.module || 'PUNCH';
         activeWeaponId = skill.id;
       } else if (roll < 0.7 && ownedWeapons.length > 0) {
         const weapon = ownedWeapons[Math.floor(Math.random() * ownedWeapons.length)];
         actionDesc = `挥动了【${weapon.name}】`;
         dmg = Math.floor(weapon.baseDmg[0] + Math.random() * (weapon.baseDmg[1] - weapon.baseDmg[0]));
-        currentModule = getModuleByAction('WEAPON', weapon.id);
+        currentModule = weapon.module;
         activeWeaponId = weapon.id;
       } else {
         actionDesc = "打出一记正拳";
@@ -188,7 +168,6 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
       
-      // 攻击位移缩短 20%: 720 * 0.8 = 576
       const meleeDistance = 576 * dir; 
 
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
@@ -197,7 +176,6 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
         case 'CLEAVE': 
           setMoveDuration(200);
           atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-          // 起手位移同步缩短 20%: 80 * 0.8 = 64
           offsetSetter({ x: 64 * dir, y: 0 });
           await new Promise(r => setTimeout(r, 200));
           
@@ -233,7 +211,6 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
 
         case 'SWING': 
           setMoveDuration(600); 
-          // 起手位移同步缩短 20%: 120 * 0.8 = 96
           offsetSetter({ x: 96 * dir, y: 0 });
           for(let i=1; i<=3; i++) {
             atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId });
@@ -258,7 +235,6 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
               if (i === 2) {
                 const containerRect = containerRef.current?.getBoundingClientRect();
                 const pRect = pRef.current?.getBoundingClientRect();
-                // Fix: Removed incorrect self-referencing variable declaration for nRect and redundant declaration.
                 if (containerRect && pRect && nRef.current) {
                   const nRect = nRef.current.getBoundingClientRect();
                   const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
@@ -299,7 +275,7 @@ const Combat: React.FC<CombatProps> = ({ player, isDebugMode = false, onWin, onL
 
         case 'PUNCH':
           setMoveDuration(250);
-          atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
+          atkSetter({ state: 'RUN', frame: 1, weaponId: undefined });
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 250));
           for(let i=1; i<=2; i++) {
