@@ -54,7 +54,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     HURT: { prefix: 'hurt', count: 1 },
     DODGE: { prefix: 'dodge', count: 1 },
     JUMP: { prefix: 'jump', count: 1 }, 
-    CLEAVE: { prefix: 'cleave', count: 1 }, 
+    CLEAVE: { prefix: 'cleave', count: 2 }, 
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },

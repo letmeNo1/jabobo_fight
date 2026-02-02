@@ -191,7 +191,8 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
           await new Promise(r => setTimeout(r, 200));
           
           setMoveDuration(450);
-          atkSetter({ state: 'JUMP', frame: 1, weaponId: activeWeaponId });
+          // 用 CLEAVE 第 1 帧代替原先的 JUMP
+          atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
           offsetSetter({ x: meleeDistance, y: -200 }); 
           await new Promise(r => setTimeout(r, 450));
           
@@ -199,7 +200,8 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 80));
           
-          atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
+          // 最终砸地动作使用 CLEAVE 第 2 帧
+          atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
           setShaking('SCREEN'); 
           executeHit(Math.floor(dmg * 1.15), isP, hitType);
           await new Promise(r => setTimeout(r, 800));

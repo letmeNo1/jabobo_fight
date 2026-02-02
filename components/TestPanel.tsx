@@ -58,7 +58,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         await new Promise(r => setTimeout(r, 200));
         
         setMoveDuration(450);
-        setVisual({ state: 'JUMP', frame: 1, weaponId: currentWeaponId });
+        // 用 CLEAVE 第 1 帧代替原先的 JUMP
+        setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
         setOffset({ x: dir, y: -200 });
         await new Promise(r => setTimeout(r, 450));
         
@@ -66,7 +67,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
         
-        setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
+        // 最终动作使用 CLEAVE 第 2 帧
+        setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
         await new Promise(r => setTimeout(r, 800));
         break;
 

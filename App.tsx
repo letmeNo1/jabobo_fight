@@ -90,7 +90,7 @@ const App: React.FC = () => {
     const assetBase = 'Images/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 1, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
+      jump: 1, cleave: 2, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
     };
 
     const coreImages = ['character.png'];
