@@ -99,8 +99,8 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
   useEffect(() => {
     const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
     
-    // 如果是特殊对决，固定武器为 w1 (方天画戟), w5 (青龙偃月刀), w9 (红缨枪)
-    const npcWeapons = isSpecial ? ['w1', 'w5', 'w9'] : [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
+    // 如果是特殊对决，固定武器为 w1 (方天画戟), w5 (青龙偃月刀), w9 (红缨枪), w14 (宽刃剑)
+    const npcWeapons = isSpecial ? ['w1', 'w5', 'w9', 'w14'] : [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
     // 特殊对决不携带任何技能
     const npcSkills = isSpecial ? [] : [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
 
@@ -127,7 +127,7 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
 
     setFighters({ p: pFighter, n: npc });
     setTurn(pFighter.spd >= npc.spd ? 'P' : 'N');
-    setLogs([{ attacker: '系统', text: isSpecial ? '🔥 特殊挑战！大师携带三件精选兵器降临！' : '⚔️ 遭遇战开始！' }]);
+    setLogs([{ attacker: '系统', text: isSpecial ? '🔥 特殊挑战！大师携带四件精选兵器降临！' : '⚔️ 遭遇战开始！' }]);
   }, [isSpecial]);
 
   useEffect(() => {
@@ -186,23 +186,25 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
 
       switch (currentModule) {
         case 'CLEAVE': 
-          setMoveDuration(200);
-          atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: 64 * dir, y: 0 });
-          await new Promise(r => setTimeout(r, 200));
-          
-          setMoveDuration(450);
-          // 用 CLEAVE 第 1 帧代替原先的 JUMP
+          // 帧1: 迅猛起跳
+          setMoveDuration(120);
           atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: meleeDistance, y: -200 }); 
-          await new Promise(r => setTimeout(r, 450));
+          offsetSetter({ x: 96 * dir, y: -60 });
+          await new Promise(r => setTimeout(r, 120));
           
+          // 帧2: 空中停留/最高点
+          setMoveDuration(300);
+          atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
+          offsetSetter({ x: meleeDistance, y: -260 }); 
+          await new Promise(r => setTimeout(r, 300));
+          
+          // 落地 Desecent
           setMoveDuration(80);
           offsetSetter({ x: meleeDistance, y: 0 });
           await new Promise(r => setTimeout(r, 80));
           
-          // 最终砸地动作使用 CLEAVE 第 2 帧
-          atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
+          // 帧3: 触地瞬间 (触发震动)
+          atkSetter({ state: 'CLEAVE', frame: 3, weaponId: activeWeaponId });
           setShaking('SCREEN'); 
           executeHit(Math.floor(dmg * 1.15), isP, hitType);
           await new Promise(r => setTimeout(r, 800));

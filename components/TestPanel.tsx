@@ -25,6 +25,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [moveDuration, setMoveDuration] = useState(300);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [shaking, setShaking] = useState(false);
   const [projectiles, setProjectiles] = useState<Projectile[]>([]);
   const projectileCounter = useRef(0);
   const charContainerRef = useRef<HTMLDivElement>(null);
@@ -52,23 +53,27 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
     switch (module) {
       case 'CLEAVE':
-        setMoveDuration(200);
-        setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: 64, y: 0 });
-        await new Promise(r => setTimeout(r, 200));
-        
-        setMoveDuration(450);
-        // 用 CLEAVE 第 1 帧代替原先的 JUMP
+        // 帧1: 迅猛起跳
+        setMoveDuration(120);
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: dir, y: -200 });
-        await new Promise(r => setTimeout(r, 450));
+        setOffset({ x: 64, y: -60 });
+        await new Promise(r => setTimeout(r, 120));
         
+        // 帧2: 空中最高点
+        setMoveDuration(300);
+        setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
+        setOffset({ x: dir, y: -260 });
+        await new Promise(r => setTimeout(r, 300));
+        
+        // 落地 Descent
         setMoveDuration(80);
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
         
-        // 最终动作使用 CLEAVE 第 2 帧
-        setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
+        // 帧3: 落地劈砍 (触发震动)
+        setVisual({ state: 'CLEAVE', frame: 3, weaponId: currentWeaponId });
+        setShaking(true);
+        setTimeout(() => setShaking(false), 500);
         await new Promise(r => setTimeout(r, 800));
         break;
 
@@ -180,7 +185,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   ];
 
   return (
-    <div ref={mainContainerRef} className="bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200">
+    <div ref={mainContainerRef} className={`bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200 ${shaking ? 'animate-heavyShake' : ''}`}>
       <div className="p-8 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-10">
         <div><div className="flex items-center gap-3"><h2 className="text-2xl font-black italic tracking-tighter uppercase">Mega Pro Arena</h2><span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">V2.6 STABLE</span></div><p className="text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Weapon Animation Laboratory</p></div>
         <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-8 py-3 rounded-2xl font-black text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
@@ -284,6 +289,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         .animate-projectile-lab {
           animation: projectile-lab-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards;
         }
+        @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
+        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
       `}} />

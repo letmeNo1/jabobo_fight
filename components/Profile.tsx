@@ -25,7 +25,7 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <div className="relative w-56 h-56 mx-auto flex items-center justify-center mb-6">
+      <div className="relative w-56 h-56 mx-auto flex items-center justify-center mb-6 pointer-events-none">
         <CharacterVisual 
           state="HOME"
           frame={frame}

@@ -54,7 +54,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     HURT: { prefix: 'hurt', count: 1 },
     DODGE: { prefix: 'dodge', count: 1 },
     JUMP: { prefix: 'jump', count: 1 }, 
-    CLEAVE: { prefix: 'cleave', count: 2 }, 
+    CLEAVE: { prefix: 'cleave', count: 3 }, 
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
@@ -114,7 +114,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
-      <div className={`absolute bottom-6 h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
+      <div className={`absolute bottom-[15%] h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
         ${state === 'JUMP' || state === 'CLEAVE' ? 'w-24 opacity-10 scale-x-50' : ''}
         ${state === 'HOME' ? 'w-40 opacity-20 scale-x-110' : ''}

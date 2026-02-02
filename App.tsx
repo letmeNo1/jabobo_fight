@@ -22,7 +22,7 @@ const INITIAL_DATA: CharacterData = {
   str: 5,
   agi: 5,
   spd: 5,
-  maxHp: 60,
+  maxHp: 300,
   weapons: [],
   skills: [],
   dressing: { HEAD: '', BODY: '', WEAPON: '' },
@@ -90,7 +90,7 @@ const App: React.FC = () => {
     const assetBase = 'Images/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 2, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
+      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
     };
 
     const coreImages = ['character.png'];
@@ -202,7 +202,8 @@ const App: React.FC = () => {
     const nextLvl = currentData.level + 1;
     const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
     let newData = { ...currentData, level: nextLvl, exp: 0 };
-    newData.maxHp = 50 + nextLvl * 10;
+    // 基础血量从300开始成长
+    newData.maxHp = 290 + nextLvl * 10;
     const stats = ['str', 'agi', 'spd'] as const;
     const randomStat = stats[Math.floor(Math.random() * stats.length)];
     const bonus = newData.isConcentrated ? 2 : 1;
@@ -238,6 +239,10 @@ const App: React.FC = () => {
     setLevelUpResults(results);
   };
 
+  const handleLevelUpManual = () => {
+    handleLevelUp(player);
+  };
+
   const handleBattleWin = (gainedGold: number, gainedExp: number) => {
     setBattleResult({ isWin: true, gold: gainedGold, exp: gainedExp });
     let newExp = player.exp + gainedExp;
@@ -267,7 +272,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-3 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
+      <header className="relative z-[100] flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
         <h1 className="text-lg md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
         <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">
           <div className="flex items-center gap-1.5 bg-slate-50 px-2 md:px-3 py-1 rounded-full border border-slate-200">
@@ -333,7 +338,7 @@ const App: React.FC = () => {
           <Profile player={player} isDebugMode={isDebugMode} />
           <div className="space-y-3 md:space-y-4">
             <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
-            <button onClick={() => startCombat('SPECIAL')} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-indigo-900/30"><span>🔱</span> <span>特殊挑战 (1/5/9)</span></button>
+            <button onClick={() => startCombat('SPECIAL')} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-indigo-900/30"><span>🔱</span> <span>特殊挑战 (1/5/9/14)</span></button>
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
               <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
