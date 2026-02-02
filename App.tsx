@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CharacterData, Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 import { WEAPONS, SKILLS, DRESSINGS } from './constants';
 import Profile from './components/Profile';
-import Combat from './components/Combat';
+import Combat, { SpecialCombatMode } from './components/Combat';
 import DressingRoom from './components/DressingRoom';
 import SkillList from './components/SkillList';
 import TestPanel from './components/TestPanel';
@@ -76,7 +76,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : INITIAL_DATA;
   });
   const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST'>('HOME');
-  const [combatMode, setCombatMode] = useState<'NORMAL' | 'SPECIAL'>('NORMAL');
+  const [combatMode, setCombatMode] = useState<SpecialCombatMode>('NORMAL');
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -103,6 +103,7 @@ const App: React.FC = () => {
         animationImages.push(`${prefix}${i}.png`);
         WEAPONS.forEach(w => {
           const weaponModule = w.module.toLowerCase();
+          // 加载动作帧
           if (commonStates.includes(prefix) || prefix === weaponModule) {
             animationImages.push(`${w.id}_${prefix}${i}.png`);
           }
@@ -116,6 +117,11 @@ const App: React.FC = () => {
           }
         });
       }
+    });
+
+    // 额外扫描：加载武器的投掷贴图 (wID_throw.png)
+    WEAPONS.forEach(w => {
+      animationImages.push(`${w.id}_throw.png`);
     });
 
     const allPaths = [...new Set([...coreImages, ...animationImages])].map(p => `${assetBase}${p}`);
@@ -154,7 +160,7 @@ const App: React.FC = () => {
               window.assetMap.set(path, blobUrl);
             }
           } catch (err) {
-            // Silently ignore 404s
+            // Silently ignore 404s for non-existent optional textures
           } finally {
             loadedCount++;
             setLoadProgress(prev => prev + 1);
@@ -202,7 +208,6 @@ const App: React.FC = () => {
     const nextLvl = currentData.level + 1;
     const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
     let newData = { ...currentData, level: nextLvl, exp: 0 };
-    // 基础血量从300开始成长
     newData.maxHp = 290 + nextLvl * 10;
     const stats = ['str', 'agi', 'spd'] as const;
     const randomStat = stats[Math.floor(Math.random() * stats.length)];
@@ -239,10 +244,6 @@ const App: React.FC = () => {
     setLevelUpResults(results);
   };
 
-  const handleLevelUpManual = () => {
-    handleLevelUp(player);
-  };
-
   const handleBattleWin = (gainedGold: number, gainedExp: number) => {
     setBattleResult({ isWin: true, gold: gainedGold, exp: gainedExp });
     let newExp = player.exp + gainedExp;
@@ -261,7 +262,7 @@ const App: React.FC = () => {
     else setPlayer(tempPlayer);
   };
 
-  const startCombat = (mode: 'NORMAL' | 'SPECIAL') => {
+  const startCombat = (mode: SpecialCombatMode) => {
     setCombatMode(mode);
     setView('COMBAT');
   };
@@ -338,7 +339,8 @@ const App: React.FC = () => {
           <Profile player={player} isDebugMode={isDebugMode} />
           <div className="space-y-3 md:space-y-4">
             <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
-            <button onClick={() => startCombat('SPECIAL')} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-indigo-900/30"><span>🔱</span> <span>特殊挑战 (1/5/9/14)</span></button>
+            <button onClick={() => startCombat('ELITE')} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-indigo-900/30"><span>🔱</span> <span>精英挑战 (综合武艺)</span></button>
+            <button onClick={() => startCombat('PROJECTILE')} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-emerald-200 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-emerald-900/30"><span>🎯</span> <span>暗器大师挑战 (纯飞行道具)</span></button>
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <button onClick={() => setView('SKILLS')} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">📜 秘籍</button>
               <button onClick={() => setView('DRESSING')} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 transition-all active:scale-95">👗 装扮</button>
@@ -347,7 +349,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {view === 'COMBAT' && <Combat player={player} isSpecial={combatMode === 'SPECIAL'} isDebugMode={isDebugMode} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
+      {view === 'COMBAT' && <Combat player={player} specialMode={combatMode} isDebugMode={isDebugMode} onWin={handleBattleWin} onLoss={handleBattleLoss} />}
       {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />}
       {view === 'SKILLS' && <SkillList player={player} onBack={() => setView('HOME')} />}
       {view === 'TEST' && <TestPanel player={player} isDebugMode={isDebugMode} onBack={() => setView('HOME')} />}

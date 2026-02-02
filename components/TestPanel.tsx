@@ -13,6 +13,7 @@ interface Projectile {
   id: number;
   startX: number;
   targetX: number;
+  weaponId?: string;
 }
 
 const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
@@ -53,24 +54,20 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
     switch (module) {
       case 'CLEAVE':
-        // 帧1: 迅猛起跳
         setMoveDuration(120);
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
         setOffset({ x: 64, y: -60 });
         await new Promise(r => setTimeout(r, 120));
         
-        // 帧2: 空中最高点
         setMoveDuration(300);
         setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
         setOffset({ x: dir, y: -260 });
         await new Promise(r => setTimeout(r, 300));
         
-        // 落地 Descent
         setMoveDuration(80);
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
         
-        // 帧3: 落地劈砍 (触发震动)
         setVisual({ state: 'CLEAVE', frame: 3, weaponId: currentWeaponId });
         setShaking(true);
         setTimeout(() => setShaking(false), 500);
@@ -140,8 +137,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                   const p2Id = ++projectileCounter.current;
                   setProjectiles(prev => [
                     ...prev, 
-                    { id: p1Id, startX, targetX },
-                    { id: p2Id, startX, targetX }
+                    { id: p1Id, startX, targetX, weaponId: currentWeaponId },
+                    { id: p2Id, startX, targetX, weaponId: currentWeaponId }
                   ]);
                   setTimeout(() => {
                     setProjectiles(prev => prev.filter(p => p.id !== p1Id && p.id !== p2Id));
@@ -154,7 +151,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         break;
 
       default:
-        // Other visual states like HURT
         setVisual({ state: module as any, frame: 1, weaponId: currentWeaponId });
         await new Promise(r => setTimeout(r, 800));
     }
@@ -195,19 +191,28 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-slate-100 to-transparent pointer-events-none z-10"></div>
           <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-slate-100 to-transparent pointer-events-none z-10"></div>
           <div className="absolute inset-0 z-50 pointer-events-none">
-             {projectiles.map((p, idx) => (
-               <div 
-                 key={p.id}
-                 className="absolute bottom-[32%] w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444] animate-projectile-lab"
-                 style={{
-                   left: `${p.startX}px`,
-                   '--tx': `${p.targetX - p.startX}px`,
-                   '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
-                 } as any}
-               >
-                 <div className="w-full h-full bg-white/30 rounded-full"></div>
-               </div>
-             ))}
+             {projectiles.map((p, idx) => {
+               const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
+               return (
+                 <div 
+                   key={p.id}
+                   className="absolute bottom-[12%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile"
+                   style={{
+                     left: `${p.startX}px`,
+                     '--tx': `${p.targetX - p.startX}px`,
+                     '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
+                   } as any}
+                 >
+                   {weaponImg ? (
+                     <img src={weaponImg} className="w-full h-full object-contain drop-shadow-xl" alt="projectile" />
+                   ) : (
+                     <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444]">
+                       <div className="w-full h-full bg-white/30 rounded-full"></div>
+                     </div>
+                   )}
+                 </div>
+               );
+             })}
           </div>
           <div className="absolute top-8 left-8 flex gap-6 z-20">
             <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">State</span><span className="font-mono font-black text-slate-800 text-2xl">{visual.state}</span></div>
@@ -281,13 +286,13 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes vibrate { 0% { transform: translate(0,0); } 10% { transform: translate(-2px, -2px); } 20% { transform: translate(2px, -2px); } 30% { transform: translate(-2px, 2px); } 40% { transform: translate(2px, 2px); } 50% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, -2px); } 70% { transform: translate(-2px, 2px); } 80% { transform: translate(2px, 2px); } 90% { transform: translate(-2px, -2px); } 100% { transform: translate(0,0); } }
         .animate-vibrate { animation: vibrate 0.1s linear infinite; }
-        @keyframes projectile-lab-fly {
-          0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+        @keyframes projectile-fly {
+          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
           15% { opacity: 1; }
-          100% { transform: translate(var(--tx), -30px) scale(1.2); opacity: 1; }
+          100% { transform: translate(var(--tx), -30px) scale(1.1) rotate(1080deg); opacity: 1; }
         }
-        .animate-projectile-lab {
-          animation: projectile-lab-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards;
+        .animate-projectile {
+          animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards;
         }
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }

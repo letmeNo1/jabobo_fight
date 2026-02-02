@@ -92,7 +92,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         const swingX = f === 4 ? 'translateX(25px)' : '';
         return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(-8px)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
         return f === 2 
           ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
