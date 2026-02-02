@@ -107,6 +107,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   };
 
   const showBaseImage = !state || !STATE_CONFIGS[state];
+  const charFilterClass = isNpc ? 'filter hue-rotate-[180deg] brightness-90' : '';
 
   return (
     <div 
@@ -124,7 +125,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       <div 
         className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
           ${isDizzy ? 'animate-dizzy filter grayscale contrast-125' : ''} 
-          ${isNpc ? 'filter hue-rotate-[180deg] brightness-90' : ''}
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
         `}
         style={{ 
@@ -134,7 +134,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       >
         <img 
           src={getAssetUrl(`${basePath}character.png`)} 
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-200"
+          className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-200 ${charFilterClass}`}
           alt="base"
           style={{ zIndex: 5, opacity: showBaseImage ? 1 : 0 }}
         />
@@ -171,7 +171,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                 <img 
                   key={`char-${sName}-${frameIndex}`}
                   src={getAssetUrl(`${basePath}${config.prefix}${frameIndex}.png`)}
-                  className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
+                  className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass}`}
                   style={{ 
                       opacity: isTargetFrame ? 1 : 0,
                       zIndex: isTargetFrame ? 20 : 10,

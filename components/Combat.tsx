@@ -99,9 +99,10 @@ const Combat: React.FC<CombatProps> = ({ player, isSpecial = false, isDebugMode 
   useEffect(() => {
     const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
     
-    // 如果是特殊对决，固定武器为 w1, w5, w9
+    // 如果是特殊对决，固定武器为 w1 (方天画戟), w5 (青龙偃月刀), w9 (红缨枪)
     const npcWeapons = isSpecial ? ['w1', 'w5', 'w9'] : [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
-    const npcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
+    // 特殊对决不携带任何技能
+    const npcSkills = isSpecial ? [] : [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
 
     const npc: Fighter = {
       name: isSpecial ? '精英武学大师' : '神秘挑战者', 
