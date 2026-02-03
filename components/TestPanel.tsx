@@ -161,22 +161,25 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           for(let i = 1; i <= 3; i++) {
             setVisual({ state: 'THROW', frame: i, weaponId: currentWeaponId });
             if (i === actionSfxFrame) playSFX(currentWeapon?.type === WeaponType.THROW ? actionSfx : 'throw_light');
+            
             if (i === 2) {
                 const mainRect = mainContainerRef.current?.getBoundingClientRect();
                 const charRect = charContainerRef.current?.getBoundingClientRect();
                 if (mainRect && charRect) {
                   const startX = (charRect.left - mainRect.left + charRect.width / 2);
                   const targetX = startX + (isMobile ? 300 : 400);
-                  const p1Id = ++projectileCounter.current;
-                  const p2Id = ++projectileCounter.current;
-                  setProjectiles(prev => [
-                    ...prev, 
-                    { id: p1Id, startX, targetX, weaponId: currentWeaponId },
-                    { id: p2Id, startX, targetX, weaponId: currentWeaponId }
-                  ]);
-                  setTimeout(() => {
-                    setProjectiles(prev => prev.filter(p => p.id !== p1Id && p.id !== p2Id));
-                  }, 1000);
+                  
+                  // 实验室连续发射测试
+                  const projectileCount = 3;
+                  for (let j = 0; j < projectileCount; j++) {
+                    setTimeout(() => {
+                      const pId = ++projectileCounter.current;
+                      setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: currentWeaponId }]);
+                      setTimeout(() => {
+                        setProjectiles(prev => prev.filter(p => p.id !== pId));
+                      }, 1000);
+                    }, j * 120);
+                  }
                 }
             }
             await new Promise(r => setTimeout(r, 120));
@@ -233,7 +236,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                      bottom: configSettings.combat.spacing.testProjectileBottomPC,
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
-                     '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
+                     '--delay': `0s`
                    } as any}
                  >
                    {weaponImg ? (
@@ -328,7 +331,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           100% { transform: translate(var(--tx), -30px) scale(1.1) rotate(1080deg); opacity: 1; }
         }
         .animate-projectile {
-          animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards;
+          animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }

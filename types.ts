@@ -25,7 +25,6 @@ export interface Weapon {
   module: AttackModule; // 绑定的动作模组
   sfx?: string; // 绑定的动作/挥动音效ID
   sfxFrame?: number; // 指定触发动作音效的动画帧 (1-based)
-  hitSfx?: string; // 绑定的受击音效ID
 }
 
 export interface Skill {
@@ -37,7 +36,6 @@ export interface Skill {
   module?: AttackModule; // 主动技能绑定的动作模组
   sfx?: string; // 绑定的释放音效ID
   sfxFrame?: number; // 指定触发释放音效的动画帧 (1-based)
-  hitSfx?: string; // 绑定的受击音效ID
 }
 
 export interface Dressing {

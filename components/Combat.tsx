@@ -177,7 +177,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       let activeWeaponId = atk.weaponSkin;
       let actionSfx = 'punch'; 
       let actionSfxFrame = 1;
-      let hitSfx: string = 'hurt'; 
       let comboCount = 1;
 
       const roll = Math.random();
@@ -193,7 +192,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         activeWeaponId = skill.id;
         actionSfx = skill.sfx || 'skill_cast';
         actionSfxFrame = skill.sfxFrame || 1;
-        hitSfx = skill.hitSfx || 'skill_cast';
         
         if (skill.id === 's21') {
           const heal = Math.floor(atk.maxHp * 0.25);
@@ -214,7 +212,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         activeWeaponId = weapon.id;
         actionSfx = weapon.sfx || 'slash';
         actionSfxFrame = weapon.sfxFrame || 1;
-        hitSfx = weapon.hitSfx || 'hurt';
         if (weapon.id === 'w5' && Math.random() < 0.2) comboCount = 2;
       } else {
         actionDesc = "打出一记正拳";
@@ -223,7 +220,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         activeWeaponId = undefined;
         actionSfx = 'punch';
         actionSfxFrame = 1;
-        hitSfx = 'hurt';
       }
 
       const atkSetter = isP ? setPVisual : setNVisual;
@@ -247,7 +243,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             if (actionSfxFrame === 3) playSFX(actionSfx);
             setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 80));
             atkSetter({ state: 'CLEAVE', frame: 3, weaponId: activeWeaponId }); setShaking('SCREEN'); 
-            calculateHit(Math.floor(dmg * 1.2), isP, hitType, hitSfx); await new Promise(r => setTimeout(r, 600));
+            calculateHit(Math.floor(dmg * 1.2), isP, hitType); await new Promise(r => setTimeout(r, 600));
             setShaking(null); break;
           case 'PIERCE': 
             setMoveDuration(250); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
@@ -255,7 +251,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             for (let i = 1; i <= 4; i++) {
                 atkSetter({ state: 'PIERCE', frame: i, weaponId: activeWeaponId });
                 if (i === actionSfxFrame) playSFX(actionSfx);
-                if (i === 2) calculateHit(Math.floor(dmg), isP, hitType, hitSfx);
+                if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
                 await new Promise(r => setTimeout(r, 100));
             } break;
           case 'SWING': 
@@ -268,27 +264,43 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             if (actionSfxFrame === 4) playSFX(actionSfx);
             setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); atkSetter({ state: 'SWING', frame: 4, weaponId: activeWeaponId });
             await new Promise(r => setTimeout(r, 80)); 
-            calculateHit(Math.floor(dmg), isP, hitType, hitSfx);
+            calculateHit(Math.floor(dmg), isP, hitType);
             setShaking('SCREEN'); setTimeout(() => setShaking(null), 150); await new Promise(r => setTimeout(r, 400)); break;
           case 'THROW': 
             setFlash(isP ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)');
-            for(let i = 1; i <= 3; i++) {
-              atkSetter({ state: 'THROW', frame: i, weaponId: activeWeaponId });
-              if (i === actionSfxFrame) playSFX(actionSfx);
-              if (i === 2) {
-                const containerRect = containerRef.current?.getBoundingClientRect();
-                const pRect = pRef.current?.getBoundingClientRect();
-                if (containerRect && pRect && nRef.current) {
-                  const nRect = nRef.current.getBoundingClientRect();
-                  const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
-                  const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
-                  const startX = isP ? pCenterX : nCenterX; const targetX = isP ? nCenterX : pCenterX;
-                  const p1Id = ++projectileCounter.current;
-                  setProjectiles(prev => [...prev, { id: p1Id, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
-                  setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType, hitSfx); }, 400); 
-                  setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== p1Id)), 1000);
-                }
-              } await new Promise(r => setTimeout(r, 150));
+            // 扔两次，保持跟实验室一致
+            for (let loop = 0; loop < 2; loop++) {
+              for(let i = 1; i <= 3; i++) {
+                atkSetter({ state: 'THROW', frame: i, weaponId: activeWeaponId });
+                if (i === actionSfxFrame) playSFX(actionSfx);
+                if (i === 2) {
+                  const containerRect = containerRef.current?.getBoundingClientRect();
+                  const pRect = pRef.current?.getBoundingClientRect();
+                  if (containerRect && pRect && nRef.current) {
+                    const nRect = nRef.current.getBoundingClientRect();
+                    const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
+                    const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
+                    const startX = isP ? pCenterX : nCenterX; 
+                    const targetX = isP ? nCenterX : pCenterX;
+                    
+                    // 连续连射 3 枚飞行物
+                    const projectileCount = 3;
+                    for (let j = 0; j < projectileCount; j++) {
+                      setTimeout(() => {
+                        const pId = ++projectileCounter.current;
+                        setProjectiles(prev => [...prev, { id: pId, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
+                        
+                        // 只在最后一轮的飞行物到达时结算伤害
+                        if (loop === 1 && j === projectileCount - 1) {
+                           setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType); }, 450); 
+                        }
+
+                        setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
+                      }, j * 100); 
+                    }
+                  }
+                } await new Promise(r => setTimeout(r, 120));
+              }
             } setFlash(null); break;
           case 'SLASH': 
             setMoveDuration(300); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
@@ -296,7 +308,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             for(let i=1; i<=3; i++) { 
               atkSetter({ state: 'SLASH', frame: i, weaponId: activeWeaponId });
               if (i === actionSfxFrame) playSFX(actionSfx);
-              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType, hitSfx);
+              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
               await new Promise(r => setTimeout(r, 110));
             } break;
           case 'PUNCH':
@@ -305,7 +317,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             for(let i=1; i<=2; i++) {
               atkSetter({ state: 'PUNCH', frame: i, weaponId: undefined });
               if (i === actionSfxFrame) playSFX(actionSfx);
-              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType, hitSfx);
+              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
               await new Promise(r => setTimeout(r, 150));
             } break;
         }
@@ -324,8 +336,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
     return () => clearTimeout(combatTimer);
   }, [turn, battleOver, fighters]);
 
-  const calculateHit = (baseDmg: number, isPAttacking: boolean, type: string, hitSfx: string) => {
-    // 关键点：副作用（播放音效）必须放在状态更新函数外部执行
+  const calculateHit = (baseDmg: number, isPAttacking: boolean, type: string) => {
     let finalDmg = baseDmg;
     let isCrit = Math.random() < 0.1;
     if (isCrit) finalDmg = Math.floor(finalDmg * 1.5);
@@ -354,14 +365,10 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         setEffects(e => [...e, { id: ++effectCounter.current, text: `REFLECT ${finalDmg}`, isPlayer: isPAttacking, color: '#facc15' }]);
         atkVisualSetter(v => ({ ...v, state: 'HURT', frame: 1 }));
         setTimeout(() => atkVisualSetter(v => ({ ...v, state: 'IDLE', frame: 1 })), 600);
-        playSFX(hitSfx); // 这种情况下也播放受击
         return next;
       }
 
       defender.hp = Math.max(0, defender.hp - finalDmg);
-      
-      // 成功命中，播放音效
-      playSFX(hitSfx);
       
       setShaking(isPAttacking ? 'N' : 'P');
       const effectId = ++effectCounter.current;
