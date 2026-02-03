@@ -286,6 +286,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
   const currentVsTop = isMobile ? config.combat.spacing.vsTextTopMobile : config.combat.spacing.vsTextTopPC;
   const currentSidePadding = isMobile ? config.combat.spacing.sidePaddingMobile : config.combat.spacing.sidePaddingPC;
   const currentGroundHeight = isMobile ? config.combat.spacing.groundHeightMobile : config.combat.spacing.groundHeightPC;
+  const currentProjectileBottom = isMobile ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC;
 
   return (
     <div ref={containerRef} className={`fixed inset-0 z-[200] bg-black flex flex-col h-screen w-screen overflow-hidden ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
@@ -302,7 +303,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
               {projectiles.map((p, idx) => {
                 const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
                 return (
-                  <div key={p.id} className={`absolute ${config.combat.projectiles.sizeMobile} ${config.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`} style={{ bottom: config.combat.projectiles.bottomPosition, left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px`, '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}` } as any}>
+                  <div key={p.id} className={`absolute ${config.combat.projectiles.sizeMobile} ${config.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`} style={{ bottom: currentProjectileBottom, left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px`, '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}` } as any}>
                     {weaponImg ? <img src={weaponImg} className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" alt="projectile" /> : <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white]"><div className="w-full h-full bg-white/40 rounded-full blur-[2px]"></div></div>}
                   </div>
                 );

@@ -18,8 +18,6 @@ export const config = {
       "maxScale": 1
     },
     "projectiles": {
-      "bottomPosition": "12%",
-      "testBottomPosition": "52%",
       "sizeMobile": "w-12 h-12",
       "sizePC": "md:w-16 md:h-16"
     },
@@ -37,7 +35,11 @@ export const config = {
       "groundHeightPC": 288,
       "groundHeightMobile": 240,
       "vsTextTopPC": "22%",
-      "vsTextTopMobile": "18%"
+      "vsTextTopMobile": "18%",
+      "projectileBottomPC": "12%",
+      "projectileBottomMobile": "18%",
+      "testProjectileBottomPC": "52%",
+      "testProjectileBottomMobile": "48%"
     }
   },
   "visuals": {

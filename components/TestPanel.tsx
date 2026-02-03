@@ -187,6 +187,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   };
 
   const currentWeapon = WEAPONS.find(w => w.id === selectedWeaponId);
+  const currentTestProjectileBottom = isMobile ? configSettings.combat.spacing.testProjectileBottomMobile : configSettings.combat.spacing.testProjectileBottomPC;
 
   const modules: { id: AttackModule | 'HURT' | 'IDLE'; label: string; color: string }[] = [
     { id: 'CLEAVE', label: '天崩地裂 (砸地)', color: 'bg-red-600' },
@@ -217,7 +218,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                    key={p.id}
                    className={`absolute ${configSettings.combat.projectiles.sizeMobile} ${configSettings.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
                    style={{
-                     bottom: configSettings.combat.projectiles.testBottomPosition,
+                     bottom: currentTestProjectileBottom,
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
                      '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
