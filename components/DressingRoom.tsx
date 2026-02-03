@@ -2,6 +2,7 @@
 import React from 'react';
 import { CharacterData, Dressing } from '../types';
 import { DRESSINGS } from '../constants';
+import { playUISound } from '../utils/audio';
 
 interface DressingRoomProps {
   player: CharacterData;
@@ -15,12 +16,14 @@ const DressingRoom: React.FC<DressingRoomProps> = ({ player, setPlayer, onBack }
     
     if (isUnlocked) {
       // Equip
+      playUISound('EQUIP');
       setPlayer(prev => ({
         ...prev,
         dressing: { ...prev.dressing, [d.part]: d.id === prev.dressing[d.part] ? '' : d.id }
       }));
     } else if (player.gold >= d.price) {
       // Buy and equip
+      playUISound('BUY');
       setPlayer(prev => {
         const newData = {
           ...prev,
@@ -37,6 +40,7 @@ const DressingRoom: React.FC<DressingRoomProps> = ({ player, setPlayer, onBack }
         return newData;
       });
     } else {
+      playUISound('CLICK');
       alert('金币不足！快去战斗赚钱吧。');
     }
   };
@@ -44,10 +48,10 @@ const DressingRoom: React.FC<DressingRoomProps> = ({ player, setPlayer, onBack }
   const parts: ('HEAD' | 'BODY' | 'WEAPON')[] = ['HEAD', 'BODY', 'WEAPON'];
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden h-full">
+    <div className="bg-white rounded-2xl shadow-xl overflow-hidden h-full animate-popIn">
       <div className="p-6 border-b flex justify-between items-center bg-purple-50">
         <h2 className="text-xl font-bold text-purple-700">换装商店</h2>
-        <button onClick={onBack} className="text-gray-400 hover:text-gray-600 font-bold">返回主页</button>
+        <button onClick={() => {playUISound('CLICK'); onBack();}} className="text-gray-400 hover:text-gray-600 font-bold">返回主页</button>
       </div>
       
       <div className="p-6 space-y-8">

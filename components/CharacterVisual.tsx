@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import configSettings from '../config';
 
 // Character visual states for animations
@@ -18,7 +18,7 @@ interface CharacterVisualProps {
     weapon?: string;
   };
   isMobile?: boolean;
-  debug?: boolean; // New debug toggle
+  debug?: boolean; 
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -33,13 +33,20 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   debug = false
 }) => {
   const basePath = 'Images/';
-  
-  // 辅助函数：从全局缓存中获取 Blob URL，彻底避免实时请求
-  const getAssetUrl = (path: string) => {
-    if (window.assetMap && window.assetMap.has(path)) {
-      return window.assetMap.get(path)!;
+  const [imageError, setImageError] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (path: string) => {
+    setImageError(prev => ({ ...prev, [path]: true }));
+  };
+
+  const findAsset = (paths: string[]): string | null => {
+    if (!window.assetMap) return null;
+    for (const path of paths) {
+      if (window.assetMap.has(path) && !imageError[path]) {
+        return window.assetMap.get(path)!;
+      }
     }
-    return path;
+    return null;
   };
 
   const BASE_SCALE = configSettings.visuals.character.baseScale; 
@@ -108,7 +115,33 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     }
   };
 
-  const showBaseImage = !state || !STATE_CONFIGS[state];
+  // CSS Fallback rendering for missing assets
+  const renderFallbackCharacter = () => {
+    const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
+    return (
+      <div className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
+        {/* Character Face */}
+        <div className="flex gap-4 mb-4">
+          <div className="w-3 h-6 bg-white rounded-full animate-bounce"></div>
+          <div className="w-3 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+        </div>
+        <div className="absolute bottom-6 w-12 h-4 bg-white/20 rounded-full"></div>
+        {/* Simple blush */}
+        <div className="absolute left-6 top-20 w-4 h-2 bg-rose-400/40 rounded-full blur-sm"></div>
+        <div className="absolute right-6 top-20 w-4 h-2 bg-rose-400/40 rounded-full blur-sm"></div>
+      </div>
+    );
+  };
+
+  const renderFallbackWeapon = () => {
+    if (!weaponId || state === 'THROW') return null;
+    return (
+      <div className="absolute bottom-10 right-0 w-12 h-12 bg-slate-700 rounded-lg border-2 border-slate-400 shadow-lg flex items-center justify-center rotate-12 z-40">
+        <span className="text-xl">⚔️</span>
+      </div>
+    );
+  };
+
   const charFilterClass = isNpc ? 'filter hue-rotate-[180deg] brightness-90' : '';
 
   return (
@@ -134,13 +167,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           transition: (state === 'IDLE' || state === 'SWING' || state === 'PUNCH' || state === 'CLEAVE' || state === 'JUMP') ? 'none' : 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)' 
         }}
       >
-        <img 
-          src={getAssetUrl(`${basePath}character.png`)} 
-          className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-200 ${charFilterClass}`}
-          alt="base"
-          style={{ zIndex: 5, opacity: showBaseImage ? 1 : 0 }}
-        />
-
         {Object.entries(STATE_CONFIGS).map(([sName, config]) => {
           const isActiveState = state === sName;
           if (!isActiveState) return null;
@@ -150,48 +176,43 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           return Array.from({ length: config.count }).map((_, i) => {
             const frameIndex = i + 1;
             const isTargetFrame = (frameIndex === currentFrame);
-            
-            // 资源回退逻辑：如果当前帧素材不存在，回退到 Idle 帧
-            let weaponSrc = "";
-            if (weaponId) {
-              const weaponFramePath = `${basePath}${weaponId}_${config.prefix}${frameIndex}.png`;
-              const weaponIdlePath = `${basePath}${weaponId}_idle1.png`;
-              
-              if (window.assetMap?.has(weaponFramePath)) {
-                weaponSrc = window.assetMap.get(weaponFramePath)!;
-              } else if (window.assetMap?.has(weaponIdlePath)) {
-                // 回退到武器的 Idle1 帧
-                weaponSrc = window.assetMap.get(weaponIdlePath)!;
-              } else {
-                // 如果本地数据库还没准备好或完全缺失，尝试直接请求
-                weaponSrc = weaponFramePath;
-              }
+            if (!isTargetFrame) return null;
+
+            const charUrl = findAsset([
+              `${basePath}${config.prefix}${frameIndex}.png`,
+              `${basePath}${config.prefix}1.png`,
+              `${basePath}idle1.png`,
+              `${basePath}character.png`
+            ]);
+
+            let weaponUrl: string | null = null;
+            if (weaponId && state !== 'THROW') {
+              weaponUrl = findAsset([
+                `${basePath}${weaponId}_${config.prefix}${frameIndex}.png`,
+                `${basePath}${weaponId}_${config.prefix}1.png`,
+                `${basePath}${weaponId}_idle1.png`
+              ]);
             }
 
             return (
               <React.Fragment key={`${sName}-${frameIndex}`}>
-                <img 
-                  key={`char-${sName}-${frameIndex}`}
-                  src={getAssetUrl(`${basePath}${config.prefix}${frameIndex}.png`)}
-                  className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass}`}
-                  style={{ 
-                      opacity: isTargetFrame ? 1 : 0,
-                      zIndex: isTargetFrame ? 20 : 10,
-                      transition: 'none' 
-                  }}
-                />
-                {weaponId && (
+                {charUrl ? (
                   <img 
-                    key={`weapon-${weaponId}-${sName}-${frameIndex}`}
-                    src={weaponSrc}
-                    className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none"
-                    style={{ 
-                        opacity: isTargetFrame ? 1 : 0,
-                        zIndex: isTargetFrame ? 30 : 15,
-                        transition: 'none'
-                    }}
+                    src={charUrl}
+                    onError={() => handleImageError(charUrl)}
+                    className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass} z-[20]`}
+                    style={{ transition: 'none' }}
                   />
-                )}
+                ) : renderFallbackCharacter()}
+                
+                {weaponId && weaponUrl ? (
+                  <img 
+                    src={weaponUrl}
+                    onError={() => handleImageError(weaponUrl!)}
+                    className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
+                    style={{ transition: 'none' }}
+                  />
+                ) : renderFallbackWeapon()}
               </React.Fragment>
             );
           });

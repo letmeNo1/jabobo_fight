@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, Weapon, AttackModule } from '../types';
-import { DRESSINGS, WEAPONS } from '../constants';
+// Added WeaponType to the imports below to resolve reference errors in the component.
+import { CharacterData, Weapon, AttackModule, WeaponType } from '../types';
+import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
+import { playSFX, playUISound } from '../utils/audio';
 import configSettings from '../config';
 
 interface TestPanelProps {
@@ -53,7 +55,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     };
   }, []);
 
-  // 当选择的武器变化时，立即更新空闲状态下的武器预览
   useEffect(() => {
     if (!isAnimating) {
       setVisual(v => ({ ...v, weaponId: selectedWeaponId }));
@@ -64,25 +65,30 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     if (isAnimating) return;
     setIsAnimating(true);
     
-    // 从配置中获取区分平台的距离
     const meleeDistance = isMobile ? configSettings.combat.spacing.meleeDistanceMobile : configSettings.combat.spacing.meleeDistancePC;
     const baseActionOffset = isMobile ? configSettings.combat.spacing.baseActionOffsetMobile : configSettings.combat.spacing.baseActionOffsetPC;
     
-    const dir = meleeDistance * 0.4; // 实验室中位移幅度稍减
+    const dir = meleeDistance * 0.4;
     const currentWeaponId = selectedWeaponId;
+    const currentWeapon = WEAPONS.find(w => w.id === currentWeaponId);
+    const actionSfx = currentWeapon?.sfx || 'slash';
+    const actionSfxFrame = currentWeapon?.sfxFrame || 1;
 
     switch (module) {
       case 'CLEAVE':
+        if (actionSfxFrame === 1) playSFX(actionSfx);
         setMoveDuration(120);
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
         setOffset({ x: baseActionOffset, y: -60 });
         await new Promise(r => setTimeout(r, 120));
         
+        if (actionSfxFrame === 2) playSFX(actionSfx);
         setMoveDuration(300);
         setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
         setOffset({ x: dir, y: -260 });
         await new Promise(r => setTimeout(r, 300));
         
+        if (actionSfxFrame === 3) playSFX(actionSfx);
         setMoveDuration(80);
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 80));
@@ -98,9 +104,11 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 350));
+        
         for (let loop = 0; loop < 2; loop++) {
           for (let i = 1; i <= 4; i++) {
             setVisual({ state: 'PIERCE', frame: i, weaponId: currentWeaponId });
+            if (i === actionSfxFrame) playSFX(actionSfx);
             await new Promise(r => setTimeout(r, 100));
           }
         }
@@ -111,8 +119,10 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 350));
+        
         for(let i=1; i<=3; i++){ 
           setVisual({ state: 'SLASH', frame: i, weaponId: currentWeaponId });
+          if (i === actionSfxFrame) playSFX(actionSfx);
           await new Promise(r => setTimeout(r, 110));
         }
         break;
@@ -122,8 +132,10 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setVisual({ state: 'RUN', frame: 1, weaponId: undefined });
         setOffset({ x: dir, y: 0 });
         await new Promise(r => setTimeout(r, 250));
+        
         for(let i=1; i<=2; i++) {
           setVisual({ state: 'PUNCH', frame: i, weaponId: undefined });
+          if (i === actionSfxFrame) playSFX('punch');
           await new Promise(r => setTimeout(r, 150));
         }
         break;
@@ -133,8 +145,10 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setOffset({ x: baseActionOffset, y: 0 });
         for(let i=1; i<=3; i++) {
           setVisual({ state: 'SWING', frame: i, weaponId: currentWeaponId });
+          if (i === actionSfxFrame) playSFX(actionSfx);
           await new Promise(r => setTimeout(r, 200));
         }
+        if (actionSfxFrame === 4) playSFX(actionSfx);
         setMoveDuration(80);
         setOffset({ x: dir, y: 0 });
         setVisual({ state: 'SWING', frame: 4, weaponId: currentWeaponId });
@@ -146,6 +160,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         for (let loop = 0; loop < 2; loop++) {
           for(let i = 1; i <= 3; i++) {
             setVisual({ state: 'THROW', frame: i, weaponId: currentWeaponId });
+            if (i === actionSfxFrame) playSFX(currentWeapon?.type === WeaponType.THROW ? actionSfx : 'throw_light');
             if (i === 2) {
                 const mainRect = mainContainerRef.current?.getBoundingClientRect();
                 const charRect = charContainerRef.current?.getBoundingClientRect();
@@ -186,9 +201,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     return DRESSINGS.find(d => d.id === player.dressing[part])?.name;
   };
 
-  const currentWeapon = WEAPONS.find(w => w.id === selectedWeaponId);
-  const currentTestProjectileBottom = isMobile ? configSettings.combat.spacing.testProjectileBottomMobile : configSettings.combat.spacing.testProjectileBottomPC;
-
   const modules: { id: AttackModule | 'HURT' | 'IDLE'; label: string; color: string }[] = [
     { id: 'CLEAVE', label: '天崩地裂 (砸地)', color: 'bg-red-600' },
     { id: 'SLASH', label: '追风逐影 (横斩)', color: 'bg-orange-600' },
@@ -218,7 +230,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                    key={p.id}
                    className={`absolute ${configSettings.combat.projectiles.sizeMobile} ${configSettings.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
                    style={{
-                     bottom: currentTestProjectileBottom,
+                     bottom: configSettings.combat.spacing.testProjectileBottomPC,
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
                      '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
@@ -264,6 +276,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                   <button 
                     key={w.id} 
                     onClick={() => {
+                      playUISound('CLICK');
                       setSelectedWeaponId(w.id);
                       runModule(w.module);
                     }}
@@ -285,6 +298,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                     key={m.id} 
                     disabled={isAnimating && m.id !== 'IDLE'} 
                     onClick={() => {
+                      playUISound('CLICK');
                       if(m.id === 'IDLE') {
                         setVisual(v => ({...v, state:'IDLE', frame:1, weaponId: selectedWeaponId}));
                         setOffset({x:0,y:0});
