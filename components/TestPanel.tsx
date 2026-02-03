@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, Weapon, AttackModule } from '../types';
 import { DRESSINGS, WEAPONS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
+import configSettings from '../config.json';
 
 interface TestPanelProps {
   player: CharacterData;
@@ -51,12 +53,13 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     setIsAnimating(true);
     const dir = 200; 
     const currentWeaponId = selectedWeaponId;
+    const baseActionOffset = configSettings.combat.spacing.baseActionOffset;
 
     switch (module) {
       case 'CLEAVE':
         setMoveDuration(120);
         setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: 64, y: -60 });
+        setOffset({ x: baseActionOffset, y: -60 });
         await new Promise(r => setTimeout(r, 120));
         
         setMoveDuration(300);
@@ -111,7 +114,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
       case 'SWING':
         setMoveDuration(600);
-        setOffset({ x: 64, y: 0 });
+        setOffset({ x: baseActionOffset, y: 0 });
         for(let i=1; i<=3; i++) {
           setVisual({ state: 'SWING', frame: i, weaponId: currentWeaponId });
           await new Promise(r => setTimeout(r, 200));
@@ -196,8 +199,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                return (
                  <div 
                    key={p.id}
-                   className="absolute bottom-[52%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile"
+                   className={`absolute ${configSettings.combat.projectiles.sizeMobile} ${configSettings.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
                    style={{
+                     bottom: configSettings.combat.projectiles.testBottomPosition,
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
                      '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`

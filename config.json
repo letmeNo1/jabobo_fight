@@ -1,0 +1,75 @@
+
+{
+  "layout": {
+    "_备注": "全局页面布局配置",
+    "maxWidthHome": "max-w-4xl",
+    "__maxWidthHome_说明": "主页最大宽度 (约 896px)",
+    "maxWidthCombat": "max-w-6xl",
+    "__maxWidthCombat_说明": "战斗界面最大宽度 (约 1152px)",
+    "maxWidthTest": "max-w-[1440px]",
+    "__maxWidthTest_说明": "实验室界面最大宽度",
+    "paddingMobile": "p-3",
+    "__paddingMobile_说明": "手机端容器边距",
+    "paddingPC": "md:p-8",
+    "__paddingPC_说明": "PC端容器边距"
+  },
+  "combat": {
+    "_备注": "战斗系统核心参数",
+    "status": {
+      "_备注": "上方血条状态栏配置",
+      "widthMobile": "w-[85%]",
+      "__widthMobile_说明": "手机端血条宽度占比 (已加宽)",
+      "widthPC": "md:w-[60%]",
+      "__widthPC_说明": "PC端血条宽度占比",
+      "maxWidth": "max-w-[800px]",
+      "__maxWidth_说明": "状态栏最大物理宽度"
+    },
+    "uiScale": {
+      "_备注": "UI 自动缩放逻辑",
+      "baseWidth": 1000,
+      "__baseWidth_说明": "计算缩放比例的基准宽度 (px)",
+      "maxScale": 1,
+      "__maxScale_说明": "最大缩放比例 (1为原始大小)"
+    },
+    "projectiles": {
+      "_备注": "暗器/飞行物表现",
+      "bottomPosition": "12%",
+      "__bottomPosition_说明": "战斗中飞行物距离地面的高度",
+      "testBottomPosition": "52%",
+      "__testBottomPosition_说明": "实验室中飞行物距离地面的高度",
+      "sizeMobile": "w-12 h-12",
+      "__sizeMobile_说明": "手机端飞行物大小",
+      "sizePC": "md:w-16 md:h-16",
+      "__sizePC_说明": "PC端飞行物大小"
+    },
+    "spacing": {
+      "_备注": "角色位移与战斗间距",
+      "meleeDistance": 576,
+      "__meleeDistance_说明": "近战攻击时的冲刺总位移 (px)",
+      "baseActionOffset": 96,
+      "__baseActionOffset_说明": "动作前摇时的微调位移 (px)",
+      "containerWidth": 1000,
+      "__containerWidth_说明": "战斗场景核心容器宽度 (px)",
+      "containerHeight": 450,
+      "__containerHeight_说明": "战斗场景核心容器高度 (px)",
+      "vsTextTop": "22%",
+      "__vsTextTop_说明": "背景 'VS' 文字的垂直位置"
+    }
+  },
+  "visuals": {
+    "_备注": "角色视觉表现参数",
+    "character": {
+      "baseScale": 1.7,
+      "__baseScale_说明": "角色图像的基础缩放倍率",
+      "containerWidth": 270,
+      "__containerWidth_说明": "单个角色渲染容器宽度",
+      "containerHeight": 310,
+      "__containerHeight_说明": "单个角色渲染容器高度",
+      "mobileWidth": "w-48",
+      "mobileHeight": "h-56",
+      "pcWidth": "w-56",
+      "pcHeight": "h-64",
+      "__size_说明": "角色在不同平台下的基础宽高类名"
+    }
+  }
+}

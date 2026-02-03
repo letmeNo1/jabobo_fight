@@ -5,6 +5,7 @@ import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
+import config from '../config.json';
 
 export type SpecialCombatMode = 'NORMAL' | 'ELITE' | 'PROJECTILE';
 
@@ -81,7 +82,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
     const handleResize = () => {
       const cw = window.innerWidth;
       setIsMobile(cw < 768);
-      setUiScale(Math.min(cw / 1000, 1));
+      setUiScale(Math.min(cw / config.combat.uiScale.baseWidth, config.combat.uiScale.maxScale));
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
       document.body.style.height = '100vh';
@@ -179,12 +180,14 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
-      const meleeDistance = 576 * dir; 
+      const meleeDistance = config.combat.spacing.meleeDistance * dir;
+      const baseActionOffset = config.combat.spacing.baseActionOffset * dir;
+
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
       switch (currentModule) {
         case 'CLEAVE': 
           setMoveDuration(120); atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: 96 * dir, y: -60 }); await new Promise(r => setTimeout(r, 120));
+          offsetSetter({ x: baseActionOffset, y: -60 }); await new Promise(r => setTimeout(r, 120));
           setMoveDuration(300); atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
           offsetSetter({ x: meleeDistance, y: -260 }); await new Promise(r => setTimeout(r, 300));
           setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 80));
@@ -202,7 +205,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             }
           } break;
         case 'SWING': 
-          setMoveDuration(600); offsetSetter({ x: 96 * dir, y: 0 });
+          setMoveDuration(600); offsetSetter({ x: baseActionOffset, y: 0 });
           for(let i=1; i<=3; i++) { atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId }); await new Promise(r => setTimeout(r, 200)); }
           setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); atkSetter({ state: 'SWING', frame: 4, weaponId: activeWeaponId });
           await new Promise(r => setTimeout(r, 80)); executeHit(Math.floor(dmg), isP, hitType);
@@ -284,19 +287,19 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
               <CombatStatus fighter={fighters.n} side="right" uiScale={uiScale} isSpecial={specialMode !== 'NORMAL'} label={specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : (customOpponent ? 'FRIEND' : 'ENEMY')} />
            </div>
            
-           <div className="absolute top-[22%] text-white/[0.02] md:text-white/10 font-black text-[2.5rem] md:text-[12rem] italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10">VS</div>
+           <div className="absolute font-black italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10 text-white/[0.02] md:text-white/10 text-[2.5rem] md:text-[12rem]" style={{ top: config.combat.spacing.vsTextTop }}>VS</div>
            
            <div className="absolute inset-0 z-[150] pointer-events-none overflow-hidden" style={{ transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               {projectiles.map((p, idx) => {
                 const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
                 return (
-                  <div key={p.id} className="absolute bottom-[12%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile" style={{ left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px`, '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}` } as any}>
+                  <div key={p.id} className={`absolute ${config.combat.projectiles.sizeMobile} ${config.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`} style={{ bottom: config.combat.projectiles.bottomPosition, left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px`, '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}` } as any}>
                     {weaponImg ? <img src={weaponImg} className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" alt="projectile" /> : <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white]"><div className="w-full h-full bg-white/40 rounded-full blur-[2px]"></div></div>}
                   </div>
                 );
               })}
            </div>
-           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: '1000px', height: '450px', transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
+           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: `${config.combat.spacing.containerWidth}px`, height: `${config.combat.spacing.containerHeight}px`, transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               <div className="relative w-full h-full flex items-end justify-center pb-0">
                 <div className="w-full h-72 flex justify-between px-12 relative">
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>

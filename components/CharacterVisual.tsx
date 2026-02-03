@@ -1,4 +1,6 @@
+
 import React from 'react';
+import configSettings from '../config.json';
 
 // Character visual states for animations
 export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
@@ -40,11 +42,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     return path;
   };
 
-  const BASE_SCALE = 1.7; 
-  const containerWidth = 270;
-  const containerHeight = 310;
-  const visualBaseWidth = isMobile ? 'w-48' : 'w-56';
-  const visualBaseHeight = isMobile ? 'h-56' : 'h-64';
+  const BASE_SCALE = configSettings.visuals.character.baseScale; 
+  const containerWidth = configSettings.visuals.character.containerWidth;
+  const containerHeight = configSettings.visuals.character.containerHeight;
+  const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
+  const visualBaseHeight = isMobile ? configSettings.visuals.character.mobileHeight : configSettings.visuals.character.pcHeight;
 
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
     HOME: { prefix: 'home', count: 2 },

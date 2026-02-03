@@ -10,6 +10,7 @@ import TestPanel from './components/TestPanel';
 import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
+import config from './config.json';
 
 declare global {
   interface Window {
@@ -213,10 +214,16 @@ const App: React.FC = () => {
     setView('COMBAT');
   };
 
+  const getViewMaxWidth = () => {
+    if (view === 'TEST') return config.layout.maxWidthTest;
+    if (view === 'COMBAT') return config.layout.maxWidthCombat;
+    return config.layout.maxWidthHome;
+  };
+
   if (loading) return <LoadingScreen progress={loadProgress} total={totalAssets} />;
 
   return (
-    <div className={`${view === 'TEST' ? 'max-w-[1440px]' : view === 'COMBAT' ? 'max-w-6xl' : 'max-w-4xl'} mx-auto p-3 md:p-8 min-h-screen font-sans text-gray-800 transition-all duration-700`}>
+    <div className={`${getViewMaxWidth()} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800 transition-all duration-700`}>
       <header className="relative z-[100] flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
         <h1 className="text-lg md:text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
         <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3">

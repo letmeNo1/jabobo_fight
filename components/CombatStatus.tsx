@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { WEAPONS, SKILLS } from '../constants';
+import config from '../config.json';
 
 interface FighterDisplay {
   name: string;
@@ -45,7 +46,7 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
 
   return (
     <div 
-      className={`absolute ${side}-0 top-0 w-[85%] md:w-[60%] max-w-[800px] pointer-events-auto ${textAlign}`}
+      className={`absolute ${side}-0 top-0 ${config.combat.status.widthMobile} ${config.combat.status.widthPC} ${config.combat.status.maxWidth} pointer-events-auto ${textAlign}`}
       style={{ transform: `scale(${uiScale})`, transformOrigin: `top ${side}` }}
     >
       <div className={`flex items-end text-white font-black mb-2 md:mb-1.5 drop-shadow-2xl uppercase tracking-tighter ${isLeft ? 'pl-2 md:pl-4' : 'pr-2 md:pr-4'}`}>
