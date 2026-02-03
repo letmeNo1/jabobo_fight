@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory, AttackModule } from '../types';
+import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory, AttackModule, Friend } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 
@@ -8,6 +9,7 @@ export type SpecialCombatMode = 'NORMAL' | 'ELITE' | 'PROJECTILE';
 interface CombatProps {
   player: CharacterData;
   specialMode?: SpecialCombatMode;
+  customOpponent?: Friend | null;
   isDebugMode?: boolean;
   onWin: (gold: number, exp: number) => void;
   onLoss: (exp: number) => void;
@@ -42,7 +44,7 @@ interface Projectile {
   weaponId?: string;
 }
 
-const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', isDebugMode = false, onWin, onLoss }) => {
+const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customOpponent = null, isDebugMode = false, onWin, onLoss }) => {
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [fighters, setFighters] = useState<{ p: Fighter; n: Fighter } | null>(null);
   const [turn, setTurn] = useState<'P' | 'N' | null>(null);
@@ -100,39 +102,60 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', isDebug
   }, []);
 
   useEffect(() => {
-    const isSpecial = specialMode !== 'NORMAL';
-    const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
-    
-    let npcWeapons: string[] = [];
-    let npcSkills: string[] = [];
-    let npcName = '神秘挑战者';
+    let npc: Fighter;
 
-    if (specialMode === 'ELITE') {
-      npcName = '精英武学大师';
-      npcWeapons = ['w1', 'w5', 'w9', 'w14', 'w21'];
-      npcSkills = [];
-    } else if (specialMode === 'PROJECTILE') {
-      npcName = '千手观音·暗器大师';
-      npcWeapons = WEAPONS.filter(w => w.module === 'THROW').map(w => w.id);
-      npcSkills = ['s19', 's22', 's25'];
+    if (customOpponent) {
+      // 如果指定了对手（例如来自江湖好友）
+      npc = {
+        name: customOpponent.name,
+        isPlayer: false,
+        hp: customOpponent.hp,
+        maxHp: customOpponent.hp,
+        str: customOpponent.str,
+        agi: customOpponent.agi,
+        spd: customOpponent.spd,
+        level: customOpponent.level,
+        weapons: customOpponent.weapons,
+        skills: customOpponent.skills,
+        weaponSkin: customOpponent.dressing.WEAPON
+      };
+      setNVisual(v => ({ ...v, weaponId: customOpponent.dressing.WEAPON }));
     } else {
-      npcWeapons = [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
-      npcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
-    }
+      // 否则使用原有的随机生成逻辑
+      const isSpecial = specialMode !== 'NORMAL';
+      const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
+      
+      let npcWeapons: string[] = [];
+      let npcSkills: string[] = [];
+      let npcName = '神秘挑战者';
 
-    const npc: Fighter = {
-      name: npcName, 
-      isPlayer: false, 
-      hp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1), 
-      maxHp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1),
-      str: 6 + npcLevel + (isSpecial ? 3 : 0), 
-      agi: 5 + npcLevel + (specialMode === 'PROJECTILE' ? 5 : 0), 
-      spd: 4 + npcLevel + (isSpecial ? 2 : 0), 
-      level: npcLevel,
-      weapons: npcWeapons, 
-      skills: npcSkills,
-      weaponSkin: ''
-    };
+      if (specialMode === 'ELITE') {
+        npcName = '精英武学大师';
+        npcWeapons = ['w1', 'w5', 'w9', 'w14', 'w21'];
+        npcSkills = [];
+      } else if (specialMode === 'PROJECTILE') {
+        npcName = '千手观音·暗器大师';
+        npcWeapons = WEAPONS.filter(w => w.module === 'THROW').map(w => w.id);
+        npcSkills = ['s19', 's22', 's25'];
+      } else {
+        npcWeapons = [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
+        npcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
+      }
+
+      npc = {
+        name: npcName, 
+        isPlayer: false, 
+        hp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1), 
+        maxHp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1),
+        str: 6 + npcLevel + (isSpecial ? 3 : 0), 
+        agi: 5 + npcLevel + (specialMode === 'PROJECTILE' ? 5 : 0), 
+        spd: 4 + npcLevel + (isSpecial ? 2 : 0), 
+        level: npcLevel,
+        weapons: npcWeapons, 
+        skills: npcSkills,
+        weaponSkin: ''
+      };
+    }
     
     const pFighter: Fighter = {
       name: '你', isPlayer: true, hp: player.maxHp, maxHp: player.maxHp, 
@@ -143,8 +166,8 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', isDebug
 
     setFighters({ p: pFighter, n: npc });
     setTurn(pFighter.spd >= npc.spd ? 'P' : 'N');
-    setLogs([{ attacker: '系统', text: `⚔️ ${npcName} 加入了战斗！` }]);
-  }, [specialMode]);
+    setLogs([{ attacker: '系统', text: `⚔️ ${npc.name} 加入了战斗！` }]);
+  }, [specialMode, customOpponent]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -407,7 +430,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', isDebug
                   <span className="font-mono text-[10px] md:text-xl text-rose-400 l-1">{Math.ceil(fighters.n.hp)}</span>
                   <div className="flex items-center gap-0.5 md:gap-2 ml-auto">
                     <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span>
-                    <span className={`${specialMode !== 'NORMAL' ? 'bg-purple-600' : 'bg-red-600'} px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm`}>{specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : 'ENEMY'}</span>
+                    <span className={`${specialMode !== 'NORMAL' ? 'bg-purple-600' : 'bg-red-600'} px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm`}>{specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : (customOpponent ? 'FRIEND' : 'ENEMY')}</span>
                   </div>
                 </div>
                 <div className="h-2 md:h-6 bg-black/60 rounded-l-full border-y border-l border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">

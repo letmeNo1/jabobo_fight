@@ -1,3 +1,4 @@
+
 export enum WeaponType {
   LARGE = 'LARGE',
   MEDIUM = 'MEDIUM',
@@ -46,6 +47,23 @@ export interface Dressing {
   };
 }
 
+export interface Friend {
+  id: string;
+  name: string;
+  level: number;
+  str: number;
+  agi: number;
+  spd: number;
+  hp: number;
+  weapons: string[];
+  skills: string[];
+  dressing: {
+    HEAD: string;
+    BODY: string;
+    WEAPON: string;
+  };
+}
+
 export interface CharacterData {
   level: number;
   exp: number;
@@ -63,6 +81,7 @@ export interface CharacterData {
   };
   unlockedDressings: string[];
   isConcentrated: boolean; // 潜心状态
+  friends: Friend[]; // 好友列表
 }
 
 export interface BattleLog {
