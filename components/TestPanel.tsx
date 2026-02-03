@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, Weapon, AttackModule } from '../types';
 import { DRESSINGS, WEAPONS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
-import configSettings from '../config.json';
+import configSettings from '../config';
 
 interface TestPanelProps {
   player: CharacterData;
@@ -30,15 +30,27 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const [isAnimating, setIsAnimating] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [projectiles, setProjectiles] = useState<Projectile[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+  
   const projectileCounter = useRef(0);
   const charContainerRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    
     const timer = setInterval(() => {
       setVisual(v => (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') ? { ...v, frame: v.frame + 1 } : v);
     }, 125);
-    return () => clearInterval(timer);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearInterval(timer);
+    };
   }, []);
 
   // 当选择的武器变化时，立即更新空闲状态下的武器预览
@@ -51,9 +63,13 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const runModule = async (module: AttackModule) => {
     if (isAnimating) return;
     setIsAnimating(true);
-    const dir = 200; 
+    
+    // 从配置中获取区分平台的距离
+    const meleeDistance = isMobile ? configSettings.combat.spacing.meleeDistanceMobile : configSettings.combat.spacing.meleeDistancePC;
+    const baseActionOffset = isMobile ? configSettings.combat.spacing.baseActionOffsetMobile : configSettings.combat.spacing.baseActionOffsetPC;
+    
+    const dir = meleeDistance * 0.4; // 实验室中位移幅度稍减
     const currentWeaponId = selectedWeaponId;
-    const baseActionOffset = configSettings.combat.spacing.baseActionOffset;
 
     switch (module) {
       case 'CLEAVE':
@@ -135,7 +151,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                 const charRect = charContainerRef.current?.getBoundingClientRect();
                 if (mainRect && charRect) {
                   const startX = (charRect.left - mainRect.left + charRect.width / 2);
-                  const targetX = startX + 400;
+                  const targetX = startX + (isMobile ? 300 : 400);
                   const p1Id = ++projectileCounter.current;
                   const p2Id = ++projectileCounter.current;
                   setProjectiles(prev => [
@@ -190,7 +206,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-8 py-3 rounded-2xl font-black text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
       </div>
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden bg-slate-100 relative">
-        <div className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start pl-[20%] overflow-hidden min-h-[450px]">
+        <div className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start pl-[15%] md:pl-[20%] overflow-hidden min-h-[450px]">
           <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-slate-100 to-transparent pointer-events-none z-10"></div>
           <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-slate-100 to-transparent pointer-events-none z-10"></div>
           <div className="absolute inset-0 z-50 pointer-events-none">
@@ -218,9 +234,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                );
              })}
           </div>
-          <div className="absolute top-8 left-8 flex gap-6 z-20">
-            <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">State</span><span className="font-mono font-black text-slate-800 text-2xl">{visual.state}</span></div>
-            <div className="bg-white/95 backdrop-blur-xl px-6 py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[11px] text-indigo-500 font-black block uppercase mb-1 tracking-widest">Config Module</span><span className="font-mono font-black text-slate-800 text-2xl">{currentWeapon?.module || 'NONE'}</span></div>
+          <div className="absolute top-8 left-8 flex flex-col md:flex-row gap-2 md:gap-6 z-20">
+            <div className="bg-white/95 backdrop-blur-xl px-4 md:px-6 py-2 md:py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[9px] md:text-[11px] text-indigo-500 font-black block uppercase mb-0.5 md:mb-1 tracking-widest">State</span><span className="font-mono font-black text-slate-800 text-lg md:text-2xl">{visual.state}</span></div>
+            <div className="bg-white/95 backdrop-blur-xl px-4 md:px-6 py-2 md:py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[9px] md:text-[11px] text-indigo-500 font-black block uppercase mb-0.5 md:mb-1 tracking-widest">Platform</span><span className="font-mono font-black text-slate-800 text-lg md:text-2xl">{isMobile ? 'Mobile' : 'Desktop'}</span></div>
           </div>
           <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
             <div className={['CLEAVE', 'PUNCH'].includes(visual.state) ? 'animate-vibrate' : ''}>
@@ -229,19 +245,20 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                 frame={visual.frame} 
                 weaponId={visual.weaponId}
                 debug={isDebugMode}
-                className="scale-[1.35]" 
+                isMobile={isMobile}
+                className="scale-[1.2] md:scale-[1.35]" 
                 accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} 
               />
             </div>
           </div>
-          <div className="absolute bottom-[35%] w-64 h-3 bg-indigo-600/10 rounded-full blur-2xl transition-all duration-300" style={{ left: `calc(20% + ${offset.x}px)`, transform: `translateX(48px) scaleX(${isAnimating ? 1.5 : 1})`, opacity: visual.state === 'JUMP' ? 0.15 : 0.7 }}></div>
+          <div className="absolute bottom-[35%] w-48 md:w-64 h-3 bg-indigo-600/10 rounded-full blur-2xl transition-all duration-300" style={{ left: `calc(20% + ${offset.x}px)`, transform: `translateX(48px) scaleX(${isAnimating ? 1.5 : 1})`, opacity: visual.state === 'JUMP' ? 0.15 : 0.7 }}></div>
         </div>
         
-        <div className="w-full md:w-[480px] bg-white border-l border-slate-200 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.02)] z-20">
-          <div className="flex-grow overflow-y-auto p-8 space-y-8 custom-scrollbar">
+        <div className="w-full md:w-[480px] bg-white border-l border-slate-200 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.02)] z-20 overflow-hidden">
+          <div className="flex-grow overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 custom-scrollbar">
             <section>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">选择武器并触发配置模组</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {WEAPONS.map(w => (
                   <button 
                     key={w.id} 
@@ -252,7 +269,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                     disabled={isAnimating}
                     className={`px-3 py-2 text-[10px] font-bold rounded-xl border transition-all flex flex-col items-center ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300 disabled:opacity-50'}`}
                   >
-                    <span>{w.name}</span>
+                    <span className="truncate w-full text-center">{w.name}</span>
                     <span className="text-[8px] opacity-60">[{w.module}]</span>
                   </button>
                 ))}
@@ -261,7 +278,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
             <section>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">手动模组测试</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 pb-8">
                 {modules.map(m => (
                   <button 
                     key={m.id} 
@@ -277,9 +294,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                         runModule(m.id as AttackModule);
                       }
                     }} 
-                    className={`${m.color} text-white py-4 rounded-2xl font-black shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:opacity-40 flex items-center justify-center`}
+                    className={`${m.color} text-white py-3 md:py-4 rounded-2xl font-black shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 disabled:opacity-40 flex items-center justify-center`}
                   >
-                    <span className="tracking-tight text-sm">{m.label}</span>
+                    <span className="tracking-tight text-xs md:text-sm">{m.label}</span>
                   </button>
                 ))}
               </div>

@@ -5,7 +5,7 @@ import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
-import config from '../config.json';
+import config from '../config';
 
 export type SpecialCombatMode = 'NORMAL' | 'ELITE' | 'PROJECTILE';
 
@@ -81,7 +81,8 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
   useEffect(() => {
     const handleResize = () => {
       const cw = window.innerWidth;
-      setIsMobile(cw < 768);
+      const mobile = cw < 768;
+      setIsMobile(mobile);
       setUiScale(Math.min(cw / config.combat.uiScale.baseWidth, config.combat.uiScale.maxScale));
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -138,7 +139,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
     setFighters({ p: pFighter, n: npc });
     setTurn(pFighter.spd >= npc.spd ? 'P' : 'N');
     setLogs([{ attacker: '系统', text: `⚔️ ${npc.name} 加入了战斗！` }]);
-  }, [specialMode, customOpponent]);
+  }, [specialMode, customOpponent, player]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -180,8 +181,10 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
-      const meleeDistance = config.combat.spacing.meleeDistance * dir;
-      const baseActionOffset = config.combat.spacing.baseActionOffset * dir;
+
+      // 动态选择配置中的距离参数
+      const meleeDistance = (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * dir;
+      const baseActionOffset = (isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) * dir;
 
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
       switch (currentModule) {
@@ -252,7 +255,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       if (!battleOver) setTurn(prev => prev === 'P' ? 'N' : 'P');
     }, 1200);
     return () => clearTimeout(combatTimer);
-  }, [turn, battleOver, fighters, uiScale]);
+  }, [turn, battleOver, fighters, uiScale, isMobile]);
 
   const executeHit = (dmg: number, isPAttacking: boolean, type: string) => {
     setFighters(prev => {
@@ -278,6 +281,12 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
 
   if (!fighters) return null;
 
+  const currentContainerWidth = isMobile ? config.combat.spacing.containerWidthMobile : config.combat.spacing.containerWidthPC;
+  const currentContainerHeight = isMobile ? config.combat.spacing.containerHeightMobile : config.combat.spacing.containerHeightPC;
+  const currentVsTop = isMobile ? config.combat.spacing.vsTextTopMobile : config.combat.spacing.vsTextTopPC;
+  const currentSidePadding = isMobile ? config.combat.spacing.sidePaddingMobile : config.combat.spacing.sidePaddingPC;
+  const currentGroundHeight = isMobile ? config.combat.spacing.groundHeightMobile : config.combat.spacing.groundHeightPC;
+
   return (
     <div ref={containerRef} className={`fixed inset-0 z-[200] bg-black flex flex-col h-screen w-screen overflow-hidden ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
       {flash && <div className="absolute inset-0 z-[160] pointer-events-none animate-pulse" style={{ backgroundColor: flash }}></div>}
@@ -287,7 +296,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
               <CombatStatus fighter={fighters.n} side="right" uiScale={uiScale} isSpecial={specialMode !== 'NORMAL'} label={specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : (customOpponent ? 'FRIEND' : 'ENEMY')} />
            </div>
            
-           <div className="absolute font-black italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10 text-white/[0.02] md:text-white/10 text-[2.5rem] md:text-[12rem]" style={{ top: config.combat.spacing.vsTextTop }}>VS</div>
+           <div className="absolute font-black italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10 text-white/[0.02] md:text-white/10 text-[2.5rem] md:text-[12rem]" style={{ top: currentVsTop }}>VS</div>
            
            <div className="absolute inset-0 z-[150] pointer-events-none overflow-hidden" style={{ transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               {projectiles.map((p, idx) => {
@@ -299,9 +308,9 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                 );
               })}
            </div>
-           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: `${config.combat.spacing.containerWidth}px`, height: `${config.combat.spacing.containerHeight}px`, transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
+           <div className="relative flex flex-col items-center justify-end transition-transform duration-300" style={{ width: `${currentContainerWidth}px`, height: `${currentContainerHeight}px`, transform: `scale(${uiScale})`, transformOrigin: 'bottom center' }}>
               <div className="relative w-full h-full flex items-end justify-center pb-0">
-                <div className="w-full h-72 flex justify-between px-12 relative">
+                <div className="w-full flex justify-between relative" style={{ height: `${currentGroundHeight}px`, paddingLeft: `${currentSidePadding}px`, paddingRight: `${currentSidePadding}px` }}>
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
                     <div className={`${shaking === 'P' ? 'animate-shake' : ''} ${['CLEAVE', 'PUNCH'].includes(pVisual.state) ? 'animate-vibrate' : ''}`}>
                       <CharacterVisual state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} debug={isDebugMode} accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} isMobile={isMobile} />

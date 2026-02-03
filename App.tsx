@@ -10,7 +10,7 @@ import TestPanel from './components/TestPanel';
 import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
-import config from './config.json';
+import config from './config';
 
 declare global {
   interface Window {

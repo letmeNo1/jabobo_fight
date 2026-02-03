@@ -1,6 +1,6 @@
 
 import React from 'react';
-import configSettings from '../config.json';
+import configSettings from '../config';
 
 // Character visual states for animations
 export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';

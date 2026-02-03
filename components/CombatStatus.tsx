@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { WEAPONS, SKILLS } from '../constants';
-import config from '../config.json';
+import config from '../config';
 
 interface FighterDisplay {
   name: string;
