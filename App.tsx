@@ -9,8 +9,8 @@ import SkillList from './components/SkillList';
 import TestPanel from './components/TestPanel';
 import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
+import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 
-// 定义全局资源缓存映射
 declare global {
   interface Window {
     assetMap: Map<string, string>;
@@ -31,40 +31,6 @@ const INITIAL_DATA: CharacterData = {
   unlockedDressings: [],
   isConcentrated: false,
   friends: []
-};
-
-// IndexedDB 配置
-const DB_NAME = 'QFightAssetsDB';
-const STORE_NAME = 'images';
-
-const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-const getCachedAsset = async (db: IDBDatabase, key: string): Promise<Blob | null> => {
-  return new Promise((resolve) => {
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(key);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => resolve(null);
-  });
-};
-
-const cacheAsset = async (db: IDBDatabase, key: string, blob: Blob): Promise<void> => {
-  return new Promise((resolve) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    store.put(blob, key);
-    transaction.oncomplete = () => resolve();
-  });
 };
 
 interface BattleResult {
@@ -101,7 +67,6 @@ const App: React.FC = () => {
 
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
-    
     const commonStates = ['home', 'idle', 'run', 'hurt', 'dodge'];
 
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
@@ -178,7 +143,7 @@ const App: React.FC = () => {
 
   const clearAssetCache = () => {
     if (window.confirm('确定要清除所有本地素材缓存并重新下载吗？')) {
-      indexedDB.deleteDatabase(DB_NAME);
+      deleteDB();
       window.location.reload();
     }
   };

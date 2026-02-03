@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, BattleLog, Weapon, Skill, WeaponType, SkillCategory, AttackModule, Friend } from '../types';
 import { WEAPONS, SKILLS, DRESSINGS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
+import CombatStatus from './CombatStatus';
+import CombatLog from './CombatLog';
 
 export type SpecialCombatMode = 'NORMAL' | 'ELITE' | 'PROJECTILE';
 
@@ -26,7 +28,7 @@ interface Fighter {
   level: number;
   weapons: string[];
   skills: string[];
-  weaponSkin?: string; // 装扮中的武器外观ID
+  weaponSkin?: string;
 }
 
 interface VisualEffect {
@@ -72,21 +74,14 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
   const projectileCounter = useRef(0);
 
   const moduleNameMap: Record<AttackModule, string> = {
-    CLEAVE: '劈',
-    SLASH: '砍',
-    PIERCE: '刺',
-    SWING: '挥舞',
-    THROW: '发劲',
-    PUNCH: '重拳'
+    CLEAVE: '劈', SLASH: '砍', PIERCE: '刺', SWING: '挥舞', THROW: '发劲', PUNCH: '重拳'
   };
 
   useEffect(() => {
     const handleResize = () => {
       const cw = window.innerWidth;
-      const mobile = cw < 768;
-      setIsMobile(mobile);
-      const targetW = 1000;
-      setUiScale(Math.min(cw / targetW, 1));
+      setIsMobile(cw < 768);
+      setUiScale(Math.min(cw / 1000, 1));
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
       document.body.style.height = '100vh';
@@ -103,36 +98,23 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
 
   useEffect(() => {
     let npc: Fighter;
-
     if (customOpponent) {
-      // 如果指定了对手（例如来自江湖好友）
       npc = {
-        name: customOpponent.name,
-        isPlayer: false,
-        hp: customOpponent.hp,
-        maxHp: customOpponent.hp,
-        str: customOpponent.str,
-        agi: customOpponent.agi,
-        spd: customOpponent.spd,
-        level: customOpponent.level,
-        weapons: customOpponent.weapons,
-        skills: customOpponent.skills,
+        name: customOpponent.name, isPlayer: false, hp: customOpponent.hp, maxHp: customOpponent.hp,
+        str: customOpponent.str, agi: customOpponent.agi, spd: customOpponent.spd,
+        level: customOpponent.level, weapons: customOpponent.weapons, skills: customOpponent.skills,
         weaponSkin: customOpponent.dressing.WEAPON
       };
       setNVisual(v => ({ ...v, weaponId: customOpponent.dressing.WEAPON }));
     } else {
-      // 否则使用原有的随机生成逻辑
       const isSpecial = specialMode !== 'NORMAL';
       const npcLevel = Math.max(1, player.level + (isSpecial ? 2 : Math.floor(Math.random() * 3) - 1));
-      
       let npcWeapons: string[] = [];
       let npcSkills: string[] = [];
       let npcName = '神秘挑战者';
-
       if (specialMode === 'ELITE') {
         npcName = '精英武学大师';
         npcWeapons = ['w1', 'w5', 'w9', 'w14', 'w21'];
-        npcSkills = [];
       } else if (specialMode === 'PROJECTILE') {
         npcName = '千手观音·暗器大师';
         npcWeapons = WEAPONS.filter(w => w.module === 'THROW').map(w => w.id);
@@ -141,29 +123,17 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         npcWeapons = [...WEAPONS].sort(() => 0.5 - Math.random()).slice(0, 4).map(w => w.id);
         npcSkills = [...SKILLS].sort(() => 0.5 - Math.random()).slice(0, 5).map(s => s.id);
       }
-
       npc = {
-        name: npcName, 
-        isPlayer: false, 
-        hp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1), 
-        maxHp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1),
-        str: 6 + npcLevel + (isSpecial ? 3 : 0), 
-        agi: 5 + npcLevel + (specialMode === 'PROJECTILE' ? 5 : 0), 
-        spd: 4 + npcLevel + (isSpecial ? 2 : 0), 
-        level: npcLevel,
-        weapons: npcWeapons, 
-        skills: npcSkills,
-        weaponSkin: ''
+        name: npcName, isPlayer: false, hp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1), maxHp: (55 + npcLevel * 12) * (isSpecial ? 1.3 : 1),
+        str: 6 + npcLevel + (isSpecial ? 3 : 0), agi: 5 + npcLevel + (specialMode === 'PROJECTILE' ? 5 : 0), spd: 4 + npcLevel + (isSpecial ? 2 : 0), level: npcLevel,
+        weapons: npcWeapons, skills: npcSkills, weaponSkin: ''
       };
     }
-    
     const pFighter: Fighter = {
       name: '你', isPlayer: true, hp: player.maxHp, maxHp: player.maxHp, 
       str: player.str, agi: player.agi, spd: player.spd, level: player.level,
-      weapons: [...player.weapons], skills: [...player.skills],
-      weaponSkin: player.dressing.WEAPON
+      weapons: [...player.weapons], skills: [...player.skills], weaponSkin: player.dressing.WEAPON
     };
-
     setFighters({ p: pFighter, n: npc });
     setTurn(pFighter.spd >= npc.spd ? 'P' : 'N');
     setLogs([{ attacker: '系统', text: `⚔️ ${npc.name} 加入了战斗！` }]);
@@ -179,107 +149,66 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
 
   useEffect(() => {
     if (battleOver || !fighters || !turn) return;
-
     const combatTimer = setTimeout(async () => {
       const isP = turn === 'P';
       const atk = isP ? fighters.p : fighters.n;
       if (atk.hp <= 0) return;
-
       let actionDesc = "普通攻击";
       let dmg = 0;
       let hitType: 'NORMAL' | 'SKILL' = 'NORMAL';
       let currentModule: AttackModule = 'SLASH';
       let activeWeaponId = atk.weaponSkin;
-
       const roll = Math.random();
       const activeSkills = SKILLS.filter(s => atk.skills.includes(s.id) && s.category === SkillCategory.ACTIVE);
       const ownedWeapons = WEAPONS.filter(w => atk.weapons.includes(w.id));
-
       if (roll < 0.3 && activeSkills.length > 0) {
         const skill = activeSkills[Math.floor(Math.random() * activeSkills.length)];
         actionDesc = `使用了技能【${skill.name}】`;
-        hitType = 'SKILL';
-        dmg = 15 + atk.level * 1.5; 
-        currentModule = skill.module || 'PUNCH';
-        activeWeaponId = skill.id;
+        hitType = 'SKILL'; dmg = 15 + atk.level * 1.5; 
+        currentModule = skill.module || 'PUNCH'; activeWeaponId = skill.id;
       } else if (roll < 0.7 && ownedWeapons.length > 0) {
         const weapon = ownedWeapons[Math.floor(Math.random() * ownedWeapons.length)];
         actionDesc = `挥动了【${weapon.name}】`;
         dmg = Math.floor(weapon.baseDmg[0] + Math.random() * (weapon.baseDmg[1] - weapon.baseDmg[0]));
-        currentModule = weapon.module;
-        activeWeaponId = weapon.id;
+        currentModule = weapon.module; activeWeaponId = weapon.id;
       } else {
         actionDesc = "打出一记正拳";
         dmg = Math.floor(atk.str * (0.8 + Math.random() * 0.4));
-        currentModule = 'PUNCH';
-        activeWeaponId = undefined;
+        currentModule = 'PUNCH'; activeWeaponId = undefined;
       }
-
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
-      
       const meleeDistance = 576 * dir; 
-
       setLogs(l => [...l, { attacker: atk.name, text: `[${moduleNameMap[currentModule]}] ${actionDesc}` }]);
-
       switch (currentModule) {
         case 'CLEAVE': 
-          setMoveDuration(120);
-          atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: 96 * dir, y: -60 });
-          await new Promise(r => setTimeout(r, 120));
-          
-          setMoveDuration(300);
-          atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
-          offsetSetter({ x: meleeDistance, y: -260 }); 
-          await new Promise(r => setTimeout(r, 300));
-          
-          setMoveDuration(80);
-          offsetSetter({ x: meleeDistance, y: 0 });
-          await new Promise(r => setTimeout(r, 80));
-          
-          atkSetter({ state: 'CLEAVE', frame: 3, weaponId: activeWeaponId });
-          setShaking('SCREEN'); 
-          executeHit(Math.floor(dmg * 1.15), isP, hitType);
-          await new Promise(r => setTimeout(r, 800));
-          setShaking(null);
-          break;
-
+          setMoveDuration(120); atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
+          offsetSetter({ x: 96 * dir, y: -60 }); await new Promise(r => setTimeout(r, 120));
+          setMoveDuration(300); atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
+          offsetSetter({ x: meleeDistance, y: -260 }); await new Promise(r => setTimeout(r, 300));
+          setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 80));
+          atkSetter({ state: 'CLEAVE', frame: 3, weaponId: activeWeaponId }); setShaking('SCREEN'); 
+          executeHit(Math.floor(dmg * 1.15), isP, hitType); await new Promise(r => setTimeout(r, 800));
+          setShaking(null); break;
         case 'PIERCE': 
-          setMoveDuration(250);
-          atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: meleeDistance, y: 0 });
-          await new Promise(r => setTimeout(r, 250));
+          setMoveDuration(250); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
+          offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 250));
           for (let loop = 0; loop < 2; loop++) {
             for (let i = 1; i <= 4; i++) {
               atkSetter({ state: 'PIERCE', frame: i, weaponId: activeWeaponId });
               if (loop === 0 && i === 2) executeHit(Math.floor(dmg), isP, hitType);
               await new Promise(r => setTimeout(r, 100));
             }
-          }
-          break;
-
+          } break;
         case 'SWING': 
-          setMoveDuration(600); 
-          offsetSetter({ x: 96 * dir, y: 0 });
-          for(let i=1; i<=3; i++) {
-            atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId });
-            await new Promise(r => setTimeout(r, 200)); 
-          }
-          setMoveDuration(80); 
-          offsetSetter({ x: meleeDistance, y: 0 });
-          atkSetter({ state: 'SWING', frame: 4, weaponId: activeWeaponId });
-          await new Promise(r => setTimeout(r, 80));
-          executeHit(Math.floor(dmg), isP, hitType);
-          setShaking('SCREEN');
-          setTimeout(() => setShaking(null), 150);
-          await new Promise(r => setTimeout(r, 400));
-          break;
-
+          setMoveDuration(600); offsetSetter({ x: 96 * dir, y: 0 });
+          for(let i=1; i<=3; i++) { atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId }); await new Promise(r => setTimeout(r, 200)); }
+          setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); atkSetter({ state: 'SWING', frame: 4, weaponId: activeWeaponId });
+          await new Promise(r => setTimeout(r, 80)); executeHit(Math.floor(dmg), isP, hitType);
+          setShaking('SCREEN'); setTimeout(() => setShaking(null), 150); await new Promise(r => setTimeout(r, 400)); break;
         case 'THROW': 
-          setMoveDuration(0);
-          setFlash(isP ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)');
+          setMoveDuration(0); setFlash(isP ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)');
           for (let loop = 0; loop < 2; loop++) {
             for(let i = 1; i <= 3; i++) {
               atkSetter({ state: 'THROW', frame: i, weaponId: activeWeaponId });
@@ -290,62 +219,35 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                   const nRect = nRef.current.getBoundingClientRect();
                   const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
                   const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
-                  const startX = isP ? pCenterX : nCenterX;
-                  const targetX = isP ? nCenterX : pCenterX;
-                  const p1Id = ++projectileCounter.current;
-                  const p2Id = ++projectileCounter.current;
-                  setProjectiles(prev => [
-                    ...prev, 
-                    { id: p1Id, isPlayer: isP, startX, targetX, weaponId: activeWeaponId },
-                    { id: p2Id, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }
-                  ]);
+                  const startX = isP ? pCenterX : nCenterX; const targetX = isP ? nCenterX : pCenterX;
+                  const p1Id = ++projectileCounter.current; const p2Id = ++projectileCounter.current;
+                  setProjectiles(prev => [...prev, { id: p1Id, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }, { id: p2Id, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
                   setTimeout(() => { executeHit(Math.floor(dmg/2), isP, 'SKILL'); }, 400); 
                   setTimeout(() => { executeHit(Math.ceil(dmg/2), isP, 'SKILL'); }, 550);
-                  setTimeout(() => {
-                    setProjectiles(prev => prev.filter(p => p.id !== p1Id && p.id !== p2Id));
-                  }, 1000);
+                  setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== p1Id && p.id !== p2Id)), 1000);
                 }
-              }
-              await new Promise(r => setTimeout(r, 120));
+              } await new Promise(r => setTimeout(r, 120));
             }
-          }
-          setFlash(null);
-          break;
-
+          } setFlash(null); break;
         case 'SLASH': 
-          setMoveDuration(300);
-          atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-          offsetSetter({ x: meleeDistance, y: 0 });
-          await new Promise(r => setTimeout(r, 300));
+          setMoveDuration(300); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
+          offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 300));
           for(let i=1; i<=3; i++) { 
             atkSetter({ state: 'SLASH', frame: i, weaponId: activeWeaponId });
-            if (i === 2) executeHit(Math.floor(dmg), isP, hitType);
-            await new Promise(r => setTimeout(r, 110));
-          }
-          break;
-
+            if (i === 2) executeHit(Math.floor(dmg), isP, hitType); await new Promise(r => setTimeout(r, 110));
+          } break;
         case 'PUNCH':
-          setMoveDuration(250);
-          atkSetter({ state: 'RUN', frame: 1, weaponId: undefined });
-          offsetSetter({ x: meleeDistance, y: 0 });
-          await new Promise(r => setTimeout(r, 250));
+          setMoveDuration(250); atkSetter({ state: 'RUN', frame: 1, weaponId: undefined });
+          offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 250));
           for(let i=1; i<=2; i++) {
             atkSetter({ state: 'PUNCH', frame: i, weaponId: undefined });
-            if (i === 2) executeHit(Math.floor(dmg), isP, hitType);
-            await new Promise(r => setTimeout(r, 150));
-          }
-          break;
+            if (i === 2) executeHit(Math.floor(dmg), isP, hitType); await new Promise(r => setTimeout(r, 150));
+          } break;
       }
-
-      await new Promise(r => setTimeout(r, 100));
-      setMoveDuration(500);
-      atkSetter({ state: 'IDLE', frame: 1, weaponId: atk.weaponSkin }); 
-      offsetSetter({ x: 0, y: 0 });
-      await new Promise(r => setTimeout(r, 500));
-
-      if (!battleOver) { setTurn(prev => prev === 'P' ? 'N' : 'P'); }
+      await new Promise(r => setTimeout(r, 100)); setMoveDuration(500);
+      atkSetter({ state: 'IDLE', frame: 1, weaponId: atk.weaponSkin }); offsetSetter({ x: 0, y: 0 }); await new Promise(r => setTimeout(r, 500));
+      if (!battleOver) setTurn(prev => prev === 'P' ? 'N' : 'P');
     }, 1200);
-
     return () => clearTimeout(combatTimer);
   }, [turn, battleOver, fighters, uiScale]);
 
@@ -361,83 +263,25 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       const effectId = ++effectCounter.current;
       setEffects(e => [...e, { id: effectId, text: `-${dmg}`, isPlayer: !isPAttacking, color: type === 'SKILL' ? '#f59e0b' : '#ef4444' }]);
       setTimeout(() => {
-        setShaking(null);
-        setEffects(e => e.filter(item => item.id !== effectId));
-        if (target.hp > 0) { defSetter(v => ({ ...v, state: 'IDLE', frame: 1 })); }
+        setShaking(null); setEffects(e => e.filter(item => item.id !== effectId));
+        if (target.hp > 0) defSetter(v => ({ ...v, state: 'IDLE', frame: 1 }));
       }, 800);
       if (target.hp <= 0) {
-        setBattleOver(true);
-        setLogs(l => [...l, { attacker: '系统', text: `🏁 ${target.name} 倒下了！` }]);
+        setBattleOver(true); setLogs(l => [...l, { attacker: '系统', text: `🏁 ${target.name} 倒下了！` }]);
         setTimeout(() => isPAttacking ? onWin(prev.p.level * 20, prev.p.level * 30) : onLoss(prev.p.level * 10), 1200);
-      }
-      return next;
+      } return next;
     });
   };
 
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
   if (!fighters) return null;
-
-  const renderAssets = (fighter: Fighter, align: 'left' | 'right') => {
-    const ownedWeapons = WEAPONS.filter(w => fighter.weapons.includes(w.id));
-    const ownedSkills = SKILLS.filter(s => fighter.skills.includes(s.id));
-    return (
-      <div className={`mt-1 md:mt-3 flex flex-col gap-0.5 md:gap-1.5 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-        <div className={`flex flex-wrap gap-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-          {ownedWeapons.map(w => (
-            <span key={w.id} className="px-1 md:px-2 py-0.5 bg-slate-800/90 text-orange-400 text-[7px] md:text-[10px] font-black rounded border border-orange-500/30 shadow-sm whitespace-nowrap">⚔️ {w.name}</span>
-          ))}
-        </div>
-        <div className={`flex flex-wrap gap-0.5 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-          {ownedSkills.map(s => (
-            <span key={s.id} className="px-1 md:px-2 py-0.5 bg-slate-800/90 text-blue-400 text-[7px] md:text-[10px] font-black rounded border border-blue-500/30 shadow-sm whitespace-nowrap">📜 {s.name}</span>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div ref={containerRef} className={`fixed inset-0 z-[200] bg-black flex flex-col h-screen w-screen overflow-hidden ${shaking === 'SCREEN' ? 'animate-heavyShake' : ''}`}>
       {flash && <div className="absolute inset-0 z-[160] pointer-events-none animate-pulse" style={{ backgroundColor: flash }}></div>}
       <div className="relative w-full flex-grow flex flex-col items-center justify-end bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden shadow-inner">
-           
            <div className="absolute top-2 md:top-4 inset-x-0 z-[250] pointer-events-none px-0 md:px-8">
-              <div 
-                className="absolute left-0 top-0 w-[43%] md:w-[48%] max-w-[380px] pointer-events-auto"
-                style={{ transform: `scale(${uiScale})`, transformOrigin: 'top left' }}
-              >
-                <div className="flex justify-between items-end text-white text-[8px] md:text-xs font-black mb-0.5 md:mb-1.5 drop-shadow-lg uppercase tracking-tight pl-1 md:pl-4">
-                  <div className="flex items-center gap-0.5 md:gap-2">
-                    <span className="bg-orange-600 px-1 md:px-4 py-0.5 md:py-1 rounded-l italic text-[8px] md:text-sm">PLAYER</span>
-                    <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-r border-r border-slate-500/30">Lv.{fighters.p.level}</span>
-                  </div>
-                  <span className="ml-auto font-mono text-[10px] md:text-xl text-emerald-400 pr-1">{Math.ceil(fighters.p.hp)}</span>
-                </div>
-                <div className="h-2 md:h-6 bg-black/60 rounded-r-full border-y border-r border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
-                  <div className="h-full bg-gradient-to-r from-emerald-600 via-green-500 to-emerald-400 transition-all duration-500 relative" style={{ width: `${(fighters.p.hp/fighters.p.maxHp)*100}%` }}><div className="absolute inset-0 bg-white/10 animate-pulse"></div></div>
-                </div>
-                <div className="pl-1 md:pl-4">{renderAssets(fighters.p, 'left')}</div>
-              </div>
-
-              <div 
-                className="absolute right-0 top-0 w-[43%] md:w-[48%] max-w-[380px] pointer-events-auto text-right"
-                style={{ transform: `scale(${uiScale})`, transformOrigin: 'top right' }}
-              >
-                <div className="flex justify-between items-end text-white text-[8px] md:text-xs font-black mb-0.5 md:mb-1.5 drop-shadow-lg uppercase tracking-tight pr-1 md:pr-4">
-                  <span className="font-mono text-[10px] md:text-xl text-rose-400 l-1">{Math.ceil(fighters.n.hp)}</span>
-                  <div className="flex items-center gap-0.5 md:gap-2 ml-auto">
-                    <span className="bg-slate-700/80 px-1 md:px-3 py-0.5 md:py-1 rounded-l border-l border-slate-500/30">Lv.{fighters.n.level}</span>
-                    <span className={`${specialMode !== 'NORMAL' ? 'bg-purple-600' : 'bg-red-600'} px-1 md:px-4 py-0.5 md:py-1 rounded-r italic text-[8px] md:text-sm`}>{specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : (customOpponent ? 'FRIEND' : 'ENEMY')}</span>
-                  </div>
-                </div>
-                <div className="h-2 md:h-6 bg-black/60 rounded-l-full border-y border-l border-slate-500/40 overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
-                  <div className="h-full bg-gradient-to-l from-red-700 via-rose-600 to-red-500 transition-all duration-500 ml-auto relative" style={{ width: `${(fighters.n.hp/fighters.n.maxHp)*100}%` }}><div className="absolute inset-0 bg-white/10 animate-pulse"></div></div>
-                </div>
-                <div className="pr-1 md:pr-4">{renderAssets(fighters.n, 'right')}</div>
-              </div>
+              <CombatStatus fighter={fighters.p} side="left" uiScale={uiScale} label="PLAYER" />
+              <CombatStatus fighter={fighters.n} side="right" uiScale={uiScale} isSpecial={specialMode !== 'NORMAL'} label={specialMode === 'PROJECTILE' ? 'THROW MASTER' : specialMode === 'ELITE' ? 'ELITE' : (customOpponent ? 'FRIEND' : 'ENEMY')} />
            </div>
            
            <div className="absolute top-[22%] text-white/[0.02] md:text-white/10 font-black text-[2.5rem] md:text-[12rem] italic select-none pointer-events-none uppercase tracking-widest drop-shadow-2xl z-10">VS</div>
@@ -446,23 +290,8 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
               {projectiles.map((p, idx) => {
                 const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
                 return (
-                  <div 
-                    key={p.id}
-                    className="absolute bottom-[12%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile"
-                    style={{
-                      left: `${p.startX}px`,
-                      '--tx': `${p.targetX - p.startX}px`,
-                      '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}`
-                    } as any}
-                  >
-                    {weaponImg ? (
-                      <img src={weaponImg} className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" alt="projectile" />
-                    ) : (
-                      <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white]">
-                        <div className="w-full h-full bg-white/40 rounded-full blur-[2px]"></div>
-                      </div>
-                    )}
-                    <div className="absolute right-full w-16 h-4 bg-gradient-to-l from-white/20 to-transparent rounded-full -mr-2 blur-[1px]"></div>
+                  <div key={p.id} className="absolute bottom-[12%] w-12 h-12 md:w-16 md:h-16 flex items-center justify-center animate-projectile" style={{ left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px`, '--delay': `${idx % 2 === 0 ? '0s' : '0.15s'}` } as any}>
+                    {weaponImg ? <img src={weaponImg} className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" alt="projectile" /> : <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444,0_0_5px_white]"><div className="w-full h-full bg-white/40 rounded-full blur-[2px]"></div></div>}
                   </div>
                 );
               })}
@@ -472,14 +301,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                 <div className="w-full h-72 flex justify-between px-12 relative">
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
                     <div className={`${shaking === 'P' ? 'animate-shake' : ''} ${['CLEAVE', 'PUNCH'].includes(pVisual.state) ? 'animate-vibrate' : ''}`}>
-                      <CharacterVisual 
-                        state={pVisual.state} 
-                        frame={pVisual.frame} 
-                        weaponId={pVisual.weaponId}
-                        debug={isDebugMode}
-                        accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} 
-                        isMobile={isMobile}
-                      />
+                      <CharacterVisual state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} debug={isDebugMode} accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} isMobile={isMobile} />
                     </div>
                     {effects.filter(e => e.isPlayer).map(e => (
                       <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-5xl md:text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
@@ -487,16 +309,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                   </div>
                   <div ref={nRef} className="relative z-20" style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)` }}>
                     <div className={`${shaking === 'N' ? 'animate-shake' : ''} ${['CLEAVE', 'PUNCH'].includes(nVisual.state) ? 'animate-vibrate' : ''}`}>
-                      <div style={{ transform: 'scaleX(-1)' }}>
-                        <CharacterVisual 
-                          isNpc={true} 
-                          state={nVisual.state} 
-                          frame={nVisual.frame} 
-                          weaponId={nVisual.weaponId}
-                          debug={isDebugMode}
-                          isMobile={isMobile}
-                        />
-                      </div>
+                      <div style={{ transform: 'scaleX(-1)' }}><CharacterVisual isNpc={true} state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} debug={isDebugMode} isMobile={isMobile} /></div>
                     </div>
                     {effects.filter(e => !e.isPlayer).map(e => (
                       <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center"><div className="text-5xl md:text-7xl font-black italic drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)] whitespace-nowrap" style={{ color: e.color }}>{e.text}</div></div>
@@ -507,18 +320,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
               </div>
            </div>
       </div>
-      
-      <div className="w-full bg-slate-950 p-2.5 md:p-6 overflow-y-auto custom-scrollbar border-t border-slate-800 shrink-0 z-[260]" style={{ height: isMobile ? '50vh' : '30vh', maxHeight: isMobile ? 'none' : '350px' }}>
-        <div className="max-w-2xl mx-auto space-y-2 md:space-y-3">
-          {logs.map((log, i) => (
-            <div key={i} className={`px-3 md:px-5 py-2 md:py-3.5 rounded-lg md:rounded-2xl border-l-4 text-[11px] md:text-sm shadow-lg animate-popIn ${log.attacker === '你' ? 'bg-blue-950/30 border-blue-500 text-blue-100' : log.attacker === '系统' ? 'bg-orange-900/30 border-orange-500 text-orange-100 font-bold' : 'bg-red-950/30 border-red-500 text-red-100'}`}>
-              <div className="flex items-center"><span className="font-black opacity-30 mr-2 md:mr-4 uppercase text-[8px] md:text-[11px] shrink-0 tracking-widest">[{log.attacker}]</span><span className="tracking-tight font-medium leading-tight">{log.text}</span></div>
-            </div>
-          ))}
-          <div ref={logEndRef} className="h-1" />
-        </div>
-      </div>
-      
+      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={isMobile} />
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes damagePop { 0% { opacity: 0; transform: translateY(20px) scale(0.4); } 15% { opacity: 1; transform: translateY(-40px) scale(1.3); } 80% { opacity: 1; transform: translateY(-100px) scale(1); } 100% { opacity: 0; transform: translateY(-160px) scale(0.7); } }
         .animate-damage { animation: damagePop 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
@@ -533,14 +335,8 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
-        @keyframes projectile-fly {
-          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(var(--tx), -30px) scale(1.1) rotate(1080deg); opacity: 1; }
-        }
-        .animate-projectile {
-          animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards;
-        }
+        @keyframes projectile-fly { 0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(var(--tx), -30px) scale(1.1) rotate(1080deg); opacity: 1; } }
+        .animate-projectile { animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) var(--delay) forwards; }
       `}} />
     </div>
   );
