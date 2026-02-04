@@ -148,7 +148,7 @@ export const config = {
       "steps": [
         { "state": "THROW", "frame": 1, "offset": "HOME", "moveDuration": 0, "delay": 120, "playSfx": true },
         { "state": "THROW", "frame": 2, "offset": "HOME", "moveDuration": 0, "delay": 120, "projectile": true },
-        { "state": "THROW", "frame": 3, "offset": "HOME", "moveDuration": 0, "delay": 120 }
+        { "state": "THROW", "frame": 3, "offset": "HOME", "moveDuration": 0, "delay": 120, "calculateHit": true }
       ]
     }
   } as Record<string, AttackModuleConfig>

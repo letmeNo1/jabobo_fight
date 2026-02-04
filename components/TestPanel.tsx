@@ -64,7 +64,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     if (isAnimating) return;
     setIsAnimating(true);
     
-    // 确定使用的视觉 ID (武器 ID 或 技能 ID)
     const visualId = customVisualId || selectedWeaponId;
     const actionSfx = customSfx || WEAPONS.find(w => w.id === selectedWeaponId)?.sfx || 'slash';
     
@@ -250,24 +249,14 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                   disabled={isAnimating}
                   className="bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-40"
                 >
-                  模拟闪避 DODGE
+                  测试闪避 DODGE
                 </button>
                 <button 
                   onClick={() => testFeedback('HURT')} 
                   disabled={isAnimating}
                   className="bg-rose-600 text-white py-4 rounded-2xl font-black shadow-lg transition-all hover:bg-rose-700 active:scale-95 disabled:opacity-40"
                 >
-                  模拟受击 HURT
-                </button>
-                <button 
-                  onClick={() => {
-                    playUISound('CLICK');
-                    setVisual(v => ({...v, state:'IDLE', frame:1}));
-                    setOffset({x:0,y:0});
-                  }} 
-                  className="col-span-2 bg-slate-800 text-white py-3 rounded-xl font-bold shadow-md hover:bg-slate-900 active:scale-95"
-                >
-                  重置站姿
+                  测试受击 HURT
                 </button>
               </div>
             </section>

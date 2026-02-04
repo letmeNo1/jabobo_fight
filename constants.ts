@@ -49,10 +49,10 @@ export const SKILLS: Skill[] = [
   { id: 's12', name: '皮糙肉厚', category: SkillCategory.PASSIVE, description: '受伤害-20%' },
   { id: 's13', name: '凌波微步', category: SkillCategory.PASSIVE, description: '闪避率+7% (上限30%)' },
   { id: 's14', name: '惯用重物', category: SkillCategory.PASSIVE, description: '大型武器伤害+10%' },
-  { id: 's15', name: '神来一击', category: SkillCategory.PASSIVE, description: '5%概率将对手血量降至1' },
+  { id: 's15', name: '神来一击', category: SkillCategory.ACTIVE, description: '5%概率将对手血量降至1，95%几率MISS', module: 'THROW', sfx: 'thunder', sfxFrame: 1 },
   { id: 's16', name: '装死', category: SkillCategory.PASSIVE, description: '血量归0时保留1点 (1次)' },
-  { id: 's17', name: '缴械', category: SkillCategory.PASSIVE, description: '50%概率夺取对方武器' },
-  { id: 's18', name: '残影', category: SkillCategory.PASSIVE, description: '触发后2回合速度x1.5, 伤害x1.1' },
+  { id: 's17', name: '缴械', category: SkillCategory.ACTIVE, description: '50%概率缴获对方武器使其3回合无法使用', module: 'SLASH', sfx: 'skill_cast', sfxFrame: 1 },
+  { id: 's18', name: '残影', category: SkillCategory.ACTIVE, description: '3回合内速度+50%,伤害+10%且获得残影效果', module: 'PUNCH', sfx: 'skill_cast', sfxFrame: 1 },
   // Active
   { id: 's19', name: '晴天霹雳', category: SkillCategory.ACTIVE, description: '15+等级*1.5固定伤害', module: 'THROW', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's20', name: '龙卷风', category: SkillCategory.ACTIVE, description: '20+力量*0.9伤害', module: 'CLEAVE', sfx: 'skill_cast', sfxFrame: 1 },

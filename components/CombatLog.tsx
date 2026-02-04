@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BattleLog } from '../types';
 
 interface CombatLogProps {
@@ -9,6 +9,13 @@ interface CombatLogProps {
 }
 
 const CombatLog: React.FC<CombatLogProps> = ({ logs, logEndRef, isMobile }) => {
+  // 核心改动：当日志更新时，自动滚动到底部
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, logEndRef]);
+
   return (
     <div className="w-full bg-slate-950 p-2.5 md:p-6 overflow-y-auto custom-scrollbar border-t border-slate-800 shrink-0 z-[260]" style={{ height: isMobile ? '50vh' : '30vh', maxHeight: isMobile ? 'none' : '350px' }}>
       <div className="max-w-2xl mx-auto space-y-2 md:space-y-3">
@@ -20,6 +27,7 @@ const CombatLog: React.FC<CombatLogProps> = ({ logs, logEndRef, isMobile }) => {
             </div>
           </div>
         ))}
+        {/* 滚动锚点 */}
         <div ref={logEndRef} className="h-1" />
       </div>
     </div>
