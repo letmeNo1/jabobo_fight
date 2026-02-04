@@ -268,11 +268,15 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             setShaking('SCREEN'); setTimeout(() => setShaking(null), 150); await new Promise(r => setTimeout(r, 400)); break;
           case 'THROW': 
             setFlash(isP ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)');
-            // 扔两次，保持跟实验室一致
+            // 播放2轮投掷动作循环，同步发射飞行物
             for (let loop = 0; loop < 2; loop++) {
               for(let i = 1; i <= 3; i++) {
                 atkSetter({ state: 'THROW', frame: i, weaponId: activeWeaponId });
-                if (i === actionSfxFrame) playSFX(actionSfx);
+                if (i === actionSfxFrame) {
+                  const sfxToPlay = (hitType === 'SKILL' || WeaponType.THROW === WEAPONS.find(w=>w.id===activeWeaponId)?.type) ? actionSfx : 'throw_light';
+                  playSFX(sfxToPlay);
+                }
+                
                 if (i === 2) {
                   const containerRect = containerRef.current?.getBoundingClientRect();
                   const pRect = pRef.current?.getBoundingClientRect();
@@ -283,25 +287,28 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                     const startX = isP ? pCenterX : nCenterX; 
                     const targetX = isP ? nCenterX : pCenterX;
                     
-                    // 连续连射 3 枚飞行物
-                    const projectileCount = 3;
-                    for (let j = 0; j < projectileCount; j++) {
+                    // 每一轮投掷波次发射 3 枚飞行物
+                    const waveCount = 3;
+                    for (let j = 0; j < waveCount; j++) {
                       setTimeout(() => {
                         const pId = ++projectileCounter.current;
                         setProjectiles(prev => [...prev, { id: pId, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
                         
-                        // 只在最后一轮的飞行物到达时结算伤害
-                        if (loop === 1 && j === projectileCount - 1) {
-                           setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType); }, 450); 
+                        // 只在第二轮动作的最后一枚飞行物到达感官点时结算伤害
+                        if (loop === 1 && j === waveCount - 1) {
+                           setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType); }, 400); 
                         }
 
                         setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
-                      }, j * 100); 
+                      }, j * 100); // 100ms 连射间隔
                     }
                   }
-                } await new Promise(r => setTimeout(r, 120));
+                } 
+                await new Promise(r => setTimeout(r, 120));
               }
-            } setFlash(null); break;
+            } 
+            setFlash(null); 
+            break;
           case 'SLASH': 
             setMoveDuration(300); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
             offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 300));
