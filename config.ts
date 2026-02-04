@@ -1,4 +1,24 @@
 
+export type OffsetType = 'HOME' | 'BASE' | 'MELEE';
+
+export interface AttackStep {
+  state: string;
+  frame: number;
+  offset: OffsetType;
+  offsetY?: number;
+  moveDuration: number;
+  delay: number;
+  playSfx?: boolean;
+  calculateHit?: boolean;
+  shaking?: 'SCREEN' | 'P' | 'N' | null;
+  projectile?: boolean; // 特殊标记：是否在该帧发射飞行物
+}
+
+export interface AttackModuleConfig {
+  repeat?: number;
+  steps: AttackStep[];
+}
+
 export const config = {
   "layout": {
     "maxWidthHome": "max-w-4xl",
@@ -52,7 +72,59 @@ export const config = {
       "pcWidth": "w-56",
       "pcHeight": "h-64"
     }
-  }
+  },
+  // 动作模组配置化定义
+  "ATTACK_SEQUENCES": {
+    "CLEAVE": {
+      "steps": [
+        { "state": "CLEAVE", "frame": 1, "offset": "BASE", "offsetY": -60, "moveDuration": 120, "delay": 120, "playSfx": true },
+        { "state": "CLEAVE", "frame": 2, "offset": "MELEE", "offsetY": -260, "moveDuration": 300, "delay": 300, "playSfx": true },
+        { "state": "CLEAVE", "frame": 3, "offset": "MELEE", "offsetY": 0, "moveDuration": 80, "delay": 80 },
+        { "state": "CLEAVE", "frame": 3, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 600, "calculateHit": true, "shaking": "SCREEN" }
+      ]
+    },
+    "SLASH": {
+      "steps": [
+        { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 300, "delay": 300 },
+        { "state": "SLASH", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 110 },
+        { "state": "SLASH", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 110, "playSfx": true, "calculateHit": true },
+        { "state": "SLASH", "frame": 3, "offset": "MELEE", "moveDuration": 0, "delay": 110 }
+      ]
+    },
+    "PIERCE": {
+      "steps": [
+        { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 250, "delay": 250 },
+        { "state": "PIERCE", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 100 },
+        { "state": "PIERCE", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 100, "playSfx": true, "calculateHit": true },
+        { "state": "PIERCE", "frame": 3, "offset": "MELEE", "moveDuration": 0, "delay": 100 },
+        { "state": "PIERCE", "frame": 4, "offset": "MELEE", "moveDuration": 0, "delay": 100 }
+      ]
+    },
+    "SWING": {
+      "steps": [
+        { "state": "SWING", "frame": 1, "offset": "BASE", "moveDuration": 200, "delay": 200, "playSfx": true },
+        { "state": "SWING", "frame": 2, "offset": "BASE", "moveDuration": 0, "delay": 200 },
+        { "state": "SWING", "frame": 3, "offset": "BASE", "moveDuration": 0, "delay": 200 },
+        { "state": "SWING", "frame": 4, "offset": "MELEE", "moveDuration": 80, "delay": 80, "playSfx": true },
+        { "state": "SWING", "frame": 4, "offset": "MELEE", "moveDuration": 0, "delay": 400, "calculateHit": true, "shaking": "SCREEN" }
+      ]
+    },
+    "PUNCH": {
+      "steps": [
+        { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 250, "delay": 250 },
+        { "state": "PUNCH", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 150, "playSfx": true },
+        { "state": "PUNCH", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 150, "calculateHit": true }
+      ]
+    },
+    "THROW": {
+      "repeat": 2,
+      "steps": [
+        { "state": "THROW", "frame": 1, "offset": "HOME", "moveDuration": 0, "delay": 120, "playSfx": true },
+        { "state": "THROW", "frame": 2, "offset": "HOME", "moveDuration": 0, "delay": 120, "projectile": true },
+        { "state": "THROW", "frame": 3, "offset": "HOME", "moveDuration": 0, "delay": 120 }
+      ]
+    }
+  } as Record<string, AttackModuleConfig>
 };
 
 export default config;

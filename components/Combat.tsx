@@ -6,7 +6,7 @@ import CharacterVisual, { VisualState } from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
 import { playSFX } from '../utils/audio';
-import config from '../config';
+import config, { AttackStep } from '../config';
 
 export type SpecialCombatMode = 'NORMAL' | 'ELITE' | 'PROJECTILE';
 
@@ -225,109 +225,71 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       const atkSetter = isP ? setPVisual : setNVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
       const dir = isP ? 1 : -1;
-      const meleeDistance = (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * dir;
-      const baseActionOffset = (isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) * dir;
+      
+      // 解析位移类型对应的像素值
+      const resolveOffset = (type: string) => {
+        if (type === 'MELEE') return (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * dir;
+        if (type === 'BASE') return (isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) * dir;
+        return 0;
+      };
 
       setLogs(l => [...l, { attacker: atk.name, text: `${actionDesc}` }]);
       
       const performAction = async () => {
-        switch (currentModule) {
-          case 'CLEAVE': 
-            if (hitType === 'SKILL') playSFX('skill_cast');
-            if (actionSfxFrame === 1) playSFX(actionSfx);
-            setMoveDuration(120); atkSetter({ state: 'CLEAVE', frame: 1, weaponId: activeWeaponId });
-            offsetSetter({ x: baseActionOffset, y: -60 }); await new Promise(r => setTimeout(r, 120));
-            if (actionSfxFrame === 2) playSFX(actionSfx);
-            setMoveDuration(300); atkSetter({ state: 'CLEAVE', frame: 2, weaponId: activeWeaponId });
-            offsetSetter({ x: meleeDistance, y: -260 }); await new Promise(r => setTimeout(r, 300));
-            if (actionSfxFrame === 3) playSFX(actionSfx);
-            setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 80));
-            atkSetter({ state: 'CLEAVE', frame: 3, weaponId: activeWeaponId }); setShaking('SCREEN'); 
-            calculateHit(Math.floor(dmg * 1.2), isP, hitType); await new Promise(r => setTimeout(r, 600));
-            setShaking(null); break;
-          case 'PIERCE': 
-            setMoveDuration(250); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-            offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 250));
-            for (let i = 1; i <= 4; i++) {
-                atkSetter({ state: 'PIERCE', frame: i, weaponId: activeWeaponId });
-                if (i === actionSfxFrame) playSFX(actionSfx);
-                if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
-                await new Promise(r => setTimeout(r, 100));
-            } break;
-          case 'SWING': 
-            setMoveDuration(600); offsetSetter({ x: baseActionOffset, y: 0 });
-            for(let i=1; i<=3; i++) { 
-              atkSetter({ state: 'SWING', frame: i, weaponId: activeWeaponId }); 
-              if (i === actionSfxFrame) playSFX(actionSfx);
-              await new Promise(r => setTimeout(r, 200)); 
-            }
-            if (actionSfxFrame === 4) playSFX(actionSfx);
-            setMoveDuration(80); offsetSetter({ x: meleeDistance, y: 0 }); atkSetter({ state: 'SWING', frame: 4, weaponId: activeWeaponId });
-            await new Promise(r => setTimeout(r, 80)); 
-            calculateHit(Math.floor(dmg), isP, hitType);
-            setShaking('SCREEN'); setTimeout(() => setShaking(null), 150); await new Promise(r => setTimeout(r, 400)); break;
-          case 'THROW': 
-            setFlash(isP ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)');
-            // 播放2轮投掷动作循环，同步发射飞行物
-            for (let loop = 0; loop < 2; loop++) {
-              for(let i = 1; i <= 3; i++) {
-                atkSetter({ state: 'THROW', frame: i, weaponId: activeWeaponId });
-                if (i === actionSfxFrame) {
-                  const sfxToPlay = (hitType === 'SKILL' || WeaponType.THROW === WEAPONS.find(w=>w.id===activeWeaponId)?.type) ? actionSfx : 'throw_light';
-                  playSFX(sfxToPlay);
-                }
-                
-                if (i === 2) {
-                  const containerRect = containerRef.current?.getBoundingClientRect();
-                  const pRect = pRef.current?.getBoundingClientRect();
-                  if (containerRect && pRect && nRef.current) {
-                    const nRect = nRef.current.getBoundingClientRect();
-                    const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
-                    const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
-                    const startX = isP ? pCenterX : nCenterX; 
-                    const targetX = isP ? nCenterX : pCenterX;
-                    
-                    // 每一轮投掷波次发射 3 枚飞行物
-                    const waveCount = 3;
-                    for (let j = 0; j < waveCount; j++) {
-                      setTimeout(() => {
-                        const pId = ++projectileCounter.current;
-                        setProjectiles(prev => [...prev, { id: pId, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
-                        
-                        // 只在第二轮动作的最后一枚飞行物到达感官点时结算伤害
-                        if (loop === 1 && j === waveCount - 1) {
-                           setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType); }, 400); 
-                        }
+        const moduleConfig = config.ATTACK_SEQUENCES[currentModule] || config.ATTACK_SEQUENCES.SLASH;
+        const totalLoops = moduleConfig.repeat || 1;
 
-                        setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
-                      }, j * 100); // 100ms 连射间隔
+        if (currentModule === 'THROW') setFlash(isP ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)');
+        if (hitType === 'SKILL' && currentModule !== 'PUNCH') playSFX('skill_cast');
+
+        for (let loop = 0; loop < totalLoops; loop++) {
+          for (const step of moduleConfig.steps) {
+            setMoveDuration(step.moveDuration);
+            offsetSetter({ x: resolveOffset(step.offset), y: step.offsetY || 0 });
+            atkSetter({ state: step.state as VisualState, frame: step.frame, weaponId: activeWeaponId });
+
+            if (step.playSfx) {
+              const sfxToPlay = (hitType === 'SKILL' || WeaponType.THROW === WEAPONS.find(w=>w.id===activeWeaponId)?.type) ? actionSfx : (currentModule === 'THROW' ? 'throw_light' : actionSfx);
+              playSFX(sfxToPlay);
+            }
+
+            if (step.projectile) {
+              const containerRect = containerRef.current?.getBoundingClientRect();
+              const pRect = pRef.current?.getBoundingClientRect();
+              if (containerRect && pRect && nRef.current) {
+                const nRect = nRef.current.getBoundingClientRect();
+                const pCenterX = (pRect.left - containerRect.left + pRect.width / 2) / uiScale;
+                const nCenterX = (nRect.left - containerRect.left + nRect.width / 2) / uiScale;
+                const startX = isP ? pCenterX : nCenterX; 
+                const targetX = isP ? nCenterX : pCenterX;
+                
+                const waveCount = 3;
+                for (let j = 0; j < waveCount; j++) {
+                  setTimeout(() => {
+                    const pId = ++projectileCounter.current;
+                    setProjectiles(prev => [...prev, { id: pId, isPlayer: isP, startX, targetX, weaponId: activeWeaponId }]);
+                    if (loop === totalLoops - 1 && j === waveCount - 1) {
+                       setTimeout(() => { calculateHit(Math.floor(dmg), isP, hitType); }, 400); 
                     }
-                  }
-                } 
-                await new Promise(r => setTimeout(r, 120));
+                    setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
+                  }, j * 100);
+                }
               }
-            } 
-            setFlash(null); 
-            break;
-          case 'SLASH': 
-            setMoveDuration(300); atkSetter({ state: 'RUN', frame: 1, weaponId: activeWeaponId });
-            offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 300));
-            for(let i=1; i<=3; i++) { 
-              atkSetter({ state: 'SLASH', frame: i, weaponId: activeWeaponId });
-              if (i === actionSfxFrame) playSFX(actionSfx);
-              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
-              await new Promise(r => setTimeout(r, 110));
-            } break;
-          case 'PUNCH':
-            setMoveDuration(250); atkSetter({ state: 'RUN', frame: 1, weaponId: undefined });
-            offsetSetter({ x: meleeDistance, y: 0 }); await new Promise(r => setTimeout(r, 250));
-            for(let i=1; i<=2; i++) {
-              atkSetter({ state: 'PUNCH', frame: i, weaponId: undefined });
-              if (i === actionSfxFrame) playSFX(actionSfx);
-              if (i === 2) calculateHit(Math.floor(dmg), isP, hitType);
-              await new Promise(r => setTimeout(r, 150));
-            } break;
+            }
+
+            if (step.shaking) {
+               setShaking(step.shaking);
+               setTimeout(() => setShaking(null), 150);
+            }
+
+            if (step.calculateHit && currentModule !== 'THROW') {
+              calculateHit(Math.floor(dmg * (currentModule === 'CLEAVE' ? 1.2 : 1)), isP, hitType);
+            }
+
+            await new Promise(r => setTimeout(r, step.delay));
+          }
         }
+        setFlash(null);
       };
 
       for (let i = 0; i < comboCount; i++) {
@@ -336,8 +298,12 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         if (comboCount > 1 && i === 0) await new Promise(r => setTimeout(r, 200));
       }
 
-      await new Promise(r => setTimeout(r, 100)); setMoveDuration(500);
-      atkSetter({ state: 'IDLE', frame: 1, weaponId: atk.weaponSkin }); offsetSetter({ x: 0, y: 0 }); await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 100)); 
+      setMoveDuration(500);
+      atkSetter({ state: 'IDLE', frame: 1, weaponId: atk.weaponSkin }); 
+      offsetSetter({ x: 0, y: 0 }); 
+      await new Promise(r => setTimeout(r, 500));
+      
       if (!battleOver) setTurn(prev => prev === 'P' ? 'N' : 'P');
     }, 1200);
     return () => clearTimeout(combatTimer);

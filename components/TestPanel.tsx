@@ -1,11 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-// Added WeaponType to the imports below to resolve reference errors in the component.
 import { CharacterData, Weapon, AttackModule, WeaponType } from '../types';
 import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
 import CharacterVisual, { VisualState } from './CharacterVisual';
 import { playSFX, playUISound } from '../utils/audio';
-import configSettings from '../config';
+import config from '../config';
 
 interface TestPanelProps {
   player: CharacterData;
@@ -65,131 +64,56 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     if (isAnimating) return;
     setIsAnimating(true);
     
-    const meleeDistance = isMobile ? configSettings.combat.spacing.meleeDistanceMobile : configSettings.combat.spacing.meleeDistancePC;
-    const baseActionOffset = isMobile ? configSettings.combat.spacing.baseActionOffsetMobile : configSettings.combat.spacing.baseActionOffsetPC;
-    
-    const dir = meleeDistance * 0.4;
     const currentWeaponId = selectedWeaponId;
     const currentWeapon = WEAPONS.find(w => w.id === currentWeaponId);
     const actionSfx = currentWeapon?.sfx || 'slash';
-    const actionSfxFrame = currentWeapon?.sfxFrame || 1;
+    
+    const resolveOffset = (type: string) => {
+      const meleeDistance = isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC;
+      const baseActionOffset = isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC;
+      if (type === 'MELEE') return meleeDistance * 0.4;
+      if (type === 'BASE') return baseActionOffset;
+      return 0;
+    };
 
-    switch (module) {
-      case 'CLEAVE':
-        if (actionSfxFrame === 1) playSFX(actionSfx);
-        setMoveDuration(120);
-        setVisual({ state: 'CLEAVE', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: baseActionOffset, y: -60 });
-        await new Promise(r => setTimeout(r, 120));
-        
-        if (actionSfxFrame === 2) playSFX(actionSfx);
-        setMoveDuration(300);
-        setVisual({ state: 'CLEAVE', frame: 2, weaponId: currentWeaponId });
-        setOffset({ x: dir, y: -260 });
-        await new Promise(r => setTimeout(r, 300));
-        
-        if (actionSfxFrame === 3) playSFX(actionSfx);
-        setMoveDuration(80);
-        setOffset({ x: dir, y: 0 });
-        await new Promise(r => setTimeout(r, 80));
-        
-        setVisual({ state: 'CLEAVE', frame: 3, weaponId: currentWeaponId });
-        setShaking(true);
-        setTimeout(() => setShaking(false), 500);
-        await new Promise(r => setTimeout(r, 800));
-        break;
+    const moduleConfig = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.SLASH;
+    const totalLoops = moduleConfig.repeat || 1;
 
-      case 'PIERCE':
-        setMoveDuration(350);
-        setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: dir, y: 0 });
-        await new Promise(r => setTimeout(r, 350));
-        
-        for (let loop = 0; loop < 2; loop++) {
-          for (let i = 1; i <= 4; i++) {
-            setVisual({ state: 'PIERCE', frame: i, weaponId: currentWeaponId });
-            if (i === actionSfxFrame) playSFX(actionSfx);
-            await new Promise(r => setTimeout(r, 100));
-          }
+    for (let loop = 0; loop < totalLoops; loop++) {
+      for (const step of moduleConfig.steps) {
+        setMoveDuration(step.moveDuration);
+        setOffset({ x: resolveOffset(step.offset), y: step.offsetY || 0 });
+        setVisual({ state: step.state as VisualState, frame: step.frame, weaponId: currentWeaponId });
+
+        if (step.playSfx) {
+          playSFX(currentWeapon?.type === WeaponType.THROW ? actionSfx : (module === 'THROW' ? 'throw_light' : actionSfx));
         }
-        break;
 
-      case 'SLASH':
-        setMoveDuration(350);
-        setVisual({ state: 'RUN', frame: 1, weaponId: currentWeaponId });
-        setOffset({ x: dir, y: 0 });
-        await new Promise(r => setTimeout(r, 350));
-        
-        for(let i=1; i<=3; i++){ 
-          setVisual({ state: 'SLASH', frame: i, weaponId: currentWeaponId });
-          if (i === actionSfxFrame) playSFX(actionSfx);
-          await new Promise(r => setTimeout(r, 110));
-        }
-        break;
-
-      case 'PUNCH':
-        setMoveDuration(250);
-        setVisual({ state: 'RUN', frame: 1, weaponId: undefined });
-        setOffset({ x: dir, y: 0 });
-        await new Promise(r => setTimeout(r, 250));
-        
-        for(let i=1; i<=2; i++) {
-          setVisual({ state: 'PUNCH', frame: i, weaponId: undefined });
-          if (i === actionSfxFrame) playSFX('punch');
-          await new Promise(r => setTimeout(r, 150));
-        }
-        break;
-
-      case 'SWING':
-        setMoveDuration(600);
-        setOffset({ x: baseActionOffset, y: 0 });
-        for(let i=1; i<=3; i++) {
-          setVisual({ state: 'SWING', frame: i, weaponId: currentWeaponId });
-          if (i === actionSfxFrame) playSFX(actionSfx);
-          await new Promise(r => setTimeout(r, 200));
-        }
-        if (actionSfxFrame === 4) playSFX(actionSfx);
-        setMoveDuration(80);
-        setOffset({ x: dir, y: 0 });
-        setVisual({ state: 'SWING', frame: 4, weaponId: currentWeaponId });
-        await new Promise(r => setTimeout(r, 80));
-        await new Promise(r => setTimeout(r, 400));
-        break;
-
-      case 'THROW':
-        for (let loop = 0; loop < 2; loop++) {
-          for(let i = 1; i <= 3; i++) {
-            setVisual({ state: 'THROW', frame: i, weaponId: currentWeaponId });
-            if (i === actionSfxFrame) playSFX(currentWeapon?.type === WeaponType.THROW ? actionSfx : 'throw_light');
+        if (step.projectile) {
+          const mainRect = mainContainerRef.current?.getBoundingClientRect();
+          const charRect = charContainerRef.current?.getBoundingClientRect();
+          if (mainRect && charRect) {
+            const startX = (charRect.left - mainRect.left + charRect.width / 2);
+            const targetX = startX + (isMobile ? 300 : 400);
             
-            if (i === 2) {
-                const mainRect = mainContainerRef.current?.getBoundingClientRect();
-                const charRect = charContainerRef.current?.getBoundingClientRect();
-                if (mainRect && charRect) {
-                  const startX = (charRect.left - mainRect.left + charRect.width / 2);
-                  const targetX = startX + (isMobile ? 300 : 400);
-                  
-                  // 实验室连续发射测试
-                  const projectileCount = 3;
-                  for (let j = 0; j < projectileCount; j++) {
-                    setTimeout(() => {
-                      const pId = ++projectileCounter.current;
-                      setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: currentWeaponId }]);
-                      setTimeout(() => {
-                        setProjectiles(prev => prev.filter(p => p.id !== pId));
-                      }, 1000);
-                    }, j * 120);
-                  }
-                }
+            const projectileCount = 3;
+            for (let j = 0; j < projectileCount; j++) {
+              setTimeout(() => {
+                const pId = ++projectileCounter.current;
+                setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: currentWeaponId }]);
+                setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
+              }, j * 120);
             }
-            await new Promise(r => setTimeout(r, 120));
           }
         }
-        break;
 
-      default:
-        setVisual({ state: module as any, frame: 1, weaponId: currentWeaponId });
-        await new Promise(r => setTimeout(r, 800));
+        if (step.shaking) {
+          setShaking(true);
+          setTimeout(() => setShaking(false), 500);
+        }
+
+        await new Promise(r => setTimeout(r, step.delay));
+      }
     }
 
     await new Promise(r => setTimeout(r, 100));
@@ -231,9 +155,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                return (
                  <div 
                    key={p.id}
-                   className={`absolute ${configSettings.combat.projectiles.sizeMobile} ${configSettings.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
+                   className={`absolute ${config.combat.projectiles.sizeMobile} ${config.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
                    style={{
-                     bottom: configSettings.combat.spacing.testProjectileBottomPC,
+                     bottom: config.combat.spacing.testProjectileBottomPC,
                      left: `${p.startX}px`,
                      '--tx': `${p.targetX - p.startX}px`,
                      '--delay': `0s`
@@ -307,7 +231,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                         setOffset({x:0,y:0});
                         setIsAnimating(false);
                       } else if(m.id === 'HURT') {
-                        runModule('HURT' as any);
+                        setVisual({ state: 'HURT', frame: 1, weaponId: selectedWeaponId });
+                        setTimeout(() => setVisual(v => ({...v, state:'IDLE'})), 600);
                       } else {
                         runModule(m.id as AttackModule);
                       }
