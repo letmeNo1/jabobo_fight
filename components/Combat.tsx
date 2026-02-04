@@ -120,7 +120,9 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         npcStr += 5; npcAgi += 25; npcSpd += 5;
       } else if (specialMode === 'PROJECTILE') {
         npcName = '暗器专家';
-        npcWeapons = WEAPONS.filter(w => w.type === WeaponType.THROW).map(w => w.id).slice(0, 6);
+        // 包含所有远程武器类型，并显式加入“老鼠”(w19)和“板砖”(w20)
+        const throwIds = WEAPONS.filter(w => w.type === WeaponType.THROW).map(w => w.id);
+        npcWeapons = [...new Set([...throwIds, 'w19', 'w20'])];
       }
 
       npc = {
