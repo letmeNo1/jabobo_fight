@@ -69,6 +69,7 @@ export interface Friend {
 }
 
 export interface CharacterData {
+  name: string; // 玩家昵称
   level: number;
   exp: number;
   gold: number;

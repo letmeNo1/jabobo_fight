@@ -17,7 +17,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge, onRemove }
       <div className="flex items-center gap-4 mb-4 relative z-10">
         <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100 overflow-hidden">
           <div className="scale-[0.22] origin-center">
-            <CharacterVisual isNpc state="HOME" frame={1} />
+            <CharacterVisual name={friend.name} isNpc state="HOME" frame={1} />
           </div>
         </div>
         <div>

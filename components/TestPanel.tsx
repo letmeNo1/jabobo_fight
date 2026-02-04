@@ -181,6 +181,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
             <div className={['CLEAVE', 'PUNCH'].includes(visual.state) ? 'animate-vibrate' : ''}>
               <CharacterVisual 
+                name="演武测试员"
                 state={visual.state} 
                 frame={visual.frame} 
                 weaponId={visual.weaponId}

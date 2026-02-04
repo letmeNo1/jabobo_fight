@@ -20,6 +20,7 @@ declare global {
 }
 
 const INITIAL_DATA: CharacterData = {
+  name: '乐斗小豆',
   level: 1,
   exp: 0,
   gold: 500,
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [player, setPlayer] = useState<CharacterData>(() => {
     const saved = localStorage.getItem('qfight_save');
     const data = saved ? JSON.parse(saved) : INITIAL_DATA;
+    if (!data.name) data.name = INITIAL_DATA.name;
     if (!data.friends) data.friends = [];
     return data;
   });

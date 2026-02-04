@@ -131,7 +131,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       };
     }
     const pFighter: Fighter = {
-      name: '你', isPlayer: true, hp: player.maxHp, maxHp: player.maxHp, 
+      name: player.name, isPlayer: true, hp: player.maxHp, maxHp: player.maxHp, 
       str: player.str, agi: player.agi, spd: player.spd, level: player.level,
       weapons: [...player.weapons], skills: [...player.skills], weaponSkin: player.dressing.WEAPON,
       status: initialStatus()
@@ -414,7 +414,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                 <div className="w-full flex justify-between relative" style={{ height: `${currentGroundHeight}px`, paddingLeft: `${currentSidePadding}px`, paddingRight: `${currentSidePadding}px` }}>
                   <div ref={pRef} className="relative z-20" style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` }}>
                     <div className={`${shaking === 'P' ? 'animate-shake' : ''}`}>
-                      <CharacterVisual state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} isMobile={isMobile} accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} />
+                      <CharacterVisual name={fighters.p.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} isMobile={isMobile} accessory={{ head: DRESSINGS.find(d => d.id === player.dressing.HEAD)?.name }} />
                     </div>
                     {effects.filter(e => e.isPlayer).map(e => (
                       <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center">
@@ -425,7 +425,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
 
                   <div ref={nRef} className="relative z-20" style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: moveDuration === 0 ? 'none' : `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` }}>
                     <div className={`${shaking === 'N' ? 'animate-shake' : ''}`}>
-                      <div style={{ transform: 'scaleX(-1)' }}><CharacterVisual isNpc={true} state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} isMobile={isMobile} /></div>
+                      <div style={{ transform: 'scaleX(-1)' }}><CharacterVisual name={fighters.n.name} isNpc={true} state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} isMobile={isMobile} /></div>
                     </div>
                     {effects.filter(e => !e.isPlayer).map(e => (
                       <div key={e.id} className="absolute -top-32 left-0 w-full z-[170] pointer-events-none animate-damage text-center">

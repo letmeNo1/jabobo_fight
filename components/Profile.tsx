@@ -44,6 +44,7 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
       <div className="relative w-full h-56 flex items-center justify-center mb-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(249,115,22,0.05),transparent)]"></div>
         <CharacterVisual 
+          name={player.name}
           state="HOME"
           frame={frame}
           weaponId={player.dressing.WEAPON}

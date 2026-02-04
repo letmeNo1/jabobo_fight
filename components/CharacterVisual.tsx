@@ -6,6 +6,7 @@ import configSettings from '../config';
 export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
 
 interface CharacterVisualProps {
+  name?: string; // 角色名字
   isNpc?: boolean;
   isDizzy?: boolean;
   state?: VisualState;
@@ -22,6 +23,7 @@ interface CharacterVisualProps {
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
+  name,
   isNpc = false, 
   isDizzy = false,
   state = 'IDLE',
@@ -95,15 +97,17 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'PIERCE':
         return `scale(${BASE_SCALE}) rotate(-2deg) translateX(15px)`;
       case 'SWING':
+        const currentF = ((frame - 1) % 4) + 1;
         const swingScale = BASE_SCALE;
-        const swingRot = f === 4 ? 'rotate(0deg)' : 'rotate(10deg)';
-        const swingSkew = f === 4 ? 'skewX(0deg)' : 'skewX(-5deg)';
-        const swingX = f === 4 ? 'translateX(25px)' : '';
+        const swingRot = currentF === 4 ? 'rotate(0deg)' : 'rotate(10deg)';
+        const swingSkew = currentF === 4 ? 'skewX(0deg)' : 'skewX(-5deg)';
+        const swingX = currentF === 4 ? 'translateX(25px)' : '';
         return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
       case 'THROW':
         return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
-        return f === 2 
+        const currentPF = ((frame - 1) % 2) + 1;
+        return currentPF === 2 
           ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
           : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'ATTACK':
@@ -146,6 +150,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   return (
     <div 
+      data-name={name || 'character'} 
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
@@ -199,6 +204,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                 {charUrl ? (
                   <img 
                     src={charUrl}
+                    data-name={name || 'character'}
                     onError={() => handleImageError(charUrl)}
                     className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass} z-[20]`}
                     style={{ transition: 'none' }}
@@ -208,6 +214,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                 {weaponId && weaponUrl ? (
                   <img 
                     src={weaponUrl}
+                    data-name={name || 'character'}
                     onError={() => handleImageError(weaponUrl!)}
                     className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
                     style={{ transition: 'none' }}
@@ -225,7 +232,14 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         )}
       </div>
 
-      <div className={`absolute ${isMobile ? '-top-8' : '-top-16'} flex flex-col items-center gap-1 transition-opacity duration-300 ${state !== 'IDLE' && state !== 'HOME' ? 'opacity-0 scale-75' : 'opacity-100'}`}>
+      <div className={`absolute ${isMobile ? '-top-10' : '-top-20'} flex flex-col items-center gap-1.5 transition-opacity duration-300 ${state !== 'IDLE' && state !== 'HOME' ? 'opacity-0 scale-75' : 'opacity-100'}`}>
+        {/* Name Tag */}
+        {name && (
+          <div className={`px-4 py-1.5 md:px-6 md:py-2.5 rounded-2xl border-2 backdrop-blur-md shadow-2xl font-black italic tracking-tighter uppercase whitespace-nowrap z-[100] ${isNpc ? 'bg-indigo-950/80 text-blue-200 border-blue-500/50' : 'bg-orange-950/80 text-orange-200 border-orange-500/50'}`}>
+            <span className={isMobile ? 'text-[10px]' : 'text-[13px]'}>{name}</span>
+          </div>
+        )}
+        
         {accessory?.head && (
           <div className={`${isMobile ? 'text-[9px] px-2 py-0.5' : 'text-xs px-4 py-2'} bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20`}>
             <span className={isMobile ? 'text-[10px]' : 'text-sm'}>👑</span> {accessory.head}
