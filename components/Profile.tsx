@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { CharacterData } from '../types';
 import { DRESSINGS } from '../constants';
 import CharacterVisual from './CharacterVisual';
+import { calculateTotalCP } from '../utils/combatPower';
 
 interface ProfileProps {
   player: CharacterData;
@@ -26,6 +27,18 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
 
   const expToNext = player.level * 100;
   const expPercentage = Math.min(100, (player.exp / expToNext) * 100);
+  const totalCP = calculateTotalCP(player);
+
+  const getPowerRank = (cp: number) => {
+    if (cp < 500) return { title: '初入江湖', color: 'text-slate-400' };
+    if (cp < 1000) return { title: '略有小成', color: 'text-emerald-500' };
+    if (cp < 2000) return { title: '炉火纯青', color: 'text-blue-500' };
+    if (cp < 4000) return { title: '出类拔萃', color: 'text-purple-500' };
+    if (cp < 7000) return { title: '傲视群雄', color: 'text-orange-500 font-black' };
+    return { title: '武圣降世', color: 'text-red-600 font-black animate-pulse' };
+  };
+
+  const rank = getPowerRank(totalCP);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
@@ -35,14 +48,21 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
           <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Combat Profile</p>
         </div>
         <div className="text-right">
-          <span className="text-xs font-black text-orange-500 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-            Lv. {player.level}
-          </span>
+          <div className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Combat Power</div>
+          <div className="flex flex-col items-end">
+            <div className="text-3xl font-black text-indigo-700 italic drop-shadow-sm">⚡ {totalCP}</div>
+            <div className={`text-[10px] uppercase font-black tracking-widest ${rank.color}`}>{rank.title}</div>
+          </div>
         </div>
       </div>
 
       <div className="relative w-full h-56 flex items-center justify-center mb-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(249,115,22,0.05),transparent)]"></div>
+        <div className="absolute top-2 right-2 z-20">
+          <span className="text-xs font-black text-orange-500 bg-orange-50 px-3 py-1 rounded-full border border-orange-100 shadow-sm">
+            Lv. {player.level}
+          </span>
+        </div>
         <CharacterVisual 
           name={player.name}
           state="HOME"

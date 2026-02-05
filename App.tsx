@@ -9,8 +9,10 @@ import SkillList from './components/SkillList';
 import TestPanel from './components/TestPanel';
 import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
+import RedeemCode from './components/RedeemCode';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playUISound, preloadAudio, resumeAudio } from './utils/audio';
+import { calculateTotalCP } from './utils/combatPower';
 import config from './config';
 
 declare global {
@@ -61,13 +63,15 @@ const App: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
 
+  const totalCP = calculateTotalCP(player);
+
   useEffect(() => {
     window.assetMap = new Map<string, string>();
     const assetBase = 'Images/';
     const soundBase = 'Sounds/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2
+      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 3, punch: 2, wave: 3
     };
 
     const coreImages = ['character.png'];
@@ -76,26 +80,27 @@ const App: React.FC = () => {
 
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
+        // 1. 基础动作图片 (wave1.png 等)
         animationImages.push(`${prefix}${i}.png`);
+        
+        // 2. 武器/皮肤关联的特效图片 (s29_wave1.png 等)
         WEAPONS.forEach(w => {
-          const weaponModule = w.module.toLowerCase();
-          if (commonStates.includes(prefix) || prefix === weaponModule) {
-            animationImages.push(`${w.id}_${prefix}${i}.png`);
-          }
+          animationImages.push(`${w.id}_${prefix}${i}.png`);
         });
         SKILLS.forEach(s => {
-          if (s.module) {
-            const skillModule = s.module.toLowerCase();
-            if (prefix === skillModule) {
-              animationImages.push(`${s.id}_${prefix}${i}.png`);
-            }
-          }
+          animationImages.push(`${s.id}_${prefix}${i}.png`);
         });
       }
     });
 
+    // 3. 飞行物图片 (s29_projectile.png 等)
     WEAPONS.forEach(w => {
       animationImages.push(`${w.id}_throw.png`);
+      animationImages.push(`${w.id}_projectile.png`);
+    });
+    SKILLS.forEach(s => {
+      animationImages.push(`${s.id}_throw.png`);
+      animationImages.push(`${s.id}_projectile.png`);
     });
 
     const soundIds = [
@@ -208,8 +213,11 @@ const App: React.FC = () => {
     results.push(`基础属性：${randomStat === 'str' ? '力量' : randomStat === 'agi' ? '敏捷' : '速度'} +${bonus}`);
     
     if (newData.isConcentrated || Math.random() < 0.9) {
-      const pool = [...WEAPONS.filter(w => !newData.weapons.includes(w.id)).map(w => ({ type: 'WEAPON', item: w })), 
-                    ...SKILLS.filter(s => !newData.skills.includes(s.id) && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))];
+      const pool = [
+        ...WEAPONS.filter(w => !newData.weapons.includes(w.id) && w.id !== 'w21').map(w => ({ type: 'WEAPON', item: w })), 
+        ...SKILLS.filter(s => !newData.skills.includes(s.id) && s.id !== 's29' && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))
+      ];
+      
       if (pool.length > 0) {
         const choice = pool[Math.floor(Math.random() * pool.length)];
         if (choice.type === 'WEAPON') {
@@ -287,9 +295,10 @@ const App: React.FC = () => {
           <button onClick={clearAssetCache} className="text-[9px] md:text-[10px] bg-emerald-50 text-emerald-600 px-2.5 md:px-3 py-1 rounded-full font-black uppercase border border-emerald-100">重装素材</button>
           <button onClick={resetProgress} className="text-[9px] md:text-[10px] bg-rose-50 text-rose-500 px-2.5 md:px-3 py-1 rounded-full font-black uppercase border border-rose-100">重置</button>
           <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[9px] md:text-[10px] bg-indigo-50 text-indigo-500 px-2.5 md:px-3 py-1 rounded-full font-black uppercase border border-indigo-100">实验室</button>
-          <div className="flex space-x-2 md:space-x-3 text-xs md:text-sm font-black text-slate-600">
-            <span>💰 {player.gold}</span>
-            <span>✨ Lv.{player.level}</span>
+          <div className="flex items-center space-x-2 md:space-x-4 text-xs md:text-sm font-black">
+            <span className="text-slate-600">💰 {player.gold}</span>
+            <span className="text-slate-600">✨ Lv.{player.level}</span>
+            <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 italic">⚡ {totalCP}</span>
           </div>
         </div>
       </header>
@@ -329,19 +338,22 @@ const App: React.FC = () => {
       )}
 
       {view === 'HOME' && (
-        <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8 animate-popIn">
-          <Profile player={player} isDebugMode={isDebugMode} />
-          <div className="space-y-3 md:space-y-4">
-            <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
-            <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>👥</span> <span>江湖好友</span></button>
-            <button onClick={() => startCombat('ELITE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🔱</span> <span>精英挑战</span></button>
-            <button onClick={() => startCombat('PROJECTILE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🎯</span> <span>暗器大师挑战</span></button>
-            <div className="grid grid-cols-2 gap-2 md:gap-4">
-              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95">📜 秘籍</button>
-              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 active:scale-95">👗 装扮</button>
+        <>
+          <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8 animate-popIn mb-8">
+            <Profile player={player} isDebugMode={isDebugMode} />
+            <div className="space-y-3 md:space-y-4">
+              <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
+              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>👥</span> <span>江湖好友</span></button>
+              <button onClick={() => startCombat('ELITE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🔱</span> <span>精英挑战</span></button>
+              <button onClick={() => startCombat('PROJECTILE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🎯</span> <span>暗器大师挑战</span></button>
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
+                <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95">📜 秘籍</button>
+                <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 active:scale-95">👗 装扮</button>
+              </div>
             </div>
           </div>
-        </div>
+          <RedeemCode player={player} setPlayer={setPlayer} />
+        </>
       )}
 
       {view === 'COMBAT' && (

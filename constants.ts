@@ -3,12 +3,12 @@ import { Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 
 export const WEAPONS: Weapon[] = [
   // LARGE
-  { id: 'w1', name: '方天画戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'SWING', sfx: 'heavy_swing', sfxFrame: 1 },
+  { id: 'w1', name: '方天画戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'SWING', sfx: 'heavy_swing', sfxFrame: 1, isArtifact: true },
   { id: 'w2', name: '三叉戟', type: WeaponType.LARGE, baseDmg: [25, 50], description: '10%概率MISS，攻击后休息1回合', module: 'CLEAVE', sfx: 'heavy_hit', sfxFrame: 1 },
   { id: 'w3', name: '充气锤子', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率让对方跳过1回合', module: 'CLEAVE', sfx: 'toy_hit', sfxFrame: 2 },
   { id: 'w4', name: '开山斧', type: WeaponType.LARGE, baseDmg: [12, 18], description: '5%概率被攻击前反击，5%概率让对方跳过1回合', module: 'CLEAVE', sfx: 'heavy_hit', sfxFrame: 1 },
-  { id: 'w5', name: '青龙偃月刀', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率触发连击', module: 'CLEAVE', sfx: 'heavy_swing', sfxFrame: 1 },
-  { id: 'w6', name: '狂魔镰', type: WeaponType.LARGE, baseDmg: [15, 25], description: '必中，对方无法反击', module: 'SLASH', sfx: 'slash', sfxFrame: 1 },
+  { id: 'w5', name: '青龙偃月刀', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率触发连击', module: 'CLEAVE', sfx: 'heavy_swing', sfxFrame: 1, isArtifact: true },
+  { id: 'w6', name: '狂魔镰', type: WeaponType.LARGE, baseDmg: [15, 25], description: '必中，对方无法反击', module: 'SLASH', sfx: 'slash', sfxFrame: 1, isArtifact: true },
   { id: 'w7', name: '棒球棒', type: WeaponType.LARGE, baseDmg: [15, 20], description: '15%概率让对方跳过1回合', module: 'SWING', sfx: 'blunt_hit', sfxFrame: 2 },
   { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'CLEAVE', sfx: 'blunt_hit', sfxFrame: 2 },
   // MEDIUM
@@ -26,7 +26,7 @@ export const WEAPONS: Weapon[] = [
   { id: 'w19', name: '老鼠', type: WeaponType.SMALL, baseDmg: [5, 10], description: '对方命中率-10%(2回合)', module: 'THROW', sfx: 'squeak', sfxFrame: 1 },
   { id: 'w20', name: '板砖', type: WeaponType.SMALL, baseDmg: [8, 12], description: '5%概率让对方眩晕1回合', module: 'THROW', sfx: 'blunt_hit', sfxFrame: 2 },
   // THROW
-  { id: 'w21', name: '小李飞刀', type: WeaponType.THROW, baseDmg: [10, 18], description: '无视装死，5%概率瞬杀', module: 'THROW', sfx: 'throw_knife', sfxFrame: 1 },
+  { id: 'w21', name: 'speaker 310', type: WeaponType.THROW, baseDmg: [10, 18], description: '无视装死，5%概率瞬杀', module: 'THROW', sfx: 'throw_knife', sfxFrame: 1 },
   { id: 'w22', name: '接力棒', type: WeaponType.THROW, baseDmg: [10, 15], description: '10%概率连击', module: 'THROW', sfx: 'throw_light', sfxFrame: 1 },
   { id: 'w23', name: '胶水(瓶)', type: WeaponType.THROW, baseDmg: [0, 0], description: '黏住对方3回合', module: 'THROW', sfx: 'bottle_break', sfxFrame: 2 },
   { id: 'w24', name: '仙人掌', type: WeaponType.THROW, baseDmg: [10, 15], description: '造成持续伤害(5点, 3回合)', module: 'THROW', sfx: 'throw_hit', sfxFrame: 2 },
@@ -65,7 +65,7 @@ export const SKILLS: Skill[] = [
   { id: 's27', name: '企鹅挠痒', category: SkillCategory.ACTIVE, description: '持续6回合每回合5+敏捷*0.2伤害', module: 'SLASH', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's28', name: '师傅驾到', category: SkillCategory.ACTIVE, description: '恢复10%并下次必中', minLevel: 10, module: 'PUNCH', sfx: 'master_arrive', sfxFrame: 1 },
   // Special
-  { id: 's29', name: '黑龙波', category: SkillCategory.SPECIAL, description: '50点固定伤害 (1次)', module: 'THROW', sfx: 'skill_cast', sfxFrame: 1 },
+  { id: 's29', name: '捷波波', category: SkillCategory.SPECIAL, description: '50点固定伤害 (1次)', module: 'WAVE', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's30', name: '如来神掌', category: SkillCategory.SPECIAL, description: '扣除对方当前50%生命值', minLevel: 30, module: 'CLEAVE', sfx: 'skill_cast', sfxFrame: 2 },
   { id: 's31', name: '避重就轻', category: SkillCategory.SPECIAL, description: '中/小型武器伤害+15%', minLevel: 30 },
   { id: 's32', name: '嗜血', category: SkillCategory.SPECIAL, description: '30%吸血', minLevel: 30, sfx: 'skill_cast', sfxFrame: 1 },

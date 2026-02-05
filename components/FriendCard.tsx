@@ -2,6 +2,7 @@
 import React from 'react';
 import { Friend } from '../types';
 import CharacterVisual from './CharacterVisual';
+import { calculateTotalCP } from '../utils/combatPower';
 
 interface FriendCardProps {
   friend: Friend;
@@ -10,6 +11,8 @@ interface FriendCardProps {
 }
 
 const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge, onRemove }) => {
+  const totalCP = calculateTotalCP(friend);
+
   return (
     <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50/30 rounded-full -mr-12 -mt-12 group-hover:bg-emerald-100 transition-colors"></div>
@@ -20,8 +23,14 @@ const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge, onRemove }
             <CharacterVisual name={friend.name} isNpc state="HOME" frame={1} />
           </div>
         </div>
-        <div>
-          <h4 className="font-black text-slate-800 text-sm md:text-base">{friend.name}</h4>
+        <div className="flex-grow">
+          <div className="flex justify-between items-start">
+            <h4 className="font-black text-slate-800 text-sm md:text-base truncate max-w-[120px]">{friend.name}</h4>
+            <div className="text-right">
+              <div className="text-[8px] text-slate-400 font-black uppercase">Combat Power</div>
+              <div className="text-xs font-black text-indigo-600 tracking-tighter">⚡ {totalCP}</div>
+            </div>
+          </div>
           <span className="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-black">等级 {friend.level}</span>
         </div>
       </div>

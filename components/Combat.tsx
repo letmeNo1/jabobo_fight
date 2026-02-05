@@ -57,6 +57,7 @@ interface Projectile {
   targetX: number;
   weaponId?: string;
   isToLeft: boolean;
+  isWave?: boolean; // 新增标记，用于区分发波
 }
 
 const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customOpponent = null, isDebugMode = false, onWin, onLoss }) => {
@@ -120,7 +121,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         npcStr += 5; npcAgi += 25; npcSpd += 5;
       } else if (specialMode === 'PROJECTILE') {
         npcName = '暗器专家';
-        // 包含所有远程武器类型，并显式加入“老鼠”(w19)和“板砖”(w20)
         const throwIds = WEAPONS.filter(w => w.type === WeaponType.THROW).map(w => w.id);
         npcWeapons = [...new Set([...throwIds, 'w19', 'w20'])];
       }
@@ -159,7 +159,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
       const def = isP ? fighters.n : fighters.p;
       if (atk.hp <= 0) return;
 
-      // 持续伤害结算
       const activeDots = atk.status.dots;
       if (activeDots.length > 0) {
         const totalDotDmg = activeDots.reduce((sum, d) => sum + d.dmg, 0);
@@ -181,7 +180,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         }
       }
 
-      // 状态逻辑更新
       setFighters(prev => {
         if (!prev) return prev;
         const next = { p: { ...prev.p }, n: { ...prev.n } };
@@ -202,7 +200,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         return;
       }
 
-      // 行动选择池
       const actionPool: { type: 'SKILL' | 'WEAPON' | 'PUNCH', id?: string, weight: number }[] = [];
       const activeOwnedSkills = SKILLS.filter(s => 
         atk.skills.includes(s.id) && 
@@ -244,7 +241,6 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
 
         if (skill.id === 's15') dmg = Math.max(0, def.hp - 1);
         else if (skill.id === 's17') {
-          // 缴械重构逻辑：带日志回馈
           dmg = Math.floor(atk.str * 1.3);
           onHitEffect = () => {
              setFighters(prev => {
@@ -254,7 +250,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
                const d = isP ? next.n : next.p;
                
                if (d.weapons.length > 0) {
-                 if (Math.random() < 0.7) { // 70% 成功率
+                 if (Math.random() < 0.7) {
                    const stolenIdx = Math.floor(Math.random() * d.weapons.length);
                    const stolenId = d.weapons[stolenIdx];
                    const weaponObj = WEAPONS.find(w => w.id === stolenId);
@@ -360,11 +356,11 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
             const containerWidth = 1000;
             const startX = isP ? containerWidth * 0.2 : containerWidth * 0.8;
             const targetX = isP ? containerWidth * 0.8 : containerWidth * 0.2;
-            const projectileCount = 3;
+            const projectileCount = currentModule === 'WAVE' ? 1 : 3; // WAVE 通常只发一发大的
             for (let j = 0; j < projectileCount; j++) {
               setTimeout(() => {
                 const pId = ++projectileCounter.current;
-                setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: activeVisualId || atk.weaponSkin, isToLeft: !isP }]);
+                setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: activeVisualId || atk.weaponSkin, isToLeft: !isP, isWave: currentModule === 'WAVE' }]);
                 setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
               }, j * 120);
             }
@@ -373,7 +369,7 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
           if (step.calculateHit) {
             const res = currentActionResolved.current;
             if (res) {
-              if (currentModule === 'THROW') {
+              if (currentModule === 'THROW' || currentModule === 'WAVE') {
                 setTimeout(() => {
                   if (res.isHit) {
                     applyDamage(res.dmg, isP, defSetter);
@@ -448,11 +444,18 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
         <div className="relative flex items-end justify-center" style={{ width: '1000px', height: '450px', transform: `scale(${uiScale})` }}>
           <div className="absolute inset-0 pointer-events-none z-40">
             {projectiles.map(p => {
-              const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
+              // WAVE 模组优先寻找 _projectile.png
+              const suffix = p.isWave ? '_projectile.png' : '_throw.png';
+              const weaponImg = p.weaponId ? findAsset([`Images/${p.weaponId}${suffix}`, `Images/${p.weaponId}_throw.png` || '']) : null;
+              
               return (
-                <div key={p.id} className={`absolute ${config.combat.projectiles.sizePC} animate-projectile`}
+                <div key={p.id} className={`absolute ${p.isWave ? 'w-24 h-24' : config.combat.projectiles.sizePC} animate-projectile`}
                   style={{ bottom: config.combat.spacing.projectileBottomPC, left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px` } as any}>
-                  {weaponImg ? <img src={weaponImg} className={`w-full h-full object-contain drop-shadow-xl ${p.isToLeft ? 'scale-x-[-1]' : ''}`} alt="" /> : <div className="w-6 h-6 bg-red-600 rounded-full shadow-lg"></div>}
+                  {weaponImg ? (
+                    <img src={weaponImg} className={`w-full h-full object-contain drop-shadow-xl ${p.isToLeft ? 'scale-x-[-1]' : ''} ${p.isWave ? 'animate-pulse' : ''}`} alt="" />
+                  ) : (
+                    <div className={`rounded-full shadow-lg ${p.isWave ? 'w-16 h-16 bg-blue-500/80 blur-sm' : 'w-6 h-6 bg-red-600'}`}></div>
+                  )}
                 </div>
               );
             })}
@@ -492,5 +495,16 @@ const Combat: React.FC<CombatProps> = ({ player, specialMode = 'NORMAL', customO
     </div>
   );
 };
+
+// 辅助函数，在 Combat.tsx 中复用 preloader 逻辑
+function findAsset(paths: string[]): string | null {
+  if (!window.assetMap) return null;
+  for (const path of paths) {
+    if (window.assetMap.has(path)) {
+      return window.assetMap.get(path)!;
+    }
+  }
+  return null;
+}
 
 export default Combat;
