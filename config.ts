@@ -150,15 +150,6 @@ export const config = {
         { "state": "THROW", "frame": 2, "offset": "HOME", "moveDuration": 0, "delay": 120, "projectile": true },
         { "state": "THROW", "frame": 3, "offset": "HOME", "moveDuration": 0, "delay": 120, "calculateHit": true }
       ]
-    },
-    // 原地发波模组：气功/远程魔法类
-    "WAVE": {
-      "steps": [
-        { "state": "WAVE", "frame": 1, "offset": "HOME", "offsetY": -10, "moveDuration": 200, "delay": 300, "playSfx": true },
-        { "state": "WAVE", "frame": 2, "offset": "HOME", "offsetY": -15, "moveDuration": 100, "delay": 400 },
-        { "state": "WAVE", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 150, "projectile": true, "shaking": "SCREEN", "playSfx": true },
-        { "state": "WAVE", "frame": 3, "offset": "HOME", "moveDuration": 0, "delay": 500, "calculateHit": true }
-      ]
     }
   } as Record<string, AttackModuleConfig>
 };

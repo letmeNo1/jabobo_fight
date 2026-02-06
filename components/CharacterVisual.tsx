@@ -1,9 +1,7 @@
 
 import React, { useState } from 'react';
 import configSettings from '../config';
-
-// Character visual states for animations
-export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'WAVE';
+import { VisualState } from '../types';
 
 interface CharacterVisualProps {
   name?: string; // 角色名字
@@ -72,8 +70,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
     THROW: { prefix: 'throw', count: 3 },
-    PUNCH: { prefix: 'punch', count: 2 },
-    WAVE: { prefix: 'wave', count: 3 }
+    PUNCH: { prefix: 'punch', count: 2 }
   };
 
   const getFrameTransform = () => {
@@ -107,8 +104,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         const swingX = currentF === 4 ? 'translateX(25px)' : '';
         return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
-      case 'WAVE':
         return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
         const currentPF = ((frame - 1) % 2) + 1;
@@ -172,7 +167,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
               if (frameIndex !== currentFrame) return null;
 
               const charUrl = findAsset([`${basePath}${config.prefix}${frameIndex}.png`, `${basePath}character.png`]);
-              // 关键变动：允许 WAVE 状态显示武器/技能特效叠加图
               const weaponUrl = (weaponId && state !== 'THROW') ? findAsset([`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`]) : null;
 
               return (

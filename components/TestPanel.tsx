@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, Weapon, AttackModule, WeaponType, Skill, SkillCategory } from '../types';
+// Corrected import to include VisualState from '../types'
+import { CharacterData, Weapon, AttackModule, WeaponType, Skill, SkillCategory, VisualState } from '../types';
 import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
-import CharacterVisual, { VisualState } from './CharacterVisual';
+import CharacterVisual from './CharacterVisual';
 import { playSFX, playUISound } from '../utils/audio';
 import config from '../config';
 
@@ -17,7 +18,6 @@ interface Projectile {
   startX: number;
   targetX: number;
   weaponId?: string;
-  isWave?: boolean; // 新增：标识是否为气功波
 }
 
 const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
@@ -96,12 +96,11 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
             const targetX = startX + (isMobile ? 300 : 400);
             
-            const isWaveAction = module === 'WAVE';
-            const projectileCount = isWaveAction ? 1 : 3;
+            const projectileCount = 3;
             for (let j = 0; j < projectileCount; j++) {
               setTimeout(() => {
                 const pId = ++projectileCounter.current;
-                setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: visualId, isWave: isWaveAction }]);
+                setProjectiles(prev => [...prev, { id: pId, startX, targetX, weaponId: visualId }]);
                 setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 1000);
               }, j * 120);
             }
@@ -142,16 +141,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
   const activeSkills = SKILLS.filter(s => s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL);
 
-  // 辅助查找资源
-  const findAssetInMap = (paths: string[]): string | null => {
-    if (!window.assetMap) return null;
-    for (const path of paths) {
-      const url = window.assetMap.get(path);
-      if (url) return url;
-    }
-    return null;
-  };
-
   return (
     <div ref={mainContainerRef} className={`bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200 ${shaking ? 'animate-heavyShake' : ''}`}>
       <div className="p-8 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-10">
@@ -164,14 +153,11 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-slate-100 to-transparent pointer-events-none z-10"></div>
           <div className="absolute inset-0 z-50 pointer-events-none">
              {projectiles.map((p) => {
-               // 关键逻辑：如果是 Wave，寻找 _projectile.png 且不使用旋转动画类
-               const suffix = p.isWave ? '_projectile.png' : '_throw.png';
-               const weaponImg = p.weaponId ? findAssetInMap([`Images/${p.weaponId}${suffix}`, `Images/${p.weaponId}_throw.png` || '']) : null;
-               
+               const weaponImg = p.weaponId ? window.assetMap?.get(`Images/${p.weaponId}_throw.png`) : null;
                return (
                  <div 
                    key={p.id}
-                   className={`absolute ${p.isWave ? 'w-24 h-24' : config.combat.projectiles.sizePC} flex items-center justify-center ${p.isWave ? 'animate-wave-projectile' : 'animate-projectile'}`}
+                   className={`absolute ${config.combat.projectiles.sizeMobile} ${config.combat.projectiles.sizePC} flex items-center justify-center animate-projectile`}
                    style={{
                      bottom: config.combat.spacing.testProjectileBottomPC,
                      left: `${p.startX}px`,
@@ -179,9 +165,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                    } as any}
                  >
                    {weaponImg ? (
-                     <img src={weaponImg} data-name="test-projectile" className={`w-full h-full object-contain drop-shadow-xl ${p.isWave ? 'animate-pulse' : ''}`} alt="projectile" />
+                     <img src={weaponImg} data-name="test-projectile" className="w-full h-full object-contain drop-shadow-xl" alt="projectile" />
                    ) : (
-                     <div className={`rounded-full shadow-lg ${p.isWave ? 'w-16 h-16 bg-blue-500/80 blur-sm' : 'w-6 h-6 bg-red-600'}`}>
+                     <div className="w-6 h-6 bg-red-600 rounded-full shadow-[0_0_20px_#ef4444]">
                        <div className="w-full h-full bg-white/30 rounded-full"></div>
                      </div>
                    )}
@@ -194,7 +180,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
             <div className="bg-white/95 backdrop-blur-xl px-4 md:px-6 py-2 md:py-3 rounded-2xl border border-indigo-100 shadow-2xl ring-1 ring-black/5"><span className="text-[9px] md:text-[11px] text-indigo-500 font-black block uppercase mb-0.5 md:mb-1 tracking-widest">Visual ID</span><span className="font-mono font-black text-slate-800 text-lg md:text-2xl">{visual.weaponId}</span></div>
           </div>
           <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
-            <div className={['CLEAVE', 'PUNCH', 'WAVE'].includes(visual.state) ? 'animate-vibrate' : ''}>
+            <div className={['CLEAVE', 'PUNCH'].includes(visual.state) ? 'animate-vibrate' : ''}>
               <CharacterVisual 
                 name="演武测试员"
                 state={visual.state} 
@@ -281,22 +267,14 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes vibrate { 0% { transform: translate(0,0); } 10% { transform: translate(-2px, -2px); } 20% { transform: translate(2px, -2px); } 30% { transform: translate(-2px, 2px); } 40% { transform: translate(2px, 2px); } 50% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, -2px); } 70% { transform: translate(-2px, 2px); } 80% { transform: translate(2px, 2px); } 90% { transform: translate(-2px, -2px); } 100% { transform: translate(0,0); } }
         .animate-vibrate { animation: vibrate 0.1s linear infinite; }
-        
         @keyframes projectile-fly {
           0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
           15% { opacity: 1; }
           100% { transform: translate(var(--tx), -30px) scale(1.1) rotate(1080deg); opacity: 1; }
         }
-        .animate-projectile { animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
-
-        /* WAVE 发波专属动画 (不带旋转) */
-        @keyframes wave-projectile-fly {
-          0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(var(--tx), 0px) scale(1.2); opacity: 1; }
+        .animate-projectile {
+          animation: projectile-fly 0.5s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
         }
-        .animate-wave-projectile { animation: wave-projectile-fly 0.6s cubic-bezier(0.1, 0.9, 0.2, 1) forwards; }
-
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }

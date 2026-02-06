@@ -13,19 +13,22 @@ export enum SkillCategory {
   SPECIAL = 'SPECIAL'
 }
 
-export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'WAVE';
+export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
+
+// Define visual states globally
+export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
 
 export interface Weapon {
   id: string;
   name: string;
   type: WeaponType;
-  baseDmg: [number, number]; // [min, max]
+  baseDmg: [number, number];
   effect?: string;
   description: string;
-  module: AttackModule; // 绑定的动作模组
-  sfx?: string; // 绑定的动作/挥动音效ID
-  sfxFrame?: number; // 指定触发动作音效的动画帧 (1-based)
-  isArtifact?: boolean; // 是否为神器
+  module: AttackModule;
+  sfx?: string;
+  sfxFrame?: number;
+  isArtifact?: boolean;
 }
 
 export interface Skill {
@@ -34,11 +37,12 @@ export interface Skill {
   category: SkillCategory;
   description: string;
   minLevel?: number;
-  module?: AttackModule; // 主动技能绑定的动作模组
-  sfx?: string; // 绑定的释放音效ID
-  sfxFrame?: number; // 指定触发释放音效的动画帧 (1-based)
+  module?: AttackModule;
+  sfx?: string;
+  sfxFrame?: number;
 }
 
+// Define Dressing interface for shop and visuals
 export interface Dressing {
   id: string;
   name: string;
@@ -46,10 +50,28 @@ export interface Dressing {
   type: 'COMMON' | 'RARE';
   price: number;
   statBonus?: {
-    agi?: number;
-    hp?: number;
     str?: number;
+    agi?: number;
+    spd?: number;
+    hp?: number;
   };
+}
+
+export interface CharacterData {
+  name: string;
+  level: number;
+  exp: number;
+  gold: number;
+  str: number;
+  agi: number;
+  spd: number;
+  maxHp: number;
+  weapons: string[];
+  skills: string[];
+  dressing: { HEAD: string; BODY: string; WEAPON: string; };
+  unlockedDressings: string[];
+  isConcentrated: boolean;
+  friends: Friend[];
 }
 
 export interface Friend {
@@ -62,32 +84,7 @@ export interface Friend {
   hp: number;
   weapons: string[];
   skills: string[];
-  dressing: {
-    HEAD: string;
-    BODY: string;
-    WEAPON: string;
-  };
-}
-
-export interface CharacterData {
-  name: string; // 玩家昵称
-  level: number;
-  exp: number;
-  gold: number;
-  str: number;
-  agi: number;
-  spd: number;
-  maxHp: number;
-  weapons: string[]; // IDs
-  skills: string[]; // IDs
-  dressing: {
-    HEAD: string;
-    BODY: string;
-    WEAPON: string;
-  };
-  unlockedDressings: string[];
-  isConcentrated: boolean; // 潜心状态
-  friends: Friend[]; // 好友列表
+  dressing: { HEAD: string; BODY: string; WEAPON: string; };
 }
 
 export interface BattleLog {
@@ -95,4 +92,44 @@ export interface BattleLog {
   text: string;
   damage?: number;
   isCrit?: boolean;
+}
+
+// --- 战斗回放相关类型 ---
+
+export interface FighterSnapshot {
+  name: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  str: number;
+  agi: number;
+  spd: number;
+  weapons: string[];
+  skills: string[];
+  dressing: { HEAD: string; BODY: string; WEAPON: string; };
+}
+
+export interface BattleTurn {
+  side: 'P' | 'N';
+  actionType: 'WEAPON' | 'SKILL' | 'PUNCH';
+  actionId?: string;
+  isHit: boolean;
+  damage: number;
+  logs: BattleLog[];
+  statusChanges: {
+    disarmed?: number;
+    sticky?: number;
+    afterimage?: number;
+    dots?: { id: string; dmg: number; duration: number }[];
+  };
+}
+
+export interface BattleRecord {
+  id: string;
+  timestamp: number;
+  player: FighterSnapshot;
+  opponent: FighterSnapshot;
+  turns: BattleTurn[];
+  winner: 'P' | 'N';
+  rewards?: { gold: number; exp: number };
 }
