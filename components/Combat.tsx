@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { BattleRecord, BattleTurn, VisualState, BattleLog, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
@@ -114,7 +115,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         module = w?.module || 'SLASH';
         sfx = w?.sfx || 'slash';
         visualId = w?.id;
-        if (w?.type === WeaponType.THROW) isConsumable = true;
+        // 规则修改：所有武器在战斗中都是一次性消耗品
+        isConsumable = true;
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
@@ -135,7 +137,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         if (step.projectile) {
           const mainRect = containerRef.current?.getBoundingClientRect();
           const pRect = pRef.current?.getBoundingClientRect();
-          // Fix: Removed duplicate assignment to nRect and corrected initialization to avoid use-before-declaration error.
           const nRect = nRef.current?.getBoundingClientRect();
           
           if (mainRect && pRect && nRect) {

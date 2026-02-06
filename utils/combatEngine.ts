@@ -119,10 +119,8 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       actionName = `使用了武器【${w.name}】`;
       baseDmg = w.baseDmg[0] + Math.random() * (w.baseDmg[1] - w.baseDmg[0]);
       
-      // --- 关键修正：只有投掷类武器在使用后移除 ---
-      if (w.type === WeaponType.THROW) {
-        atk.weapons = atk.weapons.filter(id => id !== w.id);
-      }
+      // --- 规则修改：所有武器在使用后从该场战斗列表中移除 ---
+      atk.weapons = atk.weapons.filter(id => id !== w.id);
       
       if (w.id === 'w23') { isHit = true; baseDmg = 0; turn.statusChanges.sticky = 3; }
       if (w.id === 'w24') { turn.statusChanges.dots = [{ id: 'poison', dmg: 10, duration: 3 }]; }
