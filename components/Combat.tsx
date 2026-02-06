@@ -17,6 +17,7 @@ interface CombatProps {
 const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) => {
   const [currentTurnIdx, setCurrentTurnIdx] = useState(-1);
   const [logs, setLogs] = useState<BattleLog[]>([]);
+  const [shaking, setShaking] = useState(false);
   
   const [pStats, setPStats] = useState({ ...record.player, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
   const [nStats, setNStats] = useState({ ...record.opponent, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
@@ -54,8 +55,18 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setPVisual(v => ({ ...v, frame: v.frame + 1 }));
-      setNVisual(v => ({ ...v, frame: v.frame + 1 }));
+      setPVisual(v => {
+        if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
+          return { ...v, frame: v.frame + 1 };
+        }
+        return v;
+      });
+      setNVisual(v => {
+        if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
+          return { ...v, frame: v.frame + 1 };
+        }
+        return v;
+      });
     }, 125);
     return () => clearInterval(timer);
   }, []);
@@ -112,8 +123,17 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       for (let loop = 0; loop < totalLoops; loop++) {
         for (const step of seq.steps) {
           setMoveDuration(step.moveDuration);
-          const distance = step.offset === 'MELEE' ? (window.innerWidth < 768 ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) : (step.offset === 'BASE' ? (window.innerWidth < 768 ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) : 0);
           
+          // 基于容器宽度的百分比计算位移
+          const containerWidth = containerRef.current?.offsetWidth || 1000;
+          let distance = 0;
+          if (step.offset === 'MELEE') {
+            distance = (containerWidth * config.combat.spacing.meleeDistancePct) / 100;
+          } else if (step.offset === 'BASE') {
+            distance = (containerWidth * config.combat.spacing.baseActionOffsetPct) / 100;
+          }
+          
+          // 将计算后的像素值应用到状态
           offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
           atkSetter({ 
             state: step.state as VisualState, 
@@ -122,6 +142,11 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           });
           
           if (step.playSfx) playSFX(sfx);
+
+          if (step.shaking === 'SCREEN') {
+            setShaking(true);
+            setTimeout(() => setShaking(false), 400);
+          }
 
           if (step.projectile) {
             const mainRect = containerRef.current?.getBoundingClientRect();
@@ -200,7 +225,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden">
+    <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
       <div ref={containerRef} className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
         <div className="absolute inset-0 z-[220] pointer-events-none">
           {projectiles.map(p => {
@@ -253,6 +278,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
         }
         .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
+        @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
+        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
       `}} />
     </div>
   );

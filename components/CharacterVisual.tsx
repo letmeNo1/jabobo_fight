@@ -69,51 +69,47 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 3 },
+    THROW: { prefix: 'throw', count: 4 },
     PUNCH: { prefix: 'punch', count: 2 }
   };
 
   const getFrameTransform = () => {
-    const f = ((frame - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1;
+    // 只有循环状态才根据 frame 变化应用特殊位移
+    const f = (state === 'HOME' || state === 'IDLE' || state === 'RUN') ? (((frame || 1) - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1 : (frame || 1);
+    
     switch (state) {
       case 'HOME': {
-        const offset = (f % 2 === 0) ? '-10px' : '0px';
+        const offset = (f % 2 === 0) ? '-2%' : '0%';
         const scale = (f % 2 === 0) ? 1.02 * BASE_SCALE : 1.0 * BASE_SCALE;
         return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
       }
       case 'IDLE':
         return `scale(${BASE_SCALE}) rotate(0deg)`;
       case 'RUN': {
-        const bounce = (f % 2 === 0) ? '-5px' : '0px';
+        const bounce = (f % 2 === 0) ? '-2%' : '0%';
         const tilt = (f % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
         return `translateY(${bounce}) ${tilt} scale(${BASE_SCALE})`;
       }
       case 'JUMP':
-        return `translateY(-30px) scale(${BASE_SCALE * 1.05})`;
+        return `translateY(-10%) scale(${BASE_SCALE * 1.05})`;
       case 'CLEAVE':
-        return `translateY(0px) scale(${BASE_SCALE})`;
+        return `translateY(0%) scale(${BASE_SCALE})`;
       case 'SLASH':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateX(5px)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateX(2%)`;
       case 'PIERCE':
-        return `scale(${BASE_SCALE}) rotate(-2deg) translateX(15px)`;
+        return `scale(${BASE_SCALE}) rotate(-2deg) translateX(5%)`;
       case 'SWING':
-        const currentF = ((frame - 1) % 4) + 1;
-        const swingScale = BASE_SCALE;
-        const swingRot = currentF === 4 ? 'rotate(0deg)' : 'rotate(10deg)';
-        const swingSkew = currentF === 4 ? 'skewX(0deg)' : 'skewX(-5deg)';
-        const swingX = currentF === 4 ? 'translateX(25px)' : '';
-        return `scale(${swingScale}) ${swingRot} ${swingSkew} ${swingX}`;
+        return `scale(${BASE_SCALE}) ${f === 4 ? 'rotate(0deg) translateX(8%)' : 'rotate(10deg) skewX(-5deg)'}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0%)`;
       case 'PUNCH':
-        const currentPF = ((frame - 1) % 2) + 1;
-        return currentPF === 2 
-          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
-          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
+        return f === 2 
+          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(6%)` 
+          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-3%)`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
-        return `translate(-10px, 4px) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
+        return `translate(-4%, 2%) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
       default:
         return `scale(${BASE_SCALE}) rotate(0deg)`;
     }
@@ -160,7 +156,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           {Object.entries(STATE_CONFIGS).map(([sName, config]) => {
             const isActiveState = state === sName;
             if (!isActiveState) return null;
-            const currentFrame = ((frame - 1) % config.count) + 1;
+            
+            // 关键：只有 IDLE, RUN, HOME 循环播放。攻击动作由 Combat.tsx 控制 frame。
+            const isLoopingState = (sName === 'IDLE' || sName === 'RUN' || sName === 'HOME');
+            const currentFrame = isLoopingState 
+              ? (((frame || 1) - 1) % config.count) + 1 
+              : Math.min(frame || 1, config.count);
 
             return Array.from({ length: config.count }).map((_, i) => {
               const frameIndex = i + 1;

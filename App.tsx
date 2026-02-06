@@ -59,7 +59,6 @@ const App: React.FC = () => {
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
   const [isExplicitReplay, setIsExplicitReplay] = useState(false);
   const [battleResult, setBattleResult] = useState<{ isWin: boolean; gold: number; exp: number } | null>(null);
-  const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
@@ -86,7 +85,6 @@ const App: React.FC = () => {
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
     
-    // 加载动画帧
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
         animationImages.push(`${prefix}${i}.png`);
@@ -95,13 +93,12 @@ const App: React.FC = () => {
       }
     });
 
-    // 关键修正：按规则预加载飞行道具资源
     WEAPONS.forEach(w => {
-      animationImages.push(`${w.id}_throw.png`); // 武器只用 _throw
+      animationImages.push(`${w.id}_throw.png`);
     });
     SKILLS.forEach(s => {
       if (s.module) {
-        animationImages.push(`${s.id}_projectile.png`); // 技能只用 _projectile
+        animationImages.push(`${s.id}_projectile.png`);
       }
     });
 
@@ -149,40 +146,6 @@ const App: React.FC = () => {
     loadAll();
   }, []);
 
-  const resetProgress = () => {
-    if (window.confirm('确定要重置所有进度吗？')) {
-      resumeAudio();
-      playUISound('CLICK');
-      setPlayer(INITIAL_DATA);
-      localStorage.removeItem('qfight_save');
-      localStorage.removeItem('qfight_history');
-      setHistory([]);
-      setView('HOME');
-    }
-  };
-
-  const clearAssetCache = () => {
-    if (window.confirm('确定要清除素材缓存并重新下载吗？')) {
-      resumeAudio();
-      playUISound('CLICK');
-      deleteDB();
-      window.location.reload();
-    }
-  };
-
-  const handleLevelUp = (currentData: CharacterData) => {
-    playUISound('LEVEL_UP');
-    const nextLvl = currentData.level + 1;
-    const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
-    let newData = { ...currentData, level: nextLvl, exp: 0, maxHp: 290 + nextLvl * 10 };
-    const stats = ['str', 'agi', 'spd'] as const;
-    const randomStat = stats[Math.floor(Math.random() * stats.length)];
-    newData[randomStat] += 1;
-    results.push(`基础属性加成已应用。`);
-    setPlayer(newData);
-    setLevelUpResults(results);
-  };
-
   const startBattle = (opponent: FighterSnapshot, modeName: string) => {
     resumeAudio();
     playUISound('CLICK');
@@ -229,87 +192,204 @@ const App: React.FC = () => {
       let newExp = player.exp + exp;
       let nextLvlThreshold = player.level * 100;
       let tempPlayer = { ...player, gold: player.gold + gold, exp: newExp };
-      if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
-      else setPlayer(tempPlayer);
+      if (newExp >= nextLvlThreshold) {
+        // handleLevelUp integrated logic
+        playUISound('LEVEL_UP');
+        tempPlayer.level += 1;
+        tempPlayer.exp = 0;
+        tempPlayer.maxHp = 290 + tempPlayer.level * 10;
+        const stats = ['str', 'agi', 'spd'] as const;
+        tempPlayer[stats[Math.floor(Math.random() * stats.length)]] += 1;
+      }
+      setPlayer(tempPlayer);
     }
   };
 
   if (loading) return <LoadingScreen progress={loadProgress} total={totalAssets} />;
 
   return (
-    <div className={`${view === 'TEST' ? config.layout.maxWidthTest : config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800 transition-all duration-500`}>
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
-        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Q-Fight Master</h1>
+    <div className="relative min-h-screen bg-slate-950 text-gray-800 overflow-x-hidden selection:bg-orange-500 selection:text-white">
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-500/10 blur-[120px] rounded-full"></div>
+         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
+      </div>
+
+      <div className={`${view === 'TEST' ? config.layout.maxWidthTest : config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} relative z-10`}>
         
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
-          <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
-          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
-          <div className="flex items-center space-x-3 text-sm font-black ml-2">
-            <span className="text-slate-600">💰 {player.gold}</span>
-            <span className="text-slate-600">✨ Lv.{player.level}</span>
-            <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 italic">⚡ {totalCP}</span>
-          </div>
-        </div>
-      </header>
-
-      {battleResult && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4 backdrop-blur-md">
-          <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl border-t-[10px] animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-50'}`}>
-            <h2 className="text-3xl font-black italic uppercase text-center mb-6">{battleResult.isWin ? '🏆 Victory' : '💀 Defeat'}</h2>
-            <div className="space-y-3 mb-8">
-              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
-                <span className="text-slate-400 font-black text-[10px] uppercase">Gained Gold</span>
-                <span className="text-xl font-black text-yellow-600">+{battleResult.gold}</span>
-              </div>
-              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
-                <span className="text-slate-400 font-black text-[10px] uppercase">Gained Exp</span>
-                <span className="text-xl font-black text-blue-600">+{battleResult.exp}</span>
+        {/* HUD Navigation */}
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-10 bg-white/10 backdrop-blur-2xl p-4 md:p-6 rounded-[2rem] shadow-2xl border border-white/20 gap-4 mt-4 ring-1 ring-white/10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 transform hover:rotate-12 transition-transform cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>
+              <span className="text-2xl">⚔️</span>
+            </div>
+            <div>
+              <h1 className="text-2xl font-black italic text-white uppercase tracking-tighter leading-none cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>
+                Jabobo <span className="text-orange-500">Fight</span>
+              </h1>
+              <div className="flex gap-2 mt-1">
+                <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-indigo-500/30">Stable V2.10</span>
               </div>
             </div>
-            <button onClick={() => {playUISound('CLICK'); setBattleResult(null); setView('HOME');}} className="w-full py-4 rounded-2xl font-black text-white text-lg bg-orange-500">确定</button>
           </div>
-        </div>
-      )}
-
-      {view === 'HOME' && (
-        <div className="flex flex-col md:grid md:grid-cols-2 gap-8 animate-popIn">
-          <Profile player={player} />
-          <div className="space-y-4">
-            <button onClick={() => startBattle(generateNormalOpponent(), 'NORMAL')} className="w-full bg-orange-500 text-white py-5 rounded-xl text-xl font-black shadow-lg hover:bg-orange-600 transition-all active:scale-95">⚔️ 开启对决</button>
-            <button onClick={() => {playUISound('CLICK'); setView('CHALLENGE');}} className="w-full bg-red-600 text-white py-4 rounded-xl text-lg font-black shadow-lg hover:bg-red-700 transition-all active:scale-95 border-b-4 border-red-800">🏆 大师挑战赛</button>
-            <button onClick={() => {playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 text-white py-4 rounded-xl text-lg font-black hover:bg-emerald-600 transition-all active:scale-95">👥 江湖好友</button>
-            <button onClick={() => startBattle(generateEliteOpponent(), 'ELITE')} className="w-full bg-slate-800 text-white py-4 rounded-xl text-lg font-black hover:bg-slate-900 transition-all active:scale-95">🔱 精英挑战</button>
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => {playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 text-white py-4 rounded-xl font-bold hover:bg-blue-600 transition-all active:scale-95">📜 秘籍仓库</button>
-              <button onClick={() => {playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 text-white py-4 rounded-xl font-bold hover:bg-purple-600 transition-all active:scale-95">👗 个性装扮</button>
+          
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex items-center bg-black/30 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5 shadow-inner group transition-all hover:bg-black/50">
+              <span className="text-sm mr-2 filter drop-shadow-sm">💰</span>
+              <span className="text-sm font-black text-yellow-400">{player.gold}</span>
             </div>
-            <button onClick={() => {playUISound('CLICK'); setView('HISTORY');}} className="w-full bg-indigo-500 text-white py-4 rounded-xl text-lg font-black italic tracking-widest hover:bg-indigo-600 transition-all active:scale-95">📜 战报回放</button>
+            
+            <div className="h-8 w-px bg-white/10 hidden sm:block mx-1"></div>
+            
+            <button onClick={() => {playUISound('CLICK'); deleteDB(); window.location.reload();}} className="text-[10px] bg-white/5 hover:bg-white/10 text-slate-300 px-4 py-2 rounded-xl font-black uppercase tracking-widest transition-all active:scale-95 border border-white/5">Refresh</button>
+            <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-600/20">Lab</button>
           </div>
-          <RedeemCode player={player} setPlayer={setPlayer} />
-        </div>
-      )}
+        </header>
 
-      {view === 'COMBAT' && activeRecord && (
-        <Combat record={activeRecord} isReplay={isExplicitReplay} onFinish={() => onBattleFinished(activeRecord)} />
-      )}
-      
-      {view === 'HISTORY' && (
-        <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => {playUISound('CLICK'); setView('HOME');}} />
-      )}
+        {battleResult && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[500] p-4 backdrop-blur-xl animate-fadeIn">
+            <div className={`bg-white rounded-[3.5rem] p-10 w-full max-w-sm shadow-[0_0_100px_rgba(0,0,0,0.5)] border-t-[12px] animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-300'}`}>
+              <div className="flex justify-center mb-6">
+                 <div className={`w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-2xl ${battleResult.isWin ? 'bg-orange-100' : 'bg-slate-100'}`}>
+                    {battleResult.isWin ? '🏆' : '💀'}
+                 </div>
+              </div>
+              <h2 className="text-4xl font-black italic uppercase text-center mb-2 tracking-tighter">
+                {battleResult.isWin ? 'Victory!' : 'Defeat'}
+              </h2>
+              <p className="text-center text-slate-400 text-xs font-black uppercase tracking-[0.3em] mb-8">Battle Result</p>
+              
+              <div className="space-y-4 mb-10">
+                <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100">
+                  <span className="text-slate-400 font-black text-[11px] uppercase tracking-widest">Rewards</span>
+                  <span className="text-2xl font-black text-yellow-600">+{battleResult.gold}G</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-50 p-5 rounded-3xl border border-slate-100">
+                  <span className="text-slate-400 font-black text-[11px] uppercase tracking-widest">Mastery</span>
+                  <span className="text-2xl font-black text-blue-600">+{battleResult.exp}XP</span>
+                </div>
+              </div>
+              <button onClick={() => {playUISound('CLICK'); setBattleResult(null); setView('HOME');}} className="w-full py-6 rounded-[2rem] font-black text-white text-xl bg-slate-900 shadow-2xl shadow-slate-900/40 hover:scale-[1.02] transition-transform active:scale-95">Return to Hub</button>
+            </div>
+          </div>
+        )}
 
-      {view === 'CHALLENGE' && (
-        <GrandmasterChallenge 
-          playerLevel={player.level} 
-          onChallenge={(m) => startBattle(m, 'MASTER')} 
-          onBack={() => {playUISound('CLICK'); setView('HOME');}} 
-        />
-      )}
+        {view === 'HOME' && (
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 animate-popIn">
+            <div className="lg:col-span-5">
+              <Profile player={player} />
+            </div>
+            
+            <div className="lg:col-span-7 flex flex-col gap-6">
+              {/* Main Battle Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onClick={() => startBattle(generateNormalOpponent(), 'NORMAL')} className="group relative overflow-hidden bg-gradient-to-br from-orange-400 to-red-600 text-white p-8 rounded-[2.5rem] shadow-2xl shadow-orange-500/30 hover:shadow-orange-500/50 transition-all active:scale-95 border-b-8 border-red-800">
+                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
+                      <span className="text-8xl">⚔️</span>
+                   </div>
+                   <div className="relative z-10 text-left">
+                      <span className="text-[11px] font-black uppercase tracking-[0.4em] opacity-80">Quick Duel</span>
+                      <h3 className="text-3xl font-black italic uppercase mt-1">开启对决</h3>
+                      <p className="text-[10px] mt-2 font-bold opacity-60">Challenge local fighters for XP & Gold</p>
+                   </div>
+                </button>
+                
+                <button onClick={() => {playUISound('CLICK'); setView('CHALLENGE');}} className="group relative overflow-hidden bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-2xl transition-all active:scale-95 border-b-8 border-black">
+                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
+                      <span className="text-8xl">🏆</span>
+                   </div>
+                   <div className="relative z-10 text-left">
+                      <span className="text-[11px] font-black uppercase tracking-[0.4em] opacity-80 text-orange-500">Special Event</span>
+                      <h3 className="text-3xl font-black italic uppercase mt-1">大师挑战</h3>
+                      <p className="text-[10px] mt-2 font-bold opacity-40">Compete against legendary masters</p>
+                   </div>
+                </button>
+              </div>
 
-      {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
-      {view === 'FRIENDS' && <FriendList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} onAddFriend={(f) => setPlayer(p => ({...p, friends: [f, ...p.friends]}))} onRemoveFriend={(id) => setPlayer(p => ({...p, friends: p.friends.filter(f => f.id !== id)}))} />}
-      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
-      {view === 'SKILLS' && <SkillList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+              {/* Navigation Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onClick={() => {playUISound('CLICK'); setView('FRIENDS');}} className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-white shadow-xl hover:bg-white transition-all group active:scale-95 border-b-4 border-slate-200">
+                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">👥</span>
+                  <span className="text-[11px] font-black text-slate-800 uppercase">Friends</span>
+                </button>
+                <button onClick={() => {playUISound('CLICK'); setView('SKILLS');}} className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-white shadow-xl hover:bg-white transition-all group active:scale-95 border-b-4 border-slate-200">
+                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📜</span>
+                  <span className="text-[11px] font-black text-slate-800 uppercase">Vault</span>
+                </button>
+                <button onClick={() => {playUISound('CLICK'); setView('DRESSING');}} className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-white shadow-xl hover:bg-white transition-all group active:scale-95 border-b-4 border-slate-200">
+                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">👗</span>
+                  <span className="text-[11px] font-black text-slate-800 uppercase">Style</span>
+                </button>
+                <button onClick={() => {playUISound('CLICK'); setView('HISTORY');}} className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-md p-6 rounded-[2rem] border border-white shadow-xl hover:bg-white transition-all group active:scale-95 border-b-4 border-slate-200">
+                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">🎞️</span>
+                  <span className="text-[11px] font-black text-slate-800 uppercase">Replay</span>
+                </button>
+              </div>
+
+              <div className="flex-grow flex flex-col justify-end">
+                 <RedeemCode player={player} setPlayer={setPlayer} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'COMBAT' && activeRecord && (
+          <Combat record={activeRecord} isReplay={isExplicitReplay} onFinish={() => onBattleFinished(activeRecord)} />
+        )}
+        
+        {view === 'HISTORY' && (
+          <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => {playUISound('CLICK'); setView('HOME');}} />
+        )}
+
+        {view === 'CHALLENGE' && (
+          <GrandmasterChallenge 
+            playerLevel={player.level} 
+            onChallenge={(m) => startBattle(m, 'MASTER')} 
+            onBack={() => {playUISound('CLICK'); setView('HOME');}} 
+          />
+        )}
+
+        {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+        {view === 'FRIENDS' && <FriendList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} onAddFriend={(f) => setPlayer(p => ({...p, friends: [f, ...p.friends]}))} onRemoveFriend={(id) => setPlayer(p => ({...p, friends: p.friends.filter(f => f.id !== id)}))} />}
+        {view === 'DRESSING' && < DressingRoom player={player} setPlayer={setPlayer} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+        {view === 'SKILLS' && <SkillList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+        
+        {/* Footer Marquee */}
+        <footer className="mt-12 py-4 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden">
+           <div className="flex whitespace-nowrap animate-marquee">
+              {[1,2,3].map(i => (
+                <span key={i} className="text-[10px] font-black text-slate-500 uppercase tracking-[0.5em] px-8">
+                  Welcome to the Arena • Level up to unlock Epic Skills • Battle Masters for Legendary Loot • Customize your Fighter in the Style Shop • Join the Discord for Community Events •
+                </span>
+              ))}
+           </div>
+        </footer>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-33.33%); }
+        }
+        .animate-marquee {
+          animation: marquee 30s linear infinite;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes popIn {
+          from { opacity: 0; transform: scale(0.95) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-popIn {
+          animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+      `}} />
     </div>
   );
 };

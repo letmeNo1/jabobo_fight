@@ -41,9 +41,17 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener('resize', handleResize);
+    
+    // 关键：全局计时器只影响 IDLE / RUN / HOME。
     const timer = setInterval(() => {
-      setVisual(v => (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') ? { ...v, frame: v.frame + 1 } : v);
+      setVisual(v => {
+        if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
+           return { ...v, frame: v.frame + 1 };
+        }
+        return v;
+      });
     }, 125);
+    
     return () => {
       window.removeEventListener('resize', handleResize);
       clearInterval(timer);
@@ -69,10 +77,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     const actionSfx = customSfx || WEAPONS.find(w => w.id === selectedWeaponId)?.sfx || 'slash';
     
     const resolveOffset = (type: string) => {
-      const meleeDistance = isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC;
-      const baseActionOffset = isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC;
-      if (type === 'MELEE') return meleeDistance * 0.4;
-      if (type === 'BASE') return baseActionOffset;
+      const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
+      if (type === 'MELEE') return (containerWidth * config.combat.spacing.meleeDistancePct / 100) * 0.4;
+      if (type === 'BASE') return (containerWidth * config.combat.spacing.baseActionOffsetPct / 100);
       return 0;
     };
 
@@ -91,8 +98,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           const charRect = charContainerRef.current?.getBoundingClientRect();
           if (mainRect && charRect) {
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            // 弹道终点：根据逻辑宽度计算，而不是硬编码
-            const targetX = startX + (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * 0.8;
+            const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
+            const targetX = startX + (containerWidth * config.combat.spacing.meleeDistancePct / 100) * 0.8;
             const asset = findProjectileAsset(visualId, type);
             
             for (let j = 0; j < 3; j++) {

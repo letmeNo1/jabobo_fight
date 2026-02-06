@@ -1,5 +1,6 @@
+
 {
-  "name": "Q-Fight Master",
+  "name": "Jabobo Fight",
   "description": "A high-fidelity battle RPG inspired by classic Q-Pet Fight, featuring 32 skills, 24 weapons, a dressing system, and robust combat mechanics with full data persistence.",
   "requestFramePermissions": []
 }
