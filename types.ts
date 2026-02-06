@@ -25,6 +25,7 @@ export interface Weapon {
   module: AttackModule; // 绑定的动作模组
   sfx?: string; // 绑定的动作/挥动音效ID
   sfxFrame?: number; // 指定触发动作音效的动画帧 (1-based)
+  isArtifact?: boolean; // 是否为神器
 }
 
 export interface Skill {

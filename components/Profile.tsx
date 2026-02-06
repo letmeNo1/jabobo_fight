@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { CharacterData } from '../types';
 import { DRESSINGS } from '../constants';
 import CharacterVisual from './CharacterVisual';
+import { calculateTotalCP } from '../utils/combatPower';
 
 interface ProfileProps {
   player: CharacterData;
@@ -26,6 +27,7 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
 
   const expToNext = player.level * 100;
   const expPercentage = Math.min(100, (player.exp / expToNext) * 100);
+  const totalCP = calculateTotalCP(player);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
@@ -35,14 +37,18 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
           <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Combat Profile</p>
         </div>
         <div className="text-right">
-          <span className="text-xs font-black text-orange-500 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-            Lv. {player.level}
-          </span>
+          <div className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Combat Power</div>
+          <div className="text-2xl font-black text-indigo-700 italic">⚡ {totalCP}</div>
         </div>
       </div>
 
       <div className="relative w-full h-56 flex items-center justify-center mb-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(249,115,22,0.05),transparent)]"></div>
+        <div className="absolute top-2 right-2 z-20">
+          <span className="text-xs font-black text-orange-500 bg-orange-50 px-3 py-1 rounded-full border border-orange-100 shadow-sm">
+            Lv. {player.level}
+          </span>
+        </div>
         <CharacterVisual 
           name={player.name}
           state="HOME"

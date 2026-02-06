@@ -9,6 +9,7 @@ import SkillList from './components/SkillList';
 import TestPanel from './components/TestPanel';
 import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
+import RedeemCode from './components/RedeemCode';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import config from './config';
@@ -208,8 +209,12 @@ const App: React.FC = () => {
     results.push(`基础属性：${randomStat === 'str' ? '力量' : randomStat === 'agi' ? '敏捷' : '速度'} +${bonus}`);
     
     if (newData.isConcentrated || Math.random() < 0.9) {
-      const pool = [...WEAPONS.filter(w => !newData.weapons.includes(w.id)).map(w => ({ type: 'WEAPON', item: w })), 
-                    ...SKILLS.filter(s => !newData.skills.includes(s.id) && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))];
+      // 排除 w21 (speaker 310) 和 s29 (捷波波)
+      const pool = [
+        ...WEAPONS.filter(w => !newData.weapons.includes(w.id) && w.id !== 'w21').map(w => ({ type: 'WEAPON', item: w })), 
+        ...SKILLS.filter(s => !newData.skills.includes(s.id) && s.id !== 's29' && (!s.minLevel || nextLvl >= s.minLevel)).map(s => ({ type: 'SKILL', item: s }))
+      ];
+      
       if (pool.length > 0) {
         const choice = pool[Math.floor(Math.random() * pool.length)];
         if (choice.type === 'WEAPON') {
@@ -329,19 +334,22 @@ const App: React.FC = () => {
       )}
 
       {view === 'HOME' && (
-        <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8 animate-popIn">
-          <Profile player={player} isDebugMode={isDebugMode} />
-          <div className="space-y-3 md:space-y-4">
-            <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
-            <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>👥</span> <span>江湖好友</span></button>
-            <button onClick={() => startCombat('ELITE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🔱</span> <span>精英挑战</span></button>
-            <button onClick={() => startCombat('PROJECTILE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🎯</span> <span>暗器大师挑战</span></button>
-            <div className="grid grid-cols-2 gap-2 md:gap-4">
-              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95">📜 秘籍</button>
-              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 active:scale-95">👗 装扮</button>
+        <>
+          <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-8 animate-popIn mb-8">
+            <Profile player={player} isDebugMode={isDebugMode} />
+            <div className="space-y-3 md:space-y-4">
+              <button onClick={() => startCombat('NORMAL')} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 md:py-5 rounded-xl text-lg md:text-xl font-black shadow-lg shadow-orange-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>⚔️</span> <span>开启对决</span></button>
+              <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-xl text-base md:text-lg font-black shadow-lg shadow-emerald-100 transition-all active:scale-95 flex items-center justify-center space-x-2"><span>👥</span> <span>江湖好友</span></button>
+              <button onClick={() => startCombat('ELITE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🔱</span> <span>精英挑战</span></button>
+              <button onClick={() => startCombat('PROJECTILE')} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-black shadow-lg transition-all active:scale-95 flex items-center justify-center space-x-2"><span>🎯</span> <span>暗器大师挑战</span></button>
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
+                <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 hover:bg-blue-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-blue-100 active:scale-95">📜 秘籍</button>
+                <button onClick={() => {resumeAudio(); playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 hover:bg-purple-600 text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-purple-100 active:scale-95">👗 装扮</button>
+              </div>
             </div>
           </div>
-        </div>
+          <RedeemCode player={player} setPlayer={setPlayer} />
+        </>
       )}
 
       {view === 'COMBAT' && (

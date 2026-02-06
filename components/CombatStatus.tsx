@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { WEAPONS, SKILLS } from '../constants';
 import config from '../config';
+import { calculateTotalCP } from '../utils/combatPower';
 
 interface FighterDisplay {
   name: string;
@@ -37,6 +38,7 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
 
   const ownedWeapons = WEAPONS.filter(w => fighter.weapons.includes(w.id));
   const ownedSkills = SKILLS.filter(s => fighter.skills.includes(s.id));
+  const totalCP = calculateTotalCP(fighter as any);
 
   return (
     <div 
@@ -56,7 +58,10 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
               <h4 className="text-white font-black italic text-lg uppercase">{fighter.name}</h4>
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Combat Intel</p>
             </div>
-            <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-[10px] font-black">Lv. {fighter.level}</span>
+            <div className="text-right">
+               <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-[10px] font-black">Lv. {fighter.level}</span>
+               <div className="text-xs font-black text-indigo-400 mt-1 italic">CP: {totalCP}</div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-4">
@@ -90,6 +95,7 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
               <div className="flex items-center gap-2">
                 <span className="bg-orange-600 px-3 py-1 rounded-l-xl italic text-xs shadow-lg">{label}</span>
                 <span className="bg-slate-700/90 px-2 py-1 rounded-r-xl border-r-2 border-slate-500/50 text-[10px]">Lv.{fighter.level}</span>
+                <span className="text-[10px] text-indigo-400 italic font-black ml-1">⚡ {totalCP}</span>
               </div>
               {/* Status Badges */}
               <div className="flex gap-1">
@@ -106,6 +112,7 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
             <span className="font-mono text-2xl text-rose-400 pl-1">{Math.ceil(fighter.hp)}</span>
             <div className="flex flex-col items-end gap-1 ml-auto">
               <div className="flex items-center gap-2">
+                <span className="text-[10px] text-indigo-400 italic font-black mr-1">⚡ {totalCP}</span>
                 <span className="bg-slate-700/90 px-2 py-1 rounded-l-xl border-l-2 border-slate-500/50 text-[10px]">Lv.{fighter.level}</span>
                 <span className="bg-red-600 px-3 py-1 rounded-r-xl italic text-xs shadow-lg">{label}</span>
               </div>
@@ -133,7 +140,7 @@ const CombatStatus: React.FC<CombatStatusProps> = ({ fighter, side, uiScale, lab
       <div className={`mt-2 flex flex-wrap gap-1.5 ${!isLeft ? 'justify-end' : 'justify-start'} ${isLeft ? 'pl-2' : 'pr-2'}`}>
         {ownedWeapons.map(w => (
           <span key={w.id} className={`px-2 py-0.5 bg-slate-800/90 text-orange-400 text-[10px] font-black rounded-lg border border-orange-500/30 shadow-sm animate-popIn ${fighter.status.disarmed > 0 ? 'opacity-30 grayscale' : ''}`}>
-            ⚔️ {w.name}
+            {w.isArtifact ? '✨' : '⚔️'} {w.name}
           </span>
         ))}
         {ownedWeapons.length === 0 && <span className="text-[10px] text-slate-500 italic">空手</span>}
