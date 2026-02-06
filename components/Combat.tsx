@@ -107,66 +107,68 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
-      
-      for (const step of seq.steps) {
-        setMoveDuration(step.moveDuration);
-        const distance = step.offset === 'MELEE' ? (window.innerWidth < 768 ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) : (step.offset === 'BASE' ? (window.innerWidth < 768 ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) : 0);
-        
-        offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
-        atkSetter({ 
-          state: step.state as VisualState, 
-          frame: step.frame, 
-          weaponId: visualId || (isP ? record.player.dressing.WEAPON : record.opponent.dressing.WEAPON) 
-        });
-        
-        if (step.playSfx) playSFX(sfx);
+      const totalLoops = seq.repeat || 1;
 
-        if (step.projectile) {
-          const mainRect = containerRef.current?.getBoundingClientRect();
-          const pRect = pRef.current?.getBoundingClientRect();
-          const nRect = nRef.current?.getBoundingClientRect();
+      for (let loop = 0; loop < totalLoops; loop++) {
+        for (const step of seq.steps) {
+          setMoveDuration(step.moveDuration);
+          const distance = step.offset === 'MELEE' ? (window.innerWidth < 768 ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) : (step.offset === 'BASE' ? (window.innerWidth < 768 ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) : 0);
           
-          if (mainRect && pRect && nRect) {
-            const startX = isP ? (pRect.left - mainRect.left + pRect.width / 2) : (nRect.left - mainRect.left + nRect.width / 2);
-            const targetX = isP ? (nRect.left - mainRect.left + nRect.width / 2) : (pRect.left - mainRect.left + pRect.width / 2);
-            const asset = findProjectileAsset(visualId, turn.actionType);
+          offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
+          atkSetter({ 
+            state: step.state as VisualState, 
+            frame: step.frame, 
+            weaponId: visualId || (isP ? record.player.dressing.WEAPON : record.opponent.dressing.WEAPON) 
+          });
+          
+          if (step.playSfx) playSFX(sfx);
 
-            for(let j=0; j<3; j++) {
-              setTimeout(() => {
-                const pId = ++projectileCounter.current;
-                setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: turn.side, type: 'WEAPON' }]);
-                setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
-              }, j * 120);
+          if (step.projectile) {
+            const mainRect = containerRef.current?.getBoundingClientRect();
+            const pRect = pRef.current?.getBoundingClientRect();
+            const nRect = nRef.current?.getBoundingClientRect();
+            
+            if (mainRect && pRect && nRect) {
+              const startX = isP ? (pRect.left - mainRect.left + pRect.width / 2) : (nRect.left - mainRect.left + nRect.width / 2);
+              const targetX = isP ? (nRect.left - mainRect.left + nRect.width / 2) : (pRect.left - mainRect.left + pRect.width / 2);
+              const asset = findProjectileAsset(visualId, turn.actionType);
+
+              for(let j=0; j<3; j++) {
+                setTimeout(() => {
+                  const pId = ++projectileCounter.current;
+                  setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: turn.side, type: 'WEAPON' }]);
+                  setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
+                }, j * 120);
+              }
             }
           }
-        }
 
-        if (step.calculateHit) {
-          const hitDelay = module === 'THROW' ? 450 : 0;
-          setTimeout(() => {
-            if (turn.isHit) {
-              applyImpact(turn.damage, isP, defSetter);
-              oppStatsSetter(s => ({ 
-                ...s, 
-                hp: Math.max(0, s.hp - turn.damage),
-                status: {
-                  ...s.status,
-                  sticky: turn.statusChanges.sticky !== undefined ? turn.statusChanges.sticky : s.status.sticky,
-                  disarmed: turn.statusChanges.disarmed !== undefined ? turn.statusChanges.disarmed : s.status.disarmed
+          if (step.calculateHit) {
+            const hitDelay = module === 'THROW' ? 450 : 0;
+            setTimeout(() => {
+              if (turn.isHit) {
+                applyImpact(turn.damage, isP, defSetter);
+                oppStatsSetter(s => ({ 
+                  ...s, 
+                  hp: Math.max(0, s.hp - turn.damage),
+                  status: {
+                    ...s.status,
+                    sticky: turn.statusChanges.sticky !== undefined ? turn.statusChanges.sticky : s.status.sticky,
+                    disarmed: turn.statusChanges.disarmed !== undefined ? turn.statusChanges.disarmed : s.status.disarmed
+                  }
+                }));
+                if (turn.statusChanges.afterimage !== undefined) {
+                  statsSetter(s => ({ ...s, status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 } }));
                 }
-              }));
-              if (turn.statusChanges.afterimage !== undefined) {
-                statsSetter(s => ({ ...s, status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 } }));
+              } else {
+                applyMiss(!isP, defSetter);
               }
-            } else {
-              applyMiss(!isP, defSetter);
-            }
-          }, hitDelay);
+            }, hitDelay);
+          }
+          await new Promise(r => setTimeout(r, step.delay));
         }
-        await new Promise(r => setTimeout(r, step.delay));
       }
 
-      // 所有武器在使用后从 UI 列表移除
       if (isWeaponUsed && turn.actionId) {
         statsSetter(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
       }
