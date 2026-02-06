@@ -13,7 +13,7 @@ export enum SkillCategory {
   SPECIAL = 'SPECIAL'
 }
 
-export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH';
+export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'WAVE';
 
 export interface Weapon {
   id: string;

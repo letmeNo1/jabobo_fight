@@ -29,6 +29,17 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
   const expPercentage = Math.min(100, (player.exp / expToNext) * 100);
   const totalCP = calculateTotalCP(player);
 
+  const getPowerRank = (cp: number) => {
+    if (cp < 500) return { title: '初入江湖', color: 'text-slate-400' };
+    if (cp < 1000) return { title: '略有小成', color: 'text-emerald-500' };
+    if (cp < 2000) return { title: '炉火纯青', color: 'text-blue-500' };
+    if (cp < 4000) return { title: '出类拔萃', color: 'text-purple-500' };
+    if (cp < 7000) return { title: '傲视群雄', color: 'text-orange-500 font-black' };
+    return { title: '武圣降世', color: 'text-red-600 font-black animate-pulse' };
+  };
+
+  const rank = getPowerRank(totalCP);
+
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
       <div className="flex justify-between items-start mb-4">
@@ -38,7 +49,10 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
         </div>
         <div className="text-right">
           <div className="text-[9px] font-black text-indigo-500 uppercase tracking-tighter">Combat Power</div>
-          <div className="text-2xl font-black text-indigo-700 italic">⚡ {totalCP}</div>
+          <div className="flex flex-col items-end">
+            <div className="text-3xl font-black text-indigo-700 italic drop-shadow-sm">⚡ {totalCP}</div>
+            <div className={`text-[10px] uppercase font-black tracking-widest ${rank.color}`}>{rank.title}</div>
+          </div>
         </div>
       </div>
 

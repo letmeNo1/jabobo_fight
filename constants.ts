@@ -65,7 +65,7 @@ export const SKILLS: Skill[] = [
   { id: 's27', name: '企鹅挠痒', category: SkillCategory.ACTIVE, description: '持续6回合每回合5+敏捷*0.2伤害', module: 'SLASH', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's28', name: '师傅驾到', category: SkillCategory.ACTIVE, description: '恢复10%并下次必中', minLevel: 10, module: 'PUNCH', sfx: 'master_arrive', sfxFrame: 1 },
   // Special
-  { id: 's29', name: '捷波波', category: SkillCategory.SPECIAL, description: '50点固定伤害 (1次)', module: 'THROW', sfx: 'skill_cast', sfxFrame: 1 },
+  { id: 's29', name: '捷波波', category: SkillCategory.SPECIAL, description: '50点固定伤害 (1次)', module: 'WAVE', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's30', name: '如来神掌', category: SkillCategory.SPECIAL, description: '扣除对方当前50%生命值', minLevel: 30, module: 'CLEAVE', sfx: 'skill_cast', sfxFrame: 2 },
   { id: 's31', name: '避重就轻', category: SkillCategory.SPECIAL, description: '中/小型武器伤害+15%', minLevel: 30 },
   { id: 's32', name: '嗜血', category: SkillCategory.SPECIAL, description: '30%吸血', minLevel: 30, sfx: 'skill_cast', sfxFrame: 1 },
