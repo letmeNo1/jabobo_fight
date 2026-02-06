@@ -109,7 +109,6 @@ const App: React.FC = () => {
     const loadAll = async () => {
       let db = null;
       try { db = await initDB(); } catch (e) {}
-      let loadedCount = 0;
       for (let i = 0; i < totalResourcePaths.length; i += 10) {
         const chunk = totalResourcePaths.slice(i, i + 10);
         await Promise.all(chunk.map(async (path) => {
@@ -137,6 +136,27 @@ const App: React.FC = () => {
     loadAll();
   }, []);
 
+  const resetProgress = () => {
+    if (window.confirm('确定要重置所有进度吗？')) {
+      resumeAudio();
+      playUISound('CLICK');
+      setPlayer(INITIAL_DATA);
+      localStorage.removeItem('qfight_save');
+      localStorage.removeItem('qfight_history');
+      setHistory([]);
+      setView('HOME');
+    }
+  };
+
+  const clearAssetCache = () => {
+    if (window.confirm('确定要清除素材缓存并重新下载吗？')) {
+      resumeAudio();
+      playUISound('CLICK');
+      deleteDB();
+      window.location.reload();
+    }
+  };
+
   const handleLevelUp = (currentData: CharacterData) => {
     playUISound('LEVEL_UP');
     const nextLvl = currentData.level + 1;
@@ -153,16 +173,13 @@ const App: React.FC = () => {
   const startBattle = (opponent: FighterSnapshot, modeName: string) => {
     resumeAudio();
     playUISound('CLICK');
-    
     const record = simulateBattle(player, opponent);
     const isWin = record.winner === 'P';
     const gainedGold = isWin ? Math.floor(opponent.level * 25) : 0;
     const gainedExp = isWin ? Math.floor(opponent.level * 35) : 20;
     record.rewards = { gold: gainedGold, exp: gainedExp };
-
     setHistory(prev => [record, ...prev].slice(0, 10));
-    
-    setIsExplicitReplay(false); // 新战斗
+    setIsExplicitReplay(false);
     setActiveRecord(record);
     setView('COMBAT');
   };
@@ -192,12 +209,10 @@ const App: React.FC = () => {
       setView('HISTORY');
       return;
     }
-
     if (record.rewards) {
       const { gold, exp } = record.rewards;
       const isWin = record.winner === 'P';
       setBattleResult({ isWin, gold, exp });
-      
       let newExp = player.exp + exp;
       let nextLvlThreshold = player.level * 100;
       let tempPlayer = { ...player, gold: player.gold + gold, exp: newExp };
@@ -209,19 +224,25 @@ const App: React.FC = () => {
   if (loading) return <LoadingScreen progress={loadProgress} total={totalAssets} />;
 
   return (
-    <div className={`${config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800`}>
+    <div className={`${view === 'TEST' ? config.layout.maxWidthTest : config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800 transition-all duration-500`}>
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
-        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => setView('HOME')}>Q-Fight Master</h1>
-        <div className="flex items-center space-x-4 text-sm font-black">
-          <span className="text-slate-600">💰 {player.gold}</span>
-          <span className="text-slate-600">✨ Lv.{player.level}</span>
-          <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 italic">⚡ {totalCP}</span>
+        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Q-Fight Master</h1>
+        
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
+          <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
+          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
+          <div className="flex items-center space-x-3 text-sm font-black ml-2">
+            <span className="text-slate-600">💰 {player.gold}</span>
+            <span className="text-slate-600">✨ Lv.{player.level}</span>
+            <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 italic">⚡ {totalCP}</span>
+          </div>
         </div>
       </header>
 
       {battleResult && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4 backdrop-blur-md">
-          <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl border-t-[10px] ${battleResult.isWin ? 'border-orange-500' : 'border-slate-50'}`}>
+          <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl border-t-[10px] animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-50'}`}>
             <h2 className="text-3xl font-black italic uppercase text-center mb-6">{battleResult.isWin ? '🏆 Victory' : '💀 Defeat'}</h2>
             <div className="space-y-3 mb-8">
               <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
@@ -233,7 +254,7 @@ const App: React.FC = () => {
                 <span className="text-xl font-black text-blue-600">+{battleResult.exp}</span>
               </div>
             </div>
-            <button onClick={() => {setBattleResult(null); setView('HOME');}} className="w-full py-4 rounded-2xl font-black text-white text-lg bg-orange-500">确定</button>
+            <button onClick={() => {playUISound('CLICK'); setBattleResult(null); setView('HOME');}} className="w-full py-4 rounded-2xl font-black text-white text-lg bg-orange-500">确定</button>
           </div>
         </div>
       )}
@@ -242,14 +263,14 @@ const App: React.FC = () => {
         <div className="flex flex-col md:grid md:grid-cols-2 gap-8 animate-popIn">
           <Profile player={player} />
           <div className="space-y-4">
-            <button onClick={() => startBattle(generateNormalOpponent(), 'NORMAL')} className="w-full bg-orange-500 text-white py-5 rounded-xl text-xl font-black shadow-lg">⚔️ 开启对决</button>
-            <button onClick={() => setView('FRIENDS')} className="w-full bg-emerald-500 text-white py-4 rounded-xl text-lg font-black">👥 江湖好友</button>
-            <button onClick={() => startBattle(generateEliteOpponent(), 'ELITE')} className="w-full bg-slate-800 text-white py-4 rounded-xl text-lg font-black">🔱 精英挑战</button>
+            <button onClick={() => startBattle(generateNormalOpponent(), 'NORMAL')} className="w-full bg-orange-500 text-white py-5 rounded-xl text-xl font-black shadow-lg hover:bg-orange-600 transition-all active:scale-95">⚔️ 开启对决</button>
+            <button onClick={() => {playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 text-white py-4 rounded-xl text-lg font-black hover:bg-emerald-600 transition-all active:scale-95">👥 江湖好友</button>
+            <button onClick={() => startBattle(generateEliteOpponent(), 'ELITE')} className="w-full bg-slate-800 text-white py-4 rounded-xl text-lg font-black hover:bg-slate-900 transition-all active:scale-95">🔱 精英挑战</button>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setView('SKILLS')} className="bg-blue-500 text-white py-4 rounded-xl font-bold">📜 秘籍仓库</button>
-              <button onClick={() => setView('DRESSING')} className="bg-purple-500 text-white py-4 rounded-xl font-bold">👗 个性装扮</button>
+              <button onClick={() => {playUISound('CLICK'); setView('SKILLS');}} className="bg-blue-500 text-white py-4 rounded-xl font-bold hover:bg-blue-600 transition-all active:scale-95">📜 秘籍仓库</button>
+              <button onClick={() => {playUISound('CLICK'); setView('DRESSING');}} className="bg-purple-500 text-white py-4 rounded-xl font-bold hover:bg-purple-600 transition-all active:scale-95">👗 个性装扮</button>
             </div>
-            <button onClick={() => setView('HISTORY')} className="w-full bg-indigo-500 text-white py-4 rounded-xl text-lg font-black italic tracking-widest">📜 战报回放</button>
+            <button onClick={() => {playUISound('CLICK'); setView('HISTORY');}} className="w-full bg-indigo-500 text-white py-4 rounded-xl text-lg font-black italic tracking-widest hover:bg-indigo-600 transition-all active:scale-95">📜 战报回放</button>
           </div>
           <RedeemCode player={player} setPlayer={setPlayer} />
         </div>
@@ -260,12 +281,13 @@ const App: React.FC = () => {
       )}
       
       {view === 'HISTORY' && (
-        <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => setView('HOME')} />
+        <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => {playUISound('CLICK'); setView('HOME');}} />
       )}
 
-      {view === 'FRIENDS' && <FriendList player={player} onBack={() => setView('HOME')} onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} onAddFriend={(f) => setPlayer(p => ({...p, friends: [f, ...p.friends]}))} onRemoveFriend={(id) => setPlayer(p => ({...p, friends: p.friends.filter(f => f.id !== id)}))} />}
-      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => setView('HOME')} />}
-      {view === 'SKILLS' && <SkillList player={player} onBack={() => setView('HOME')} />}
+      {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+      {view === 'FRIENDS' && <FriendList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} onAddFriend={(f) => setPlayer(p => ({...p, friends: [f, ...p.friends]}))} onRemoveFriend={(id) => setPlayer(p => ({...p, friends: p.friends.filter(f => f.id !== id)}))} />}
+      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+      {view === 'SKILLS' && <SkillList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
     </div>
   );
 };

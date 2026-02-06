@@ -84,6 +84,13 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         module = w?.module || 'SLASH';
         sfx = w?.sfx || 'slash';
         weaponId = w?.id;
+        
+        // --- 核心改动：从状态栏中移除已使用的武器 ---
+        if (isP) {
+          setPStats(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
+        } else {
+          setNStats(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
+        }
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
