@@ -85,11 +85,23 @@ const App: React.FC = () => {
 
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
+    
+    // 加载动画帧
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
         animationImages.push(`${prefix}${i}.png`);
         WEAPONS.forEach(w => animationImages.push(`${w.id}_${prefix}${i}.png`));
         SKILLS.forEach(s => s.module && animationImages.push(`${s.id}_${s.module.toLowerCase()}${i}.png`));
+      }
+    });
+
+    // 关键修正：按规则预加载飞行道具资源
+    WEAPONS.forEach(w => {
+      animationImages.push(`${w.id}_throw.png`); // 武器只用 _throw
+    });
+    SKILLS.forEach(s => {
+      if (s.module) {
+        animationImages.push(`${s.id}_projectile.png`); // 技能只用 _projectile
       }
     });
 

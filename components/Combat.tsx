@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { BattleRecord, BattleTurn, VisualState, BattleLog } from '../types';
+import { BattleRecord, BattleTurn, VisualState, BattleLog, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
 import CharacterVisual from './CharacterVisual';
 import CombatStatus from './CombatStatus';
@@ -18,7 +17,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [currentTurnIdx, setCurrentTurnIdx] = useState(-1);
   const [logs, setLogs] = useState<BattleLog[]>([]);
   
-  // 双方状态实时映射
   const [pStats, setPStats] = useState({ ...record.player, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
   const [nStats, setNStats] = useState({ ...record.opponent, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
   
@@ -28,19 +26,43 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [pOffset, setPOffset] = useState({ x: 0, y: 0 });
   const [nOffset, setNOffset] = useState({ x: 0, y: 0 });
   const [moveDuration, setMoveDuration] = useState(400);
-  const [shaking, setShaking] = useState<'P' | 'N' | 'SCREEN' | null>(null);
-  const [effects, setEffects] = useState<any[]>([]);
   const [projectiles, setProjectiles] = useState<any[]>([]);
-
+  
+  const projectileCounter = useRef(0);
+  const pRef = useRef<HTMLDivElement>(null);
+  const nRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // 初始化战斗
+  // 资源查找助手：武器使用 _throw，技能使用 _projectile
+  const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL' | 'PUNCH') => {
+    if (!id || !window.assetMap) return null;
+    
+    let paths: string[] = [];
+    if (type === 'SKILL') {
+      paths = [
+        `Images/${id}_projectile.png`,
+        `Images/${id}_projectile1.png`
+      ];
+    } else {
+      paths = [
+        `Images/${id}_throw.png`, 
+        `Images/${id}_throw1.png`,
+        `Images/${id}_atk1.png` 
+      ];
+    }
+
+    for (const p of paths) {
+      if (window.assetMap.has(p)) return window.assetMap.get(p);
+    }
+    return null;
+  };
+
   useEffect(() => {
     setLogs([{ attacker: '系统', text: '战斗开始！' }]);
     setTimeout(() => setCurrentTurnIdx(0), 1000);
   }, []);
 
-  // 帧动画
   useEffect(() => {
     const timer = setInterval(() => {
       setPVisual(v => ({ ...v, frame: v.frame + 1 }));
@@ -49,12 +71,9 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     return () => clearInterval(timer);
   }, []);
 
-  // 处理回合回放
   useEffect(() => {
     if (currentTurnIdx < 0 || currentTurnIdx >= record.turns.length) {
-      if (currentTurnIdx >= record.turns.length) {
-        setTimeout(onFinish, 1500);
-      }
+      if (currentTurnIdx >= record.turns.length) setTimeout(onFinish, 1500);
       return;
     }
 
@@ -68,7 +87,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       const oppStatsSetter = isP ? setNStats : setPStats;
       const dir = isP ? 1 : -1;
 
-      // 1. 回合开始，衰减当前攻击方的状态计数器（同步模拟引擎逻辑）
       statsSetter(prev => ({
         ...prev,
         status: {
@@ -79,27 +97,24 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         }
       }));
 
-      // 更新文本日志
       setLogs(prev => [...prev, ...turn.logs]);
 
-      // 解析动作模组
       let module: any = 'PUNCH';
-      let weaponId = undefined;
+      let visualId = undefined;
       let sfx = 'punch';
+      let isConsumable = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
         module = s?.module || 'PUNCH';
         sfx = s?.sfx || 'skill_cast';
-        weaponId = s?.id;
+        visualId = s?.id;
       } else if (turn.actionType === 'WEAPON') {
         const w = WEAPONS.find(we => we.id === turn.actionId);
         module = w?.module || 'SLASH';
         sfx = w?.sfx || 'slash';
-        weaponId = w?.id;
-        
-        // 从状态栏移除已使用武器
-        statsSetter(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
+        visualId = w?.id;
+        if (w?.type === WeaponType.THROW) isConsumable = true;
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
@@ -108,44 +123,71 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         setMoveDuration(step.moveDuration);
         const distance = step.offset === 'MELEE' ? 500 : (step.offset === 'BASE' ? 80 : 0);
         offsetSetter({ x: distance * dir, y: step.offsetY || 0 });
-        atkSetter({ state: step.state as VisualState, frame: step.frame, weaponId: weaponId || (isP ? record.player.dressing.WEAPON : record.opponent.dressing.WEAPON) });
+        atkSetter({ 
+          state: step.state as VisualState, 
+          frame: step.frame, 
+          weaponId: visualId || (isP ? record.player.dressing.WEAPON : record.opponent.dressing.WEAPON) 
+        });
         
         if (step.playSfx) playSFX(sfx);
-        if (step.calculateHit) {
-          if (turn.isHit) {
-            applyImpact(turn.damage, isP, defSetter);
-            
-            // 2. 应用命中后的状态变化
-            oppStatsSetter(s => ({ 
-              ...s, 
-              hp: Math.max(0, s.hp - turn.damage),
-              status: {
-                ...s.status,
-                sticky: turn.statusChanges.sticky !== undefined ? turn.statusChanges.sticky : s.status.sticky,
-                disarmed: turn.statusChanges.disarmed !== undefined ? turn.statusChanges.disarmed : s.status.disarmed
-              }
-            }));
 
-            // 如果攻击者获得了残影（或其他给自己加的状态）
-            if (turn.statusChanges.afterimage !== undefined) {
-              statsSetter(s => ({
-                ...s,
-                status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 }
-              }));
+        // 飞行道具视觉逻辑
+        if (step.projectile) {
+          const mainRect = containerRef.current?.getBoundingClientRect();
+          const pRect = pRef.current?.getBoundingClientRect();
+          // Fix: Removed duplicate assignment to nRect and corrected initialization to avoid use-before-declaration error.
+          const nRect = nRef.current?.getBoundingClientRect();
+          
+          if (mainRect && pRect && nRect) {
+            const startX = isP ? (pRect.left - mainRect.left + pRect.width / 2) : (nRect.left - mainRect.left + nRect.width / 2);
+            const targetX = isP ? (nRect.left - mainRect.left + nRect.width / 2) : (pRect.left - mainRect.left + pRect.width / 2);
+            const asset = findProjectileAsset(visualId, turn.actionType);
+
+            // 三连发弹道
+            for(let j=0; j<3; j++) {
+              setTimeout(() => {
+                const pId = ++projectileCounter.current;
+                setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: turn.side, type: 'WEAPON' }]);
+                setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
+              }, j * 120);
             }
-          } else {
-            applyMiss(!isP, defSetter);
           }
+        }
+
+        if (step.calculateHit) {
+          // 投掷类伤害弹出稍微延迟，匹配弹道速度
+          const hitDelay = module === 'THROW' ? 450 : 0;
+          setTimeout(() => {
+            if (turn.isHit) {
+              applyImpact(turn.damage, isP, defSetter);
+              oppStatsSetter(s => ({ 
+                ...s, 
+                hp: Math.max(0, s.hp - turn.damage),
+                status: {
+                  ...s.status,
+                  sticky: turn.statusChanges.sticky !== undefined ? turn.statusChanges.sticky : s.status.sticky,
+                  disarmed: turn.statusChanges.disarmed !== undefined ? turn.statusChanges.disarmed : s.status.disarmed
+                }
+              }));
+              if (turn.statusChanges.afterimage !== undefined) {
+                statsSetter(s => ({ ...s, status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 } }));
+              }
+            } else {
+              applyMiss(!isP, defSetter);
+            }
+          }, hitDelay);
         }
         await new Promise(r => setTimeout(r, step.delay));
       }
 
-      // 复位
+      if (isConsumable && turn.actionId) {
+        statsSetter(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
+      }
+
       setMoveDuration(500);
       offsetSetter({ x: 0, y: 0 });
       atkSetter({ state: 'IDLE', frame: 1 });
       await new Promise(r => setTimeout(r, 600));
-      
       setCurrentTurnIdx(prev => prev + 1);
     };
 
@@ -154,35 +196,57 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
   const applyImpact = (dmg: number, isPAtk: boolean, defSetter: any) => {
     const id = Date.now();
-    setEffects(prev => [...prev, { id, text: `-${dmg}`, isPlayer: !isPAtk, color: '#ef4444' }]);
-    setTimeout(() => setEffects(prev => prev.filter(e => e.id !== id)), 800);
-    setShaking(isPAtk ? 'N' : 'P');
+    setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: !isPAtk, color: '#ef4444', type: 'TEXT' }]);
+    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
     defSetter((v: any) => ({ ...v, state: 'HURT', frame: 1 }));
-    setTimeout(() => { setShaking(null); defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })); }, 400);
+    setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
   };
 
   const applyMiss = (isPDef: boolean, defSetter: any) => {
     const id = Date.now();
-    setEffects(prev => [...prev, { id, text: 'MISS', isPlayer: isPDef, color: '#94a3b8' }]);
-    setTimeout(() => setEffects(prev => prev.filter(e => e.id !== id)), 800);
+    setProjectiles(prev => [...prev, { id: `miss-${id}`, text: 'MISS', isPlayer: isPDef, color: '#94a3b8', type: 'TEXT' }]);
+    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `miss-${id}`)), 800);
     defSetter((v: any) => ({ ...v, state: 'DODGE', frame: 1 }));
     setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
   };
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden">
-      <div className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
+      <div ref={containerRef} className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
+        {/* Projectiles Layer */}
+        <div className="absolute inset-0 z-[220] pointer-events-none">
+          {projectiles.map(p => {
+            if (p.type === 'TEXT') {
+              return (
+                <div key={p.id} className="absolute animate-damage text-6xl font-black text-center w-40" style={{ left: p.isPlayer ? '20%' : '70%', top: '40%', color: p.color }}>
+                  {p.text}
+                </div>
+              );
+            }
+            return (
+              <div 
+                key={p.id} 
+                className="absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
+                style={{
+                  left: p.startX,
+                  bottom: '25%',
+                  '--tx': `${p.targetX - p.startX}px`
+                } as any}
+              >
+                {p.asset ? <img src={p.asset} className={`w-full h-full object-contain ${p.side === 'N' ? 'scale-x-[-1]' : ''}`} /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
+              </div>
+            );
+          })}
+        </div>
+
         <div className="absolute top-4 inset-x-0 z-[250] pointer-events-none px-4">
-          {isReplay && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-rose-600 text-white px-4 py-1 rounded-full text-xs font-black animate-pulse shadow-lg z-50">REPLAY MODE</div>
-          )}
           <CombatStatus fighter={pStats as any} side="left" uiScale={1} label="PLAYER" />
           <CombatStatus fighter={nStats as any} side="right" uiScale={1} label="OPPONENT" />
         </div>
         
         <div className="relative flex items-end justify-center w-full h-[450px]">
-          <div className="w-full flex justify-between px-24 pb-16 relative">
-            <div style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
+          <div className="w-full flex justify-between px-12 md:px-24 pb-16 relative">
+            <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <CharacterVisual 
                 name={pStats.name} 
                 state={pVisual.state} 
@@ -190,9 +254,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                 weaponId={pVisual.weaponId} 
                 hasAfterimage={pStats.status.afterimage > 0} 
               />
-              {effects.filter(e => e.isPlayer).map(e => <div key={e.id} className="absolute -top-32 left-0 w-full animate-damage text-6xl font-black text-center" style={{ color: e.color }}>{e.text}</div>)}
             </div>
-            <div style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
+            <div ref={nRef} style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <div className="scale-x-[-1]">
                 <CharacterVisual 
                   name={nStats.name} 
@@ -203,12 +266,19 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                   hasAfterimage={nStats.status.afterimage > 0}
                 />
               </div>
-              {effects.filter(e => !e.isPlayer).map(e => <div key={e.id} className="absolute -top-32 left-0 w-full animate-damage text-6xl font-black text-center" style={{ color: e.color }}>{e.text}</div>)}
             </div>
           </div>
         </div>
       </div>
       <CombatLog logs={logs} logEndRef={logEndRef} isMobile={false} />
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes projectile-fly-pro {
+          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
+        }
+        .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
+      `}} />
     </div>
   );
 };
