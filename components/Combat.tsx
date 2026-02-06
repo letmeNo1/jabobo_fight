@@ -35,27 +35,15 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // 资源查找助手：武器使用 _throw，技能使用 _projectile
   const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL' | 'PUNCH') => {
     if (!id || !window.assetMap) return null;
-    
     let paths: string[] = [];
     if (type === 'SKILL') {
-      paths = [
-        `Images/${id}_projectile.png`,
-        `Images/${id}_projectile1.png`
-      ];
+      paths = [`Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
     } else {
-      paths = [
-        `Images/${id}_throw.png`, 
-        `Images/${id}_throw1.png`,
-        `Images/${id}_atk1.png` 
-      ];
+      paths = [`Images/${id}_throw.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
-
-    for (const p of paths) {
-      if (window.assetMap.has(p)) return window.assetMap.get(p);
-    }
+    for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
     return null;
   };
 
@@ -103,7 +91,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       let module: any = 'PUNCH';
       let visualId = undefined;
       let sfx = 'punch';
-      let isConsumable = false;
+      let isWeaponUsed = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
@@ -115,16 +103,16 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         module = w?.module || 'SLASH';
         sfx = w?.sfx || 'slash';
         visualId = w?.id;
-        // 规则修改：所有武器在战斗中都是一次性消耗品
-        isConsumable = true;
+        isWeaponUsed = true;
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
       
       for (const step of seq.steps) {
         setMoveDuration(step.moveDuration);
-        const distance = step.offset === 'MELEE' ? 500 : (step.offset === 'BASE' ? 80 : 0);
-        offsetSetter({ x: distance * dir, y: step.offsetY || 0 });
+        const distance = step.offset === 'MELEE' ? (window.innerWidth < 768 ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) : (step.offset === 'BASE' ? (window.innerWidth < 768 ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) : 0);
+        
+        offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
         atkSetter({ 
           state: step.state as VisualState, 
           frame: step.frame, 
@@ -133,7 +121,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         
         if (step.playSfx) playSFX(sfx);
 
-        // 飞行道具视觉逻辑
         if (step.projectile) {
           const mainRect = containerRef.current?.getBoundingClientRect();
           const pRect = pRef.current?.getBoundingClientRect();
@@ -144,7 +131,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             const targetX = isP ? (nRect.left - mainRect.left + nRect.width / 2) : (pRect.left - mainRect.left + pRect.width / 2);
             const asset = findProjectileAsset(visualId, turn.actionType);
 
-            // 三连发弹道
             for(let j=0; j<3; j++) {
               setTimeout(() => {
                 const pId = ++projectileCounter.current;
@@ -156,7 +142,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         }
 
         if (step.calculateHit) {
-          // 投掷类伤害弹出稍微延迟，匹配弹道速度
           const hitDelay = module === 'THROW' ? 450 : 0;
           setTimeout(() => {
             if (turn.isHit) {
@@ -181,7 +166,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         await new Promise(r => setTimeout(r, step.delay));
       }
 
-      if (isConsumable && turn.actionId) {
+      // 所有武器在使用后从 UI 列表移除
+      if (isWeaponUsed && turn.actionId) {
         statsSetter(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
       }
 
@@ -214,7 +200,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   return (
     <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden">
       <div ref={containerRef} className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
-        {/* Projectiles Layer */}
         <div className="absolute inset-0 z-[220] pointer-events-none">
           {projectiles.map(p => {
             if (p.type === 'TEXT') {
@@ -230,7 +215,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                 className="absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
                 style={{
                   left: p.startX,
-                  bottom: '25%',
+                  bottom: window.innerWidth < 768 ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
                   '--tx': `${p.targetX - p.startX}px`
                 } as any}
               >
@@ -248,24 +233,11 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         <div className="relative flex items-end justify-center w-full h-[450px]">
           <div className="w-full flex justify-between px-12 md:px-24 pb-16 relative">
             <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
-              <CharacterVisual 
-                name={pStats.name} 
-                state={pVisual.state} 
-                frame={pVisual.frame} 
-                weaponId={pVisual.weaponId} 
-                hasAfterimage={pStats.status.afterimage > 0} 
-              />
+              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
             </div>
             <div ref={nRef} style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <div className="scale-x-[-1]">
-                <CharacterVisual 
-                  name={nStats.name} 
-                  isNpc 
-                  state={nVisual.state} 
-                  frame={nVisual.frame} 
-                  weaponId={nVisual.weaponId} 
-                  hasAfterimage={nStats.status.afterimage > 0}
-                />
+                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} hasAfterimage={nStats.status.afterimage > 0} />
               </div>
             </div>
           </div>

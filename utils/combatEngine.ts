@@ -45,7 +45,6 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       statusChanges: {}
     };
 
-    // 1. 处理 DOT
     if (atk.status.dots.length > 0) {
       const dotDmg = atk.status.dots.reduce((sum, d) => sum + d.dmg, 0);
       atk.hp = Math.max(0, atk.hp - dotDmg);
@@ -57,7 +56,6 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       }
     }
 
-    // 2. 衰减状态
     atk.status.disarmed = Math.max(0, atk.status.disarmed - 1);
     atk.status.sticky = Math.max(0, atk.status.sticky - 1);
     atk.status.afterimage = Math.max(0, atk.status.afterimage - 1);
@@ -70,19 +68,15 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       continue;
     }
 
-    // 3. 选择动作
     const actionPool: any[] = [];
     const activeSkills = SKILLS.filter(s => atk.skills.includes(s.id) && (s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL) && !atk.status.usedSkills.includes(s.id));
     
-    // 技能池
     activeSkills.forEach(s => actionPool.push({ type: 'SKILL', id: s.id, weight: 35 }));
     
-    // 武器池 (只有没被缴械才能用)
     if (atk.status.disarmed <= 0 && atk.weapons.length > 0) {
       atk.weapons.forEach(wid => actionPool.push({ type: 'WEAPON', id: wid, weight: 50 }));
     }
     
-    // 保底：肉搏
     actionPool.push({ type: 'PUNCH', weight: 15 });
 
     const totalWeight = actionPool.reduce((s, a) => s + a.weight, 0);
@@ -93,7 +87,6 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
     turn.actionType = selected.type;
     turn.actionId = selected.id;
 
-    // 4. 计算命中和伤害
     let baseDmg = atk.str * 1.2;
     let actionName = "普通攻击";
     let isHit = Math.random() >= Math.min(0.3, (def.agi + (def.skills.includes('s13') ? 7 : 0)) / 100);
@@ -106,11 +99,10 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       if (s.id === 's15') { isHit = Math.random() < 0.05; baseDmg = def.hp - 1; }
       else if (s.id === 's22') { isHit = true; baseDmg = 0; turn.statusChanges.sticky = 3; }
       else if (s.id === 's18') { isHit = true; baseDmg = 0; turn.statusChanges.afterimage = 4; }
-      else if (s.id === 's25') { // 势如暴雨：逻辑处理
+      else if (s.id === 's25') { 
         const throwWeapons = atk.weapons.filter(wid => WEAPONS.find(w => w.id === wid)?.type === WeaponType.THROW).slice(0, 3);
         isHit = true;
         baseDmg = throwWeapons.length * 15 + atk.str;
-        // 消耗掉这些投掷武器
         atk.weapons = atk.weapons.filter(wid => !throwWeapons.includes(wid));
       }
       else baseDmg = atk.str * 2.2;
@@ -119,7 +111,7 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       actionName = `使用了武器【${w.name}】`;
       baseDmg = w.baseDmg[0] + Math.random() * (w.baseDmg[1] - w.baseDmg[0]);
       
-      // --- 规则修改：所有武器在使用后从该场战斗列表中移除 ---
+      // 规则：只要使用了，就从当前列表删除
       atk.weapons = atk.weapons.filter(id => id !== w.id);
       
       if (w.id === 'w23') { isHit = true; baseDmg = 0; turn.statusChanges.sticky = 3; }
@@ -131,7 +123,6 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
     turn.logs.push({ attacker: atk.name, text: actionName });
     if (!isHit) turn.logs.push({ attacker: def.name, text: '巧妙地闪避了！' });
 
-    // 5. 应用状态变化
     if (isHit) {
       def.hp = Math.max(0, def.hp - turn.damage);
       if (turn.statusChanges.sticky) def.status.sticky = turn.statusChanges.sticky;

@@ -50,27 +50,15 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     };
   }, []);
 
-  // 资源查找助手：武器使用 _throw，技能使用 _projectile
   const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL') => {
     if (!id || !window.assetMap) return null;
-    
     let paths: string[] = [];
     if (type === 'SKILL') {
-      paths = [
-        `Images/${id}_projectile.png`,
-        `Images/${id}_projectile1.png`
-      ];
+      paths = [`Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
     } else {
-      paths = [
-        `Images/${id}_throw.png`, 
-        `Images/${id}_throw1.png`,
-        `Images/${id}_atk1.png` 
-      ];
+      paths = [`Images/${id}_throw.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
-
-    for (const p of paths) {
-      if (window.assetMap.has(p)) return window.assetMap.get(p);
-    }
+    for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
     return null;
   };
 
@@ -98,16 +86,15 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setVisual({ state: step.state as VisualState, frame: step.frame, weaponId: visualId });
         if (step.playSfx) playSFX(actionSfx);
 
-        // 飞行道具触发逻辑
         if (step.projectile) {
           const mainRect = mainContainerRef.current?.getBoundingClientRect();
           const charRect = charContainerRef.current?.getBoundingClientRect();
           if (mainRect && charRect) {
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            const targetX = startX + (isMobile ? 350 : 500);
+            // 弹道终点：根据逻辑宽度计算，而不是硬编码
+            const targetX = startX + (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * 0.8;
             const asset = findProjectileAsset(visualId, type);
             
-            // 三连发弹道
             for (let j = 0; j < 3; j++) {
               setTimeout(() => {
                 const pId = ++projectileCounter.current;
@@ -124,7 +111,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         await new Promise(r => setTimeout(r, step.delay));
       }
     }
-    await new Promise(r => setTimeout(r, 100));
     setMoveDuration(500);
     setVisual(v => ({...v, state: 'IDLE', frame: 1, weaponId: selectedWeaponId }));
     setOffset({ x: 0, y: 0 });
@@ -133,8 +119,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   };
 
   const getDressingName = (part: 'HEAD' | 'BODY' | 'WEAPON') => DRESSINGS.find(d => d.id === player.dressing[part])?.name;
-
-  // 过滤出可测试的技能 (有 module 的)
   const testableSkills = SKILLS.filter(s => s.module && (s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL));
 
   return (
@@ -145,29 +129,23 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       </div>
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden bg-slate-100 relative">
         <div className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start pl-[15%] md:pl-[20%] overflow-hidden min-h-[450px]">
-          {/* Projectiles Layer */}
           <div className="absolute inset-0 z-50 pointer-events-none">
              {projectiles.map((p) => (
                <div 
                  key={p.id}
                  className={`absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
-                 style={{ bottom: '25%', left: `${p.startX}px`, '--tx': `${p.targetX - p.startX}px` } as any}
+                 style={{ 
+                    bottom: isMobile ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC, 
+                    left: `${p.startX}px`, 
+                    '--tx': `${p.targetX - p.startX}px` 
+                 } as any}
                >
                  {p.asset ? <img src={p.asset} className="w-full h-full object-contain drop-shadow-xl" alt="projectile" /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
                </div>
              ))}
           </div>
           <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
-            <CharacterVisual 
-              name="演武测试员"
-              state={visual.state} 
-              frame={visual.frame} 
-              weaponId={visual.weaponId}
-              debug={isDebugMode}
-              isMobile={isMobile}
-              className="scale-[1.2] md:scale-[1.35]" 
-              accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} 
-            />
+            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[1.2] md:scale-[1.35]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
           </div>
         </div>
         
@@ -183,7 +161,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                 ))}
               </div>
             </section>
-
             <section>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">江湖绝学库</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
