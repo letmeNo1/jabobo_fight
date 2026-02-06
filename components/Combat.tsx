@@ -19,8 +19,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [logs, setLogs] = useState<BattleLog[]>([]);
   
   // 双方状态实时映射
-  const [pStats, setPStats] = useState({ ...record.player, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] } });
-  const [nStats, setNStats] = useState({ ...record.opponent, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] } });
+  const [pStats, setPStats] = useState({ ...record.player, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
+  const [nStats, setNStats] = useState({ ...record.opponent, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
   
   const [pVisual, setPVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ state: 'IDLE', frame: 1, weaponId: record.player.dressing.WEAPON });
   const [nVisual, setNVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ state: 'IDLE', frame: 1, weaponId: record.opponent.dressing.WEAPON });
@@ -64,7 +64,20 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       const atkSetter = isP ? setPVisual : setNVisual;
       const defSetter = isP ? setNVisual : setPVisual;
       const offsetSetter = isP ? setPOffset : setNOffset;
+      const statsSetter = isP ? setPStats : setNStats;
+      const oppStatsSetter = isP ? setNStats : setPStats;
       const dir = isP ? 1 : -1;
+
+      // 1. 回合开始，衰减当前攻击方的状态计数器（同步模拟引擎逻辑）
+      statsSetter(prev => ({
+        ...prev,
+        status: {
+          ...prev.status,
+          disarmed: Math.max(0, prev.status.disarmed - 1),
+          sticky: Math.max(0, prev.status.sticky - 1),
+          afterimage: Math.max(0, prev.status.afterimage - 1)
+        }
+      }));
 
       // 更新文本日志
       setLogs(prev => [...prev, ...turn.logs]);
@@ -85,12 +98,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         sfx = w?.sfx || 'slash';
         weaponId = w?.id;
         
-        // --- 核心改动：从状态栏中移除已使用的武器 ---
-        if (isP) {
-          setPStats(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
-        } else {
-          setNStats(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
-        }
+        // 从状态栏移除已使用武器
+        statsSetter(prev => ({ ...prev, weapons: prev.weapons.filter(id => id !== turn.actionId) }));
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
@@ -105,11 +114,24 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         if (step.calculateHit) {
           if (turn.isHit) {
             applyImpact(turn.damage, isP, defSetter);
-            // 应用状态
-            if (isP) {
-              setNStats(s => ({ ...s, hp: Math.max(0, s.hp - turn.damage) }));
-            } else {
-              setPStats(s => ({ ...s, hp: Math.max(0, s.hp - turn.damage) }));
+            
+            // 2. 应用命中后的状态变化
+            oppStatsSetter(s => ({ 
+              ...s, 
+              hp: Math.max(0, s.hp - turn.damage),
+              status: {
+                ...s.status,
+                sticky: turn.statusChanges.sticky !== undefined ? turn.statusChanges.sticky : s.status.sticky,
+                disarmed: turn.statusChanges.disarmed !== undefined ? turn.statusChanges.disarmed : s.status.disarmed
+              }
+            }));
+
+            // 如果攻击者获得了残影（或其他给自己加的状态）
+            if (turn.statusChanges.afterimage !== undefined) {
+              statsSetter(s => ({
+                ...s,
+                status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 }
+              }));
             }
           } else {
             applyMiss(!isP, defSetter);
@@ -161,12 +183,25 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         <div className="relative flex items-end justify-center w-full h-[450px]">
           <div className="w-full flex justify-between px-24 pb-16 relative">
             <div style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
-              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} />
+              <CharacterVisual 
+                name={pStats.name} 
+                state={pVisual.state} 
+                frame={pVisual.frame} 
+                weaponId={pVisual.weaponId} 
+                hasAfterimage={pStats.status.afterimage > 0} 
+              />
               {effects.filter(e => e.isPlayer).map(e => <div key={e.id} className="absolute -top-32 left-0 w-full animate-damage text-6xl font-black text-center" style={{ color: e.color }}>{e.text}</div>)}
             </div>
             <div style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <div className="scale-x-[-1]">
-                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} />
+                <CharacterVisual 
+                  name={nStats.name} 
+                  isNpc 
+                  state={nVisual.state} 
+                  frame={nVisual.frame} 
+                  weaponId={nVisual.weaponId} 
+                  hasAfterimage={nStats.status.afterimage > 0}
+                />
               </div>
               {effects.filter(e => !e.isPlayer).map(e => <div key={e.id} className="absolute -top-32 left-0 w-full animate-damage text-6xl font-black text-center" style={{ color: e.color }}>{e.text}</div>)}
             </div>

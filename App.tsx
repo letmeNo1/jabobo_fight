@@ -11,6 +11,7 @@ import LoadingScreen from './components/LoadingScreen';
 import FriendList from './components/FriendList';
 import RedeemCode from './components/RedeemCode';
 import BattleHistory from './components/BattleHistory';
+import GrandmasterChallenge from './components/GrandmasterChallenge';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import { calculateTotalCP } from './utils/combatPower';
@@ -54,7 +55,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY'>('HOME');
+  const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE'>('HOME');
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
   const [isExplicitReplay, setIsExplicitReplay] = useState(false);
   const [battleResult, setBattleResult] = useState<{ isWin: boolean; gold: number; exp: number } | null>(null);
@@ -264,6 +265,7 @@ const App: React.FC = () => {
           <Profile player={player} />
           <div className="space-y-4">
             <button onClick={() => startBattle(generateNormalOpponent(), 'NORMAL')} className="w-full bg-orange-500 text-white py-5 rounded-xl text-xl font-black shadow-lg hover:bg-orange-600 transition-all active:scale-95">⚔️ 开启对决</button>
+            <button onClick={() => {playUISound('CLICK'); setView('CHALLENGE');}} className="w-full bg-red-600 text-white py-4 rounded-xl text-lg font-black shadow-lg hover:bg-red-700 transition-all active:scale-95 border-b-4 border-red-800">🏆 大师挑战赛</button>
             <button onClick={() => {playUISound('CLICK'); setView('FRIENDS');}} className="w-full bg-emerald-500 text-white py-4 rounded-xl text-lg font-black hover:bg-emerald-600 transition-all active:scale-95">👥 江湖好友</button>
             <button onClick={() => startBattle(generateEliteOpponent(), 'ELITE')} className="w-full bg-slate-800 text-white py-4 rounded-xl text-lg font-black hover:bg-slate-900 transition-all active:scale-95">🔱 精英挑战</button>
             <div className="grid grid-cols-2 gap-4">
@@ -282,6 +284,14 @@ const App: React.FC = () => {
       
       {view === 'HISTORY' && (
         <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => {playUISound('CLICK'); setView('HOME');}} />
+      )}
+
+      {view === 'CHALLENGE' && (
+        <GrandmasterChallenge 
+          playerLevel={player.level} 
+          onChallenge={(m) => startBattle(m, 'MASTER')} 
+          onBack={() => {playUISound('CLICK'); setView('HOME');}} 
+        />
       )}
 
       {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
