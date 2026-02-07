@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CharacterData } from '../types';
 import { playUISound } from '../utils/audio';
+import { deleteDB } from '../utils/db';
 
 interface RedeemCodeProps {
   player: CharacterData;
@@ -38,33 +39,61 @@ const RedeemCode: React.FC<RedeemCodeProps> = ({ player, setPlayer }) => {
     setTimeout(() => setStatus(null), 3000);
   };
 
+  const handleReloadAssets = async () => {
+    if (confirm('确定要重载所有资源吗？用于修复资源不显示问题。')) {
+      playUISound('CLICK');
+      try {
+        await deleteDB();
+        window.location.reload();
+      } catch (e) {
+        window.location.reload();
+      }
+    }
+  };
+
   return (
-    <div className="w-full bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 shadow-sm animate-popIn mt-4 mb-12">
-      <div className="flex flex-col md:flex-row items-center gap-4">
-        <div className="flex-shrink-0">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest italic">🎁 兑换中心</h3>
-          <p className="text-[10px] text-slate-400 font-bold">REDEEM SPECIAL ITEMS</p>
+    <div className="w-full bg-white/50 backdrop-blur-sm p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm animate-popIn mt-4 mb-12 overflow-hidden">
+      <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col">
+            <h3 className="text-xs md:text-sm font-black text-slate-800 uppercase tracking-widest italic leading-none">🎁 兑换中心</h3>
+            <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase mt-1">Specials & Tools</p>
+          </div>
+          <button 
+            onClick={handleReloadAssets}
+            className="md:hidden text-indigo-600 font-black text-[9px] uppercase border border-indigo-200 px-2 py-1 rounded-lg bg-indigo-50 active:scale-95 transition-all"
+          >
+            🛠️ 资源重载
+          </button>
         </div>
         
-        <div className="flex-grow flex gap-2 w-full">
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
           <input 
             type="text" 
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="输入兑换码..."
-            className="flex-grow bg-white border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-bold focus:border-orange-400 outline-none transition-all placeholder:text-slate-300"
+            className="flex-grow bg-white border-2 border-slate-100 rounded-xl px-3 py-2 text-xs md:text-sm font-bold focus:border-orange-400 outline-none transition-all placeholder:text-slate-300 min-w-0"
           />
-          <button 
-            onClick={handleRedeem}
-            className="bg-slate-800 text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-900 transition-all active:scale-95 shadow-md"
-          >
-            兑换奖励
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleRedeem}
+              className="flex-1 sm:flex-none bg-slate-800 text-white px-3 md:px-6 py-2 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-wider hover:bg-slate-900 transition-all active:scale-95 shadow-md whitespace-nowrap"
+            >
+              兑换奖励
+            </button>
+            <button 
+              onClick={handleReloadAssets}
+              className="hidden md:block bg-indigo-600 text-white px-5 py-2 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all active:scale-95 shadow-md whitespace-nowrap"
+            >
+              🛠️ 资源重载
+            </button>
+          </div>
         </div>
       </div>
 
       {status && (
-        <div className={`mt-3 text-[11px] font-black text-center py-2 rounded-lg animate-bounce ${status.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
+        <div className={`mt-3 text-[10px] md:text-[11px] font-black text-center py-2 rounded-lg animate-bounce ${status.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-500 border border-rose-100'}`}>
           {status.type === 'SUCCESS' ? '✅' : '❌'} {status.msg}
         </div>
       )}

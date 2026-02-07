@@ -61,10 +61,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     
   const BASE_SCALE = scaleOverride || configBaseScale || configSettings.visuals.character.baseScale;
 
-  // 使用响应式容器宽高
-  const containerWidth = isMobile ? configSettings.visuals.character.containerWidthMobile : configSettings.visuals.character.containerWidthPC;
-  const containerHeight = isMobile ? configSettings.visuals.character.containerHeightMobile : configSettings.visuals.character.containerHeightPC;
-  
+  const containerWidth = configSettings.visuals.character.containerWidth;
+  const containerHeight = configSettings.visuals.character.containerHeight;
   const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
   const visualBaseHeight = isMobile ? configSettings.visuals.character.mobileHeight : configSettings.visuals.character.pcHeight;
 
@@ -127,12 +125,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const renderFallbackCharacter = () => {
     const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
-    const sizeClass = isMobile ? 'w-24 h-24' : 'w-40 h-40';
     return (
-      <div data-name={name} className={`relative ${sizeClass} ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
+      <div data-name={name} className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
         <div className="flex gap-4 mb-4">
-          <div className="w-2 h-4 md:w-3 md:h-6 bg-white rounded-full animate-bounce"></div>
-          <div className="w-2 h-4 md:w-3 md:h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-3 h-6 bg-white rounded-full animate-bounce"></div>
+          <div className="w-3 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
         </div>
       </div>
     );
@@ -145,9 +142,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
-      <div className={`absolute bottom-[15%] h-3 md:h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
-        ${state === 'RUN' ? 'w-24 md:w-32 opacity-40 scale-x-110' : 'w-28 md:w-36 animate-pulse'}
-        ${state === 'IDLE' ? 'w-28 md:w-36 opacity-20 scale-x-100' : ''}
+      <div className={`absolute bottom-[15%] h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
+        ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
+        ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
       <div 
@@ -203,8 +200,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         </div>
 
         {isDizzy && (
-          <div className="absolute -top-10 md:-top-14 left-0 w-full flex justify-center pointer-events-none z-50">
-            <span className="text-3xl md:text-5xl animate-spin">💫</span>
+          <div className="absolute -top-14 left-0 w-full flex justify-center pointer-events-none z-50">
+            <span className="text-5xl animate-spin">💫</span>
           </div>
         )}
       </div>

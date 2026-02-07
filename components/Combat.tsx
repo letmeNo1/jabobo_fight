@@ -50,11 +50,14 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     if (!id || !window.assetMap) return null;
     let paths: string[] = [];
     if (type === 'SKILL') {
-      paths = [`Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
+      paths = [`Images/${id}_projectile.png`, `Images/${id}_throw.png`, `Images/${id}_projectile1.png` ];
     } else {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
+      // 严格匹配用户要求的格式：w24_throw.png
+      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
-    for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
+    for (const p of paths) { 
+      if (window.assetMap.has(p)) return window.assetMap.get(p); 
+    }
     return null;
   };
 
@@ -77,8 +80,12 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   }, []);
 
   useEffect(() => {
-    if (currentTurnIdx < 0 || currentTurnIdx >= record.turns.length) {
-      if (currentTurnIdx >= record.turns.length) setTimeout(onFinish, 1500);
+    if (currentTurnIdx < 0) return;
+
+    if (currentTurnIdx >= record.turns.length) {
+      // 缩短血量归零后的等待时间，加快结算
+      const waitTime = record.winner === 'P' ? 800 : 1200;
+      setTimeout(onFinish, waitTime);
       return;
     }
 
@@ -232,15 +239,13 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
-      {/* 舞台区：在移动端占据 65% 高度 */}
       <div ref={containerRef} className={`relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden ${isMobile ? 'h-[65vh]' : ''}`}>
         
-        {/* 背景 VS 文字 - 竖屏下上移 */}
         <div className={`absolute left-0 right-0 text-center pointer-events-none z-[210] transition-all`} style={{ top: isMobile ? config.combat.spacing.vsTextTopMobile : config.combat.spacing.vsTextTopPC }}>
           <span className="text-8xl md:text-[12rem] font-black text-white/5 italic tracking-tighter uppercase select-none">VERSUS</span>
         </div>
 
-        <div className="absolute inset-0 z-[220] pointer-events-none">
+        <div className="absolute inset-0 z-[450] pointer-events-none">
           {projectiles.map(p => {
             if (p.type === 'TEXT') {
               return (
@@ -254,18 +259,21 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                 key={p.id} 
                 className="absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
                 style={{
-                  left: p.startX,
+                  left: `${p.startX}px`,
                   bottom: isMobile ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
                   '--tx': `${p.targetX - p.startX}px`
                 } as any}
               >
-                {p.asset ? <img src={p.asset} className={`w-full h-full object-contain ${p.side === 'N' ? 'scale-x-[-1]' : ''}`} /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
+                {p.asset ? (
+                  <img src={p.asset} className={`w-full h-full object-contain ${p.side === 'N' ? 'scale-x-[-1]' : ''}`} alt="projectile" />
+                ) : (
+                  <div className="w-8 h-8 md:w-12 md:h-12 bg-orange-500 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.6)]" />
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* 状态栏：竖屏下更宽 */}
         <div className={`absolute top-2 md:top-4 inset-x-0 z-[250] pointer-events-none px-2 md:px-4 flex justify-center`}>
            <div className={`relative w-full flex justify-between ${isMobile ? 'max-w-full' : 'max-w-6xl'}`}>
               <CombatStatus fighter={pStats as any} side="left" uiScale={1} label="P1" isMobile={isMobile} />
@@ -273,7 +281,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
            </div>
         </div>
         
-        {/* 人物站位层 */}
         <div 
           className="relative flex items-end justify-center w-full" 
           style={{ height: `${groundHeight}%` }}
@@ -294,7 +301,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         </div>
       </div>
 
-      {/* 日志区：在移动端占据 35% 高度 */}
       <CombatLog logs={logs} logEndRef={logEndRef} isMobile={isMobile} />
 
       <style dangerouslySetInnerHTML={{ __html: `
