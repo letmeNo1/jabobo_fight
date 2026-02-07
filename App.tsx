@@ -13,7 +13,7 @@ import RedeemCode from './components/RedeemCode';
 import BattleHistory from './components/BattleHistory';
 import GrandmasterChallenge from './components/GrandmasterChallenge';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
-import { playUISound, preloadAudio, resumeAudio } from './utils/audio';
+import { playSFX, playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import { calculateTotalCP } from './utils/combatPower';
 import { simulateBattle } from './utils/combatEngine';
 import config from './config';
@@ -80,13 +80,13 @@ const App: React.FC = () => {
     const soundBase = 'Sounds/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2 // 投掷修改为 4 帧
+      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2 
     };
 
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
     
-    // 加载动画帧
+    // 生成全量动画帧列表
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
         animationImages.push(`${prefix}${i}.png`);
@@ -95,7 +95,7 @@ const App: React.FC = () => {
       }
     });
 
-    // 重点：预加载飞行道具资源，严格匹配 w24_throw.png 格式
+    // 预加载所有飞行道具
     WEAPONS.forEach(w => {
       animationImages.push(`${w.id}_throw.png`); 
       animationImages.push(`${w.id}_projectile.png`); 
@@ -124,28 +124,33 @@ const App: React.FC = () => {
     const loadAll = async () => {
       let db = null;
       try { db = await initDB(); } catch (e) {}
-      for (let i = 0; i < totalResourcePaths.length; i += 10) {
-        const chunk = totalResourcePaths.slice(i, i + 10);
-        await Promise.all(chunk.map(async (path) => {
-          try {
-            const isSound = path.endsWith('.mp3');
-            const assetName = isSound ? path.split('/').pop()?.replace('.mp3', '') : path;
-            let cached = db ? await getCachedAsset(db, path) : null;
-            if (cached) {
-              if (isSound) await preloadAudio(assetName!, await cached.arrayBuffer());
-              else window.assetMap.set(path, URL.createObjectURL(cached));
-            } else {
-              const res = await fetch(path);
-              if (res.ok) {
-                const blob = await res.blob();
-                if (db) await cacheAsset(db, path, blob);
-                if (isSound) await preloadAudio(assetName!, await blob.arrayBuffer());
-                else window.assetMap.set(path, URL.createObjectURL(blob));
-              }
+      
+      // 取消分批次加载，改为全量并发加载，确保一次性就绪
+      await Promise.all(totalResourcePaths.map(async (path) => {
+        try {
+          const isSound = path.endsWith('.mp3');
+          const assetName = isSound ? path.split('/').pop()?.replace('.mp3', '') : path;
+          let cached = db ? await getCachedAsset(db, path) : null;
+          
+          if (cached) {
+            if (isSound) await preloadAudio(assetName!, await cached.arrayBuffer());
+            else window.assetMap.set(path, URL.createObjectURL(cached));
+          } else {
+            const res = await fetch(path);
+            if (res.ok) {
+              const blob = await res.blob();
+              if (db) await cacheAsset(db, path, blob);
+              if (isSound) await preloadAudio(assetName!, await blob.arrayBuffer());
+              else window.assetMap.set(path, URL.createObjectURL(blob));
             }
-          } catch (e) {} finally { setLoadProgress(prev => prev + 1); }
-        }));
-      }
+          }
+        } catch (e) {
+          console.warn(`Failed to load asset: ${path}`, e);
+        } finally { 
+          setLoadProgress(prev => prev + 1); 
+        }
+      }));
+      
       setLoading(false);
     };
     loadAll();

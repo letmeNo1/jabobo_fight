@@ -150,7 +150,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-6 md:px-8 py-2 md:py-3 rounded-2xl font-black text-xs md:text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
       </div>
 
-      {/* Main Body - Changed to flex-col */}
+      {/* Main Body */}
       <div className="flex-grow flex flex-col overflow-hidden bg-slate-100 relative">
         
         {/* Top: Stage Area */}
@@ -174,15 +174,15 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
              ))}
           </div>
           <div ref={charContainerRef} className="relative z-20 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
-            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[1.1] md:scale-[1.35]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
+            {/* 人物缩放比例下调 30%: 1.1 -> 0.77, 1.35 -> 0.95 */}
+            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[0.77] md:scale-[0.95]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
           </div>
         </div>
         
-        {/* Bottom: Controls Area - Moved from right to bottom */}
+        {/* Bottom: Controls Area */}
         <div className="w-full h-[45%] min-h-[280px] bg-white border-t border-slate-200 flex flex-col shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-30 overflow-hidden">
           <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
-              {/* Weapons Section */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-lg">⚔️</span>
@@ -203,7 +203,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                 </div>
               </section>
 
-              {/* Skills Section */}
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-lg">📜</span>
