@@ -12,9 +12,8 @@ interface GrandmasterChallengeProps {
 
 const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel, onChallenge, onBack }) => {
   
-  const generateMaster = (type: 'PROJECTILE' | 'LARGE' | 'MEDIUM' | 'SKILL'): FighterSnapshot => {
+  const generateMaster = (type: 'PROJECTILE' | 'LARGE' | 'MEDIUM' | 'SKILL' | 'ALL_WEAPONS'): FighterSnapshot => {
     const lvl = Math.max(10, playerLevel + 5);
-    // Added level property to baseStats to fix missing property errors in FighterSnapshot return types
     const baseStats = {
       level: lvl,
       hp: 800 + lvl * 20,
@@ -61,6 +60,14 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
           weapons: ['w6', 'w17'],
           skills: ['s30', 's29', 's26', 's24', 's18', 's32']
         };
+      case 'ALL_WEAPONS':
+        return {
+          ...baseStats,
+          name: '兵器百晓生·万剑',
+          str: baseStats.str + 15,
+          weapons: WEAPONS.map(w => w.id), // 拥有所有武器
+          skills: [] // 毫无技能
+        };
     }
   };
 
@@ -69,6 +76,7 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
     { id: 'LARGE', title: '大型武器大师', desc: '一力降十会，势如破竹。', color: 'border-orange-500 bg-orange-50 text-orange-700', icon: '🔨' },
     { id: 'MEDIUM', title: '中型武器大师', desc: '攻守兼备，滴水不漏。', color: 'border-blue-500 bg-blue-50 text-blue-700', icon: '⚔️' },
     { id: 'SKILL', title: '技能大师', desc: '通晓百家，变化莫测。', color: 'border-purple-500 bg-purple-50 text-purple-700', icon: '📜' },
+    { id: 'ALL_WEAPONS', title: '兵器之王', desc: '身负天下万千兵刃，却不通任何武学。', color: 'border-slate-500 bg-slate-100 text-slate-800', icon: '🎒' },
   ];
 
   return (
@@ -81,7 +89,7 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
         <button onClick={onBack} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-black text-sm transition-all border border-white/10">返回主页</button>
       </div>
 
-      <div className="p-6 md:p-10 flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50">
+      <div className="p-6 md:p-10 flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50">
         {masters.map(m => (
           <div key={m.id} className={`p-8 rounded-[2rem] border-2 shadow-sm flex flex-col items-center text-center transition-all hover:shadow-xl hover:-translate-y-1 ${m.color}`}>
             <div className="text-6xl mb-4 bg-white/50 w-24 h-24 flex items-center justify-center rounded-3xl shadow-inner border border-white/20">
@@ -96,9 +104,9 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
                 playUISound('CLICK');
                 onChallenge(generateMaster(m.id as any));
               }}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-black/10 active:scale-95 transition-all"
+              className="w-full mt-auto py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-black/10 active:scale-95 transition-all"
             >
-              挑战挑战
+              立刻挑战
             </button>
           </div>
         ))}

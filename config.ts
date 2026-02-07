@@ -1,6 +1,9 @@
 
 /** 
  * 角色位移目标类型定义
+ * HOME: 初始位置
+ * BASE: 动作前摇微调位置（百分比）
+ * MELEE: 近战冲刺目标位置（百分比）
  */
 export type OffsetType = 'HOME' | 'BASE' | 'MELEE';
 
@@ -8,67 +11,71 @@ export type OffsetType = 'HOME' | 'BASE' | 'MELEE';
  * 单个动作帧的详细配置步骤
  */
 export interface AttackStep {
-  state: string;          
-  frame: number;          
-  offset: OffsetType;     
-  offsetY?: number;       
-  moveDuration: number;   
-  delay: number;          
-  playSfx?: boolean;      
-  calculateHit?: boolean; 
-  shaking?: 'SCREEN' | 'P' | 'N' | null; 
-  projectile?: boolean;   
+  state: string;          // 动画状态名（如 IDLE, SLASH）
+  frame: number;          // 对应美术资源的帧序号
+  offset: OffsetType;     // 位移目标类型
+  offsetY?: number;       // 纵向位移（占容器高度的百分比，向上为负）
+  moveDuration: number;   // 补间动画持续时间 (ms)
+  delay: number;          // 该帧停留时间 (ms)
+  playSfx?: boolean;      // 是否在本帧播放音效
+  calculateHit?: boolean; // 是否在本帧触发伤害结算
+  shaking?: 'SCREEN' | 'P' | 'N' | null; // 震动效果类型
+  projectile?: boolean;   // 是否在本帧发射飞行道具
 }
 
 /** 
  * 动作模组的整体配置
  */
 export interface AttackModuleConfig {
-  repeat?: number; 
-  steps: AttackStep[]; 
+  repeat?: number; // 动作重复次数
+  steps: AttackStep[]; // 动作序列帧
 }
 
 export const config = {
   "layout": {
-    "maxWidthHome": "max-w-4xl",
-    "maxWidthCombat": "max-w-6xl",
+    "maxWidthHome": "max-w-4xl", 
+    "maxWidthCombat": "max-w-6xl", 
     "maxWidthTest": "max-w-[1440px]",
     "paddingMobile": "p-3",
     "paddingPC": "md:p-8"
   },
   "combat": {
     "status": {
-      "widthMobile": "w-[85%]",
-      "widthPC": "md:w-[60%]",
+      "widthMobile": "w-[85%]", 
+      "widthPC": "md:w-[60%]", 
       "maxWidth": "max-w-[800px]"
     },
     "uiScale": {
-      "baseWidth": 1000,
-      "maxScale": 1
+      "baseWidth": 1000, 
+      "maxScale": 1 
     },
     "projectiles": {
       "sizeMobile": "w-12 h-12",
       "sizePC": "md:w-16 md:h-16"
     },
     "spacing": {
-      "meleeDistancePC": 576,
-      "meleeDistanceMobile": 420,
-      "baseActionOffsetPC": 96,
-      "baseActionOffsetMobile": 64,
-      "containerWidthPC": 1000,
-      "containerWidthMobile": 800,
-      "containerHeightPC": 450,
-      "containerHeightMobile": 380,
-      "sidePaddingPC": 48,
-      "sidePaddingMobile": 16,
-      "groundHeightPC": 288,
-      "groundHeightMobile": 240,
+      /** 
+       * 核心间距配置（均为相对于容器宽/高的百分比 0-100）
+       */
+      "meleeDistancePctPC": 55.0,     // PC端：攻击方冲向对方的水平距离(%)
+      "meleeDistancePctMobile": 50.0, // 移动端：攻击方冲向对方的水平距离(%)
+      "baseActionOffsetPctPC": 8.0,   // PC端：蓄力/小跳步的水平位移(%)
+      "baseActionOffsetPctMobile": 6.0, // 移动端：蓄力/小跳步的水平位移(%)
+      
+      "sidePaddingPctPC": 15.0,       // 角色初始离边缘的水平距离(%)
+      "sidePaddingPctMobile": 10.0,   // 角色初始离边缘的水平距离(%)
+      
+      "groundHeightPctPC": 64.0,      // 地面所在的高度位置(%)
+      "groundHeightPctMobile": 63.0,
+      
       "vsTextTopPC": "22%",
       "vsTextTopMobile": "18%",
-      "projectileBottomPC": "12%",
-      "projectileBottomMobile": "18%",
-      "testProjectileBottomPC": "52%",
-      "testProjectileBottomMobile": "48%"
+      
+      "projectileBottomPC": "15%",    // 飞行道具轨道高度(%)
+      "projectileBottomMobile": "20%",
+      
+      "testProjectileBottomPC": "50%",
+      "testProjectileBottomMobile": "45%"
     }
   },
   "visuals": {
@@ -76,17 +83,20 @@ export const config = {
       "baseScale": 1.7,
       "containerWidth": 270,
       "containerHeight": 310,
-      "mobileWidth": "w-48",
+      "mobileWidth": "w-48", 
       "mobileHeight": "h-56",
       "pcWidth": "w-56",
       "pcHeight": "h-64"
     }
   },
+  /**
+   * 动作序列百分比配置实例
+   */
   "ATTACK_SEQUENCES": {
     "CLEAVE": {
       "steps": [
-        { "state": "CLEAVE", "frame": 1, "offset": "BASE", "offsetY": -40, "moveDuration": 100, "delay": 150, "playSfx": true },
-        { "state": "CLEAVE", "frame": 2, "offset": "MELEE", "offsetY": -180, "moveDuration": 200, "delay": 250 },
+        { "state": "CLEAVE", "frame": 1, "offset": "BASE", "offsetY": -5, "moveDuration": 100, "delay": 150, "playSfx": true },
+        { "state": "CLEAVE", "frame": 2, "offset": "MELEE", "offsetY": -20, "moveDuration": 200, "delay": 250 },
         { "state": "CLEAVE", "frame": 3, "offset": "MELEE", "offsetY": 0, "moveDuration": 70, "delay": 500, "calculateHit": true, "shaking": "SCREEN" }
       ]
     },

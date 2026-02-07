@@ -31,7 +31,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const [isAnimating, setIsAnimating] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [projectiles, setProjectiles] = useState<Projectile[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   const projectileCounter = useRef(0);
   const charContainerRef = useRef<HTMLDivElement>(null);
@@ -39,10 +39,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
     window.addEventListener('resize', handleResize);
     
-    // 关键：全局计时器只影响 IDLE / RUN / HOME。
     const timer = setInterval(() => {
       setVisual(v => {
         if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
@@ -62,9 +60,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     if (!id || !window.assetMap) return null;
     let paths: string[] = [];
     if (type === 'SKILL') {
-      paths = [`Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
+      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
     } else {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
+      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
     for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
     return null;
@@ -76,21 +74,27 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     const visualId = customVisualId || selectedWeaponId;
     const actionSfx = customSfx || WEAPONS.find(w => w.id === selectedWeaponId)?.sfx || 'slash';
     
-    const resolveOffset = (type: string) => {
-      const meleeDistance = isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC;
-      const baseActionOffset = isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC;
-      if (type === 'MELEE') return meleeDistance * 0.4;
-      if (type === 'BASE') return baseActionOffset;
-      return 0;
-    };
+    const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
+    const containerHeight = mainContainerRef.current?.offsetHeight || 450;
 
     const moduleConfig = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.SLASH;
     const totalLoops = moduleConfig.repeat || 1;
 
     for (let loop = 0; loop < totalLoops; loop++) {
       for (const step of moduleConfig.steps) {
+        let dx = 0;
+        if (step.offset === 'MELEE') {
+          const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+          dx = (containerWidth * pct) / 100;
+        } else if (step.offset === 'BASE') {
+          const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
+          dx = (containerWidth * pct) / 100;
+        }
+
+        const dy = (containerHeight * (step.offsetY || 0)) / 100;
+
         setMoveDuration(step.moveDuration);
-        setOffset({ x: resolveOffset(step.offset), y: step.offsetY || 0 });
+        setOffset({ x: dx, y: dy });
         setVisual({ state: step.state as VisualState, frame: step.frame, weaponId: visualId });
         if (step.playSfx) playSFX(actionSfx);
 
@@ -99,7 +103,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           const charRect = charContainerRef.current?.getBoundingClientRect();
           if (mainRect && charRect) {
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            const targetX = startX + (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * 0.8;
+            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+            const meleeDistance = (mainRect.width * pct / 100);
+            const targetX = startX + meleeDistance;
             const asset = findProjectileAsset(visualId, type);
             
             for (let j = 0; j < 3; j++) {
@@ -128,19 +134,35 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const getDressingName = (part: 'HEAD' | 'BODY' | 'WEAPON') => DRESSINGS.find(d => d.id === player.dressing[part])?.name;
   const testableSkills = SKILLS.filter(s => s.module && (s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL));
 
+  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
+
   return (
     <div ref={mainContainerRef} className={`bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200 ${shaking ? 'animate-heavyShake' : ''}`}>
-      <div className="p-8 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-10">
-        <div><div className="flex items-center gap-3"><h2 className="text-2xl font-black italic tracking-tighter uppercase">Mega Pro Arena</h2><span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">V2.10 LAB</span></div><p className="text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Animation & Skill Laboratory</p></div>
-        <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-8 py-3 rounded-2xl font-black text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
+      {/* Header */}
+      <div className="p-6 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-30 shrink-0">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl md:text-2xl font-black italic tracking-tighter uppercase">Mega Pro Arena</h2>
+            <span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">V2.10 LAB</span>
+          </div>
+          <p className="text-[9px] md:text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Animation & Skill Laboratory</p>
+        </div>
+        <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-6 md:px-8 py-2 md:py-3 rounded-2xl font-black text-xs md:text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
       </div>
-      <div className="flex-grow flex flex-col md:flex-row overflow-hidden bg-slate-100 relative">
-        <div className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start pl-[15%] md:pl-[20%] overflow-hidden min-h-[450px]">
-          <div className="absolute inset-0 z-50 pointer-events-none">
+
+      {/* Main Body - Changed to flex-col */}
+      <div className="flex-grow flex flex-col overflow-hidden bg-slate-100 relative">
+        
+        {/* Top: Stage Area */}
+        <div 
+          className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start overflow-hidden min-h-[300px]"
+          style={{ paddingLeft: `${sidePadding}%` }} 
+        >
+          <div className="absolute inset-0 z-10 pointer-events-none">
              {projectiles.map((p) => (
                <div 
                  key={p.id}
-                 className={`absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
+                 className={`absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
                  style={{ 
                     bottom: isMobile ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC, 
                     left: `${p.startX}px`, 
@@ -151,36 +173,61 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
                </div>
              ))}
           </div>
-          <div ref={charContainerRef} className="relative z-10 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
-            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[1.2] md:scale-[1.35]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
+          <div ref={charContainerRef} className="relative z-20 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
+            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[1.1] md:scale-[1.35]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
           </div>
         </div>
         
-        <div className="w-full md:w-[480px] bg-white border-l border-slate-200 flex flex-col shadow-[-10px_0_30px_rgba(0,0,0,0.02)] z-20 overflow-hidden">
-          <div className="flex-grow overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 custom-scrollbar">
-            <section>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">武器模组库</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {WEAPONS.map(w => (
-                  <button key={w.id} onClick={() => { playUISound('CLICK'); setSelectedWeaponId(w.id); runAction(w.module, undefined, undefined, 'WEAPON'); }} disabled={isAnimating} className={`px-3 py-2 text-[10px] font-bold rounded-xl border transition-all ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
-                    <span className="truncate w-full text-center">{w.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-            <section>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] mb-4">江湖绝学库</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {testableSkills.map(s => (
-                  <button key={s.id} onClick={() => { playUISound('CLICK'); runAction(s.module!, s.sfx, s.id, 'SKILL'); }} disabled={isAnimating} className="px-3 py-2 text-[10px] font-bold rounded-xl border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-                    <span className="truncate w-full text-center">{s.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
+        {/* Bottom: Controls Area - Moved from right to bottom */}
+        <div className="w-full h-[45%] min-h-[280px] bg-white border-t border-slate-200 flex flex-col shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-30 overflow-hidden">
+          <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
+              {/* Weapons Section */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-lg">⚔️</span>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">武器模组库</h3>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+                  {WEAPONS.map(w => (
+                    <button 
+                      key={w.id} 
+                      onClick={() => { playUISound('CLICK'); setSelectedWeaponId(w.id); runAction(w.module, undefined, undefined, 'WEAPON'); }} 
+                      disabled={isAnimating} 
+                      className={`px-2 py-2 text-[10px] font-bold rounded-xl border transition-all truncate ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                      title={w.name}
+                    >
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {/* Skills Section */}
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-lg">📜</span>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">江湖绝学库</h3>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+                  {testableSkills.map(s => (
+                    <button 
+                      key={s.id} 
+                      onClick={() => { playUISound('CLICK'); runAction(s.module!, s.sfx, s.id, 'SKILL'); }} 
+                      disabled={isAnimating} 
+                      className="px-2 py-2 text-[10px] font-bold rounded-xl border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm truncate"
+                      title={s.name}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </div>
+
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes projectile-fly-pro {
           0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }

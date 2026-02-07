@@ -42,7 +42,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     if (type === 'SKILL') {
       paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
     } else {
-      // 武器读取路径：严格优先匹配 wXX_throw.png
       paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
     for (const p of paths) { 
@@ -127,10 +126,24 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       for (let loop = 0; loop < totalLoops; loop++) {
         for (const step of seq.steps) {
-          setMoveDuration(step.moveDuration);
-          const distance = step.offset === 'MELEE' ? (window.innerWidth < 768 ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) : (step.offset === 'BASE' ? (window.innerWidth < 768 ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC) : 0);
+          const isMobile = window.innerWidth < 768;
+          const containerWidth = containerRef.current?.offsetWidth || 1000;
+          const containerHeight = containerRef.current?.offsetHeight || 450;
           
-          offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
+          setMoveDuration(step.moveDuration);
+          
+          let dx = 0;
+          if (step.offset === 'MELEE') {
+            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+            dx = (containerWidth * pct) / 100;
+          } else if (step.offset === 'BASE') {
+            const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
+            dx = (containerWidth * pct) / 100;
+          }
+
+          const dy = (containerHeight * (step.offsetY || 0)) / 100;
+          
+          offsetSetter({ x: dx * dir, y: dy });
           atkSetter({ 
             state: step.state as VisualState, 
             frame: step.frame, 
@@ -146,12 +159,14 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
           if (step.projectile) {
             const mainRect = containerRef.current?.getBoundingClientRect();
-            const pRect = pRef.current?.getBoundingClientRect();
-            const nRect = nRef.current?.getBoundingClientRect();
+            const attackerRef = isP ? pRef : nRef;
+            const defenderRef = isP ? nRef : pRef;
+            const aRect = attackerRef.current?.getBoundingClientRect();
+            const dRect = defenderRef.current?.getBoundingClientRect();
             
-            if (mainRect && pRect && nRect) {
-              const startX = isP ? (pRect.left - mainRect.left + pRect.width / 2) : (nRect.left - mainRect.left + nRect.width / 2);
-              const targetX = isP ? (nRect.left - mainRect.left + nRect.width / 2) : (pRect.left - mainRect.left + pRect.width / 2);
+            if (mainRect && aRect && dRect) {
+              const startX = aRect.left - mainRect.left + aRect.width / 2;
+              const targetX = dRect.left - mainRect.left + dRect.width / 2;
               const asset = findProjectileAsset(visualId, turn.actionType);
 
               for(let j=0; j<3; j++) {
@@ -220,6 +235,9 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
   };
 
+  const isMobile = window.innerWidth < 768;
+  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
+
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
       <div ref={containerRef} className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
@@ -258,7 +276,11 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         </div>
         
         <div className="relative flex items-end justify-center w-full h-[450px]">
-          <div className="w-full flex justify-between px-12 md:px-24 pb-16 relative">
+          {/* 这里应用 sidePaddingPct 配置 */}
+          <div 
+            className="w-full flex justify-between pb-16 relative"
+            style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}
+          >
             <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
             </div>
