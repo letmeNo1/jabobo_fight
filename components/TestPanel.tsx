@@ -42,6 +42,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     handleResize();
     window.addEventListener('resize', handleResize);
     
+    // 关键：全局计时器只影响 IDLE / RUN / HOME。
     const timer = setInterval(() => {
       setVisual(v => {
         if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
@@ -76,9 +77,10 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     const actionSfx = customSfx || WEAPONS.find(w => w.id === selectedWeaponId)?.sfx || 'slash';
     
     const resolveOffset = (type: string) => {
-      const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
-      if (type === 'MELEE') return (containerWidth * config.combat.spacing.meleeDistancePct / 100);
-      if (type === 'BASE') return (containerWidth * config.combat.spacing.baseActionOffsetPct / 100);
+      const meleeDistance = isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC;
+      const baseActionOffset = isMobile ? config.combat.spacing.baseActionOffsetMobile : config.combat.spacing.baseActionOffsetPC;
+      if (type === 'MELEE') return meleeDistance * 0.4;
+      if (type === 'BASE') return baseActionOffset;
       return 0;
     };
 
@@ -97,8 +99,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           const charRect = charContainerRef.current?.getBoundingClientRect();
           if (mainRect && charRect) {
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
-            const targetX = startX + (containerWidth * config.combat.spacing.meleeDistancePct / 100) * 1.5;
+            const targetX = startX + (isMobile ? config.combat.spacing.meleeDistanceMobile : config.combat.spacing.meleeDistancePC) * 0.8;
             const asset = findProjectileAsset(visualId, type);
             
             for (let j = 0; j < 3; j++) {
@@ -127,8 +128,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   const getDressingName = (part: 'HEAD' | 'BODY' | 'WEAPON') => DRESSINGS.find(d => d.id === player.dressing[part])?.name;
   const testableSkills = SKILLS.filter(s => s.module && (s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL));
 
-  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
-
   return (
     <div ref={mainContainerRef} className={`bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200 ${shaking ? 'animate-heavyShake' : ''}`}>
       <div className="p-8 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-10">
@@ -136,10 +135,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-8 py-3 rounded-2xl font-black text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
       </div>
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden bg-slate-100 relative">
-        <div 
-          className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start overflow-hidden min-h-[450px]"
-          style={{ paddingLeft: `${sidePadding + 10}%` }} // 给实验室多加点偏移显得居中
-        >
+        <div className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start pl-[15%] md:pl-[20%] overflow-hidden min-h-[450px]">
           <div className="absolute inset-0 z-50 pointer-events-none">
              {projectiles.map((p) => (
                <div 

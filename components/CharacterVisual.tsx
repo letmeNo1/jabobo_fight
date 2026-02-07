@@ -4,14 +4,14 @@ import configSettings from '../config';
 import { VisualState } from '../types';
 
 interface CharacterVisualProps {
-  name?: string; 
+  name?: string; // 角色名字
   isNpc?: boolean;
   isDizzy?: boolean;
   state?: VisualState;
   frame?: number; 
   className?: string;
-  weaponId?: string; 
-  hasAfterimage?: boolean; 
+  weaponId?: string; // Current weapon ID being held or used
+  hasAfterimage?: boolean; // 残影效果开关
   accessory?: {
     head?: string;
     body?: string;
@@ -19,7 +19,6 @@ interface CharacterVisualProps {
   };
   isMobile?: boolean;
   debug?: boolean; 
-  scaleOverride?: number; // 允许手动覆盖缩放
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -33,8 +32,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   hasAfterimage = false,
   accessory,
   isMobile = false,
-  debug = false,
-  scaleOverride
+  debug = false
 }) => {
   const basePath = 'Images/';
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
@@ -53,14 +51,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     return null;
   };
 
-  // 优先级：手动覆盖 > 战斗状态缩放 > 默认缩放
-  const isCombatState = state !== 'HOME' && state !== 'IDLE';
-  const configBaseScale = isCombatState 
-    ? (isMobile ? configSettings.visuals.character.combatScaleMobile : configSettings.visuals.character.combatScalePC)
-    : configSettings.visuals.character.homeScale;
-    
-  const BASE_SCALE = scaleOverride || configBaseScale || configSettings.visuals.character.baseScale;
-
+  const BASE_SCALE = configSettings.visuals.character.baseScale; 
   const containerWidth = configSettings.visuals.character.containerWidth;
   const containerHeight = configSettings.visuals.character.containerHeight;
   const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
@@ -78,7 +69,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 3 },
+    THROW: { prefix: 'throw', count: 4 }, // 修改为 4 帧
     PUNCH: { prefix: 'punch', count: 2 }
   };
 
@@ -87,37 +78,37 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     
     switch (state) {
       case 'HOME': {
-        const offset = (f % 2 === 0) ? '-2%' : '0%';
+        const offset = (f % 2 === 0) ? '-10px' : '0px';
         const scale = (f % 2 === 0) ? 1.02 * BASE_SCALE : 1.0 * BASE_SCALE;
         return `translateY(${offset}) scale(${scale}) rotate(0deg)`;
       }
       case 'IDLE':
         return `scale(${BASE_SCALE}) rotate(0deg)`;
       case 'RUN': {
-        const bounce = (f % 2 === 0) ? '-2%' : '0%';
+        const bounce = (f % 2 === 0) ? '-5px' : '0px';
         const tilt = (f % 2 === 0) ? 'rotate(2deg)' : 'rotate(-2deg)';
         return `translateY(${bounce}) ${tilt} scale(${BASE_SCALE})`;
       }
       case 'JUMP':
-        return `translateY(-10%) scale(${BASE_SCALE * 1.05})`;
+        return `translateY(-30px) scale(${BASE_SCALE * 1.05})`;
       case 'CLEAVE':
-        return `translateY(0%) scale(${BASE_SCALE})`;
+        return `translateY(0px) scale(${BASE_SCALE})`;
       case 'SLASH':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateX(2%)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateX(5px)`;
       case 'PIERCE':
-        return `scale(${BASE_SCALE}) rotate(-2deg) translateX(5%)`;
+        return `scale(${BASE_SCALE}) rotate(-2deg) translateX(15px)`;
       case 'SWING':
-        return `scale(${BASE_SCALE}) ${f === 4 ? 'rotate(0deg) translateX(8%)' : 'rotate(10deg) skewX(-5deg)'}`;
+        return `scale(${BASE_SCALE}) ${f === 4 ? 'rotate(0deg) translateX(25px)' : 'rotate(10deg) skewX(-5deg)'}`;
       case 'THROW':
-        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0%)`;
+        return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
         return f === 2 
-          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(6%)` 
-          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-3%)`;
+          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
+          : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
-        return `translate(-4%, 2%) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
+        return `translate(-10px, 4px) scale(${BASE_SCALE * 0.9}) rotate(5deg)`;
       default:
         return `scale(${BASE_SCALE}) rotate(0deg)`;
     }
@@ -212,12 +203,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       >
         {name && (
           <div className={`px-4 py-1.5 md:px-6 md:py-2.5 rounded-2xl border-2 backdrop-blur-md shadow-2xl font-black italic tracking-tighter uppercase whitespace-nowrap z-[100] ${isNpc ? 'bg-indigo-950/80 text-blue-200 border-blue-500/50' : 'bg-orange-950/80 text-orange-200 border-orange-500/50'}`}>
-            <span className={isMobile ? 'text-[9px]' : 'text-[13px]'}>{name}</span>
+            <span className={isMobile ? 'text-[10px]' : 'text-[13px]'}>{name}</span>
           </div>
         )}
         
         {accessory?.head && (
-          <div className="text-[10px] px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20">
+          <div className="text-xs px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20">
             👑 {accessory.head}
           </div>
         )}
@@ -232,6 +223,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           100% { transform: translate(0, 0) rotate(0deg); }
         }
         .animate-dizzy-wobble { animation: dizzy-wobble 0.5s linear infinite; }
+        
         .afterimage-effect {
           filter: drop-shadow(-8px 0px 0px rgba(0, 150, 255, 0.4)) 
                   drop-shadow(-16px 0px 2px rgba(0, 150, 255, 0.2)) 

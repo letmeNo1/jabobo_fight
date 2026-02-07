@@ -33,12 +33,12 @@ export const config = {
     "maxWidthHome": "max-w-4xl",
     "maxWidthCombat": "max-w-6xl",
     "maxWidthTest": "max-w-[1440px]",
-    "paddingMobile": "p-2",
+    "paddingMobile": "p-3",
     "paddingPC": "md:p-8"
   },
   "combat": {
     "status": {
-      "widthMobile": "w-[94%]", 
+      "widthMobile": "w-[85%]",
       "widthPC": "md:w-[60%]",
       "maxWidth": "max-w-[800px]"
     },
@@ -47,38 +47,37 @@ export const config = {
       "maxScale": 1
     },
     "projectiles": {
-      "sizeMobile": "w-10 h-10",
+      "sizeMobile": "w-12 h-12",
       "sizePC": "md:w-16 md:h-16"
     },
     "spacing": {
-      "meleeDistancePct": 36,      
-      "baseActionOffsetPct": 6,   
-      "containerWidthPC": 1000,    
-      "containerWidthMobile": 600, 
-      "containerHeightPC": 450,    
-      "containerHeightMobile": 500, 
-      "sidePaddingPctPC": 4.8,         
-      "sidePaddingPctMobile": 3.0,     
-      "groundHeightPctPC": 64.0,       
-      "groundHeightPctMobile": 72.0,   
-      "vsTextTopPC": "22%",        
-      "vsTextTopMobile": "28%",    
-      "projectileBottomPC": "12%",        
-      "projectileBottomMobile": "26%",    
-      "testProjectileBottomPC": "52%",    
-      "testProjectileBottomMobile": "50%" 
+      "meleeDistancePC": 576,
+      "meleeDistanceMobile": 420,
+      "baseActionOffsetPC": 96,
+      "baseActionOffsetMobile": 64,
+      "containerWidthPC": 1000,
+      "containerWidthMobile": 800,
+      "containerHeightPC": 450,
+      "containerHeightMobile": 380,
+      "sidePaddingPC": 48,
+      "sidePaddingMobile": 16,
+      "groundHeightPC": 288,
+      "groundHeightMobile": 240,
+      "vsTextTopPC": "22%",
+      "vsTextTopMobile": "18%",
+      "projectileBottomPC": "12%",
+      "projectileBottomMobile": "18%",
+      "testProjectileBottomPC": "52%",
+      "testProjectileBottomMobile": "48%"
     }
   },
   "visuals": {
     "character": {
       "baseScale": 1.7,
-      "combatScalePC": 1.8,     
-      "combatScaleMobile": 1.3,  
-      "homeScale": 1.5,         
       "containerWidth": 270,
       "containerHeight": 310,
-      "mobileWidth": "w-40", 
-      "mobileHeight": "h-48",
+      "mobileWidth": "w-48",
+      "mobileHeight": "h-56",
       "pcWidth": "w-56",
       "pcHeight": "h-64"
     }
