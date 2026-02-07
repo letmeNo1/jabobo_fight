@@ -69,7 +69,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 3 },
+    THROW: { prefix: 'throw', count: 4 },
     PUNCH: { prefix: 'punch', count: 2 }
   };
 
