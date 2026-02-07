@@ -10,7 +10,7 @@ export const WEAPONS: Weapon[] = [
   { id: 'w5', name: '青龙偃月刀', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率触发连击', module: 'CLEAVE', sfx: 'heavy_swing', sfxFrame: 1, isArtifact: true },
   { id: 'w6', name: '狂魔镰', type: WeaponType.LARGE, baseDmg: [15, 25], description: '必中，对方无法反击', module: 'SLASH', sfx: 'slash', sfxFrame: 1, isArtifact: true },
   { id: 'w7', name: '棒球棒', type: WeaponType.LARGE, baseDmg: [15, 20], description: '15%概率让对方跳过1回合', module: 'SWING', sfx: 'blunt_hit', sfxFrame: 2 },
-  { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'CLEAVE', sfx: 'blunt_hit', sfxFrame: 2 },
+  { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'KICK', sfx: 'blunt_hit', sfxFrame: 2 },
   // MEDIUM
   { id: 'w9', name: '红缨枪', type: WeaponType.MEDIUM, baseDmg: [15, 30], description: '10%概率连击', module: 'PIERCE', sfx: 'pierce', sfxFrame: 2 },
   { id: 'w10', name: '环扣刀', type: WeaponType.MEDIUM, baseDmg: [12, 12], description: '对方无法反击', module: 'SLASH', sfx: 'slash', sfxFrame: 1 },
@@ -59,7 +59,7 @@ export const SKILLS: Skill[] = [
   { id: 's21', name: '矿泉水', category: SkillCategory.ACTIVE, description: '恢复25%血量并追加攻击', module: 'PUNCH', sfx: 'drink', sfxFrame: 1 },
   { id: 's22', name: '胶水', category: SkillCategory.ACTIVE, description: '黏住对手3回合', module: 'THROW', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's23', name: '天使之翼', category: SkillCategory.ACTIVE, description: '15+敏捷*1伤害且无法反击', module: 'SLASH', sfx: 'wing_flap', sfxFrame: 1 },
-  { id: 's24', name: '佛山无影脚', category: SkillCategory.ACTIVE, description: '30+力量*0.5伤害', module: 'PIERCE', sfx: 'skill_cast', sfxFrame: 1 },
+  { id: 's24', name: '佛山无影脚', category: SkillCategory.ACTIVE, description: '30+力量*0.5伤害', module: 'KICK', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's25', name: '势如暴雨', category: SkillCategory.ACTIVE, description: '连续投掷3种投掷武器', module: 'THROW', sfx: 'rapid_throw', sfxFrame: 1 },
   { id: 's26', name: '企鹅吼', category: SkillCategory.ACTIVE, description: '15点固定伤害且对方停1回合', module: 'THROW', sfx: 'skill_cast', sfxFrame: 1 },
   { id: 's27', name: '企鹅挠痒', category: SkillCategory.ACTIVE, description: '持续6回合每回合5+敏捷*0.2伤害', module: 'SLASH', sfx: 'skill_cast', sfxFrame: 1 },

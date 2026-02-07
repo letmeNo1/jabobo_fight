@@ -54,26 +54,18 @@ export const config = {
       "sizePC": "md:w-16 md:h-16"
     },
     "spacing": {
-      /** 
-       * 核心间距配置（均为相对于容器宽/高的百分比 0-100）
-       */
-      "meleeDistancePctPC": 55.0,     // PC端：攻击方冲向对方的水平距离(%)
-      "meleeDistancePctMobile": 50.0, // 移动端：攻击方冲向对方的水平距离(%)
-      "baseActionOffsetPctPC": 8.0,   // PC端：蓄力/小跳步的水平位移(%)
-      "baseActionOffsetPctMobile": 6.0, // 移动端：蓄力/小跳步的水平位移(%)
-      
-      "sidePaddingPctPC": 15.0,       // 角色初始离边缘的水平距离(%)
-      "sidePaddingPctMobile": 10.0,   // 角色初始离边缘的水平距离(%)
-      
-      "groundHeightPctPC": 64.0,      // 地面所在的高度位置(%)
+      "meleeDistancePctPC": 55.0,
+      "meleeDistancePctMobile": 50.0,
+      "baseActionOffsetPctPC": 8.0,
+      "baseActionOffsetPctMobile": 6.0,
+      "sidePaddingPctPC": 15.0,
+      "sidePaddingPctMobile": 10.0,
+      "groundHeightPctPC": 64.0,
       "groundHeightPctMobile": 63.0,
-      
       "vsTextTopPC": "22%",
       "vsTextTopMobile": "18%",
-      
-      "projectileBottomPC": "15%",    // 飞行道具轨道高度(%)
+      "projectileBottomPC": "15%",
       "projectileBottomMobile": "20%",
-      
       "testProjectileBottomPC": "50%",
       "testProjectileBottomMobile": "45%"
     }
@@ -89,9 +81,6 @@ export const config = {
       "pcHeight": "h-64"
     }
   },
-  /**
-   * 动作序列百分比配置实例
-   */
   "ATTACK_SEQUENCES": {
     "CLEAVE": {
       "steps": [
@@ -128,6 +117,14 @@ export const config = {
         { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 200, "delay": 200 },
         { "state": "PUNCH", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 120, "playSfx": true },
         { "state": "PUNCH", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 150, "calculateHit": true }
+      ]
+    },
+    "KICK": {
+      "steps": [
+        { "state": "KICK", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 200, "playSfx": true },
+        { "state": "KICK", "frame": 2, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 3000 },
+        { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120 },
+        { "state": "KICK", "frame": 2, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120, "calculateHit": true },
       ]
     },
     "THROW": {

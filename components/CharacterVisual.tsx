@@ -4,14 +4,14 @@ import configSettings from '../config';
 import { VisualState } from '../types';
 
 interface CharacterVisualProps {
-  name?: string; // 角色名字
+  name?: string; 
   isNpc?: boolean;
   isDizzy?: boolean;
   state?: VisualState;
   frame?: number; 
   className?: string;
-  weaponId?: string; // Current weapon ID being held or used
-  hasAfterimage?: boolean; // 残影效果开关
+  weaponId?: string; 
+  hasAfterimage?: boolean; 
   accessory?: {
     head?: string;
     body?: string;
@@ -69,8 +69,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 4 }, // 修改为 4 帧
-    PUNCH: { prefix: 'punch', count: 2 }
+    THROW: { prefix: 'throw', count: 4 },
+    PUNCH: { prefix: 'punch', count: 2 },
+    KICK: { prefix: 'kick', count: 3 }
   };
 
   const getFrameTransform = () => {
@@ -105,6 +106,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         return f === 2 
           ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
           : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
+      case 'KICK':
+        // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
+        return `scale(${BASE_SCALE})`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
