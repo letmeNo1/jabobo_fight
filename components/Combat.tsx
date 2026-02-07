@@ -18,6 +18,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [currentTurnIdx, setCurrentTurnIdx] = useState(-1);
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [shaking, setShaking] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   const [pStats, setPStats] = useState({ ...record.player, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
   const [nStats, setNStats] = useState({ ...record.opponent, status: { disarmed: 0, sticky: 0, afterimage: 0, dots: [] as any[] } });
@@ -36,6 +37,15 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    setLogs([{ attacker: '系统', text: '战斗开始！' }]);
+    setTimeout(() => setCurrentTurnIdx(0), 1000);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL' | 'PUNCH') => {
     if (!id || !window.assetMap) return null;
     let paths: string[] = [];
@@ -47,11 +57,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
     return null;
   };
-
-  useEffect(() => {
-    setLogs([{ attacker: '系统', text: '战斗开始！' }]);
-    setTimeout(() => setCurrentTurnIdx(0), 1000);
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -124,7 +129,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         for (const step of seq.steps) {
           setMoveDuration(step.moveDuration);
           
-          // 基于容器宽度的百分比计算位移
           const containerWidth = containerRef.current?.offsetWidth || 1000;
           let distance = 0;
           if (step.offset === 'MELEE') {
@@ -133,8 +137,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             distance = (containerWidth * config.combat.spacing.baseActionOffsetPct) / 100;
           }
           
-          // 将计算后的像素值应用到状态
-          offsetSetter({ x: distance * dir * 0.4, y: step.offsetY || 0 });
+          offsetSetter({ x: distance * dir, y: step.offsetY || 0 });
           atkSetter({ 
             state: step.state as VisualState, 
             frame: step.frame, 
@@ -224,14 +227,24 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
   };
 
+  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
+  const groundHeight = isMobile ? config.combat.spacing.groundHeightPctMobile : config.combat.spacing.groundHeightPctPC;
+
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
-      <div ref={containerRef} className="relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden">
+      {/* 舞台区：在移动端占据 65% 高度 */}
+      <div ref={containerRef} className={`relative w-full flex-grow flex flex-col items-center justify-end bg-slate-900 overflow-hidden ${isMobile ? 'h-[65vh]' : ''}`}>
+        
+        {/* 背景 VS 文字 - 竖屏下上移 */}
+        <div className={`absolute left-0 right-0 text-center pointer-events-none z-[210] transition-all`} style={{ top: isMobile ? config.combat.spacing.vsTextTopMobile : config.combat.spacing.vsTextTopPC }}>
+          <span className="text-8xl md:text-[12rem] font-black text-white/5 italic tracking-tighter uppercase select-none">VERSUS</span>
+        </div>
+
         <div className="absolute inset-0 z-[220] pointer-events-none">
           {projectiles.map(p => {
             if (p.type === 'TEXT') {
               return (
-                <div key={p.id} className="absolute animate-damage text-6xl font-black text-center w-40" style={{ left: p.isPlayer ? '20%' : '70%', top: '40%', color: p.color }}>
+                <div key={p.id} className="absolute animate-damage text-5xl md:text-6xl font-black text-center w-40" style={{ left: p.isPlayer ? '20%' : '70%', top: '35%', color: p.color }}>
                   {p.text}
                 </div>
               );
@@ -239,10 +252,10 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             return (
               <div 
                 key={p.id} 
-                className="absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
+                className="absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
                 style={{
                   left: p.startX,
-                  bottom: window.innerWidth < 768 ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
+                  bottom: isMobile ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
                   '--tx': `${p.targetX - p.startX}px`
                 } as any}
               >
@@ -252,25 +265,38 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           })}
         </div>
 
-        <div className="absolute top-4 inset-x-0 z-[250] pointer-events-none px-4">
-          <CombatStatus fighter={pStats as any} side="left" uiScale={1} label="PLAYER" />
-          <CombatStatus fighter={nStats as any} side="right" uiScale={1} label="OPPONENT" />
+        {/* 状态栏：竖屏下更宽 */}
+        <div className={`absolute top-2 md:top-4 inset-x-0 z-[250] pointer-events-none px-2 md:px-4 flex justify-center`}>
+           <div className={`relative w-full flex justify-between ${isMobile ? 'max-w-full' : 'max-w-6xl'}`}>
+              <CombatStatus fighter={pStats as any} side="left" uiScale={1} label="P1" isMobile={isMobile} />
+              <CombatStatus fighter={nStats as any} side="right" uiScale={1} label="NPC" isMobile={isMobile} />
+           </div>
         </div>
         
-        <div className="relative flex items-end justify-center w-full h-[450px]">
-          <div className="w-full flex justify-between px-12 md:px-24 pb-16 relative">
+        {/* 人物站位层 */}
+        <div 
+          className="relative flex items-end justify-center w-full" 
+          style={{ height: `${groundHeight}%` }}
+        >
+          <div 
+            className="w-full flex justify-between pb-8 md:pb-16 relative" 
+            style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}
+          >
             <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
-              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
+              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} isMobile={isMobile} />
             </div>
             <div ref={nRef} style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <div className="scale-x-[-1]">
-                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} hasAfterimage={nStats.status.afterimage > 0} />
+                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} hasAfterimage={nStats.status.afterimage > 0} isMobile={isMobile} />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={false} />
+
+      {/* 日志区：在移动端占据 35% 高度 */}
+      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={isMobile} />
+
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes projectile-fly-pro {
           0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
@@ -280,6 +306,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
+        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
+        .animate-damage { animation: damage 0.8s ease-out forwards; }
       `}} />
     </div>
   );

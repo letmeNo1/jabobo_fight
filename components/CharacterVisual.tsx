@@ -4,14 +4,14 @@ import configSettings from '../config';
 import { VisualState } from '../types';
 
 interface CharacterVisualProps {
-  name?: string; // 角色名字
+  name?: string; 
   isNpc?: boolean;
   isDizzy?: boolean;
   state?: VisualState;
   frame?: number; 
   className?: string;
-  weaponId?: string; // Current weapon ID being held or used
-  hasAfterimage?: boolean; // 残影效果开关
+  weaponId?: string; 
+  hasAfterimage?: boolean; 
   accessory?: {
     head?: string;
     body?: string;
@@ -19,6 +19,7 @@ interface CharacterVisualProps {
   };
   isMobile?: boolean;
   debug?: boolean; 
+  scaleOverride?: number; // 允许手动覆盖缩放
 }
 
 const CharacterVisual: React.FC<CharacterVisualProps> = ({ 
@@ -32,7 +33,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   hasAfterimage = false,
   accessory,
   isMobile = false,
-  debug = false
+  debug = false,
+  scaleOverride
 }) => {
   const basePath = 'Images/';
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
@@ -51,9 +53,18 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     return null;
   };
 
-  const BASE_SCALE = configSettings.visuals.character.baseScale; 
-  const containerWidth = configSettings.visuals.character.containerWidth;
-  const containerHeight = configSettings.visuals.character.containerHeight;
+  // 优先级：手动覆盖 > 战斗状态缩放 > 默认缩放
+  const isCombatState = state !== 'HOME' && state !== 'IDLE';
+  const configBaseScale = isCombatState 
+    ? (isMobile ? configSettings.visuals.character.combatScaleMobile : configSettings.visuals.character.combatScalePC)
+    : configSettings.visuals.character.homeScale;
+    
+  const BASE_SCALE = scaleOverride || configBaseScale || configSettings.visuals.character.baseScale;
+
+  // 使用响应式容器宽高
+  const containerWidth = isMobile ? configSettings.visuals.character.containerWidthMobile : configSettings.visuals.character.containerWidthPC;
+  const containerHeight = isMobile ? configSettings.visuals.character.containerHeightMobile : configSettings.visuals.character.containerHeightPC;
+  
   const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
   const visualBaseHeight = isMobile ? configSettings.visuals.character.mobileHeight : configSettings.visuals.character.pcHeight;
 
@@ -69,12 +80,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SLASH: { prefix: 'slash', count: 3 },
     PIERCE: { prefix: 'pierce', count: 4 },
     SWING: { prefix: 'swing', count: 4 },
-    THROW: { prefix: 'throw', count: 4 },
+    THROW: { prefix: 'throw', count: 3 },
     PUNCH: { prefix: 'punch', count: 2 }
   };
 
   const getFrameTransform = () => {
-    // 只有循环状态才根据 frame 变化应用特殊位移
     const f = (state === 'HOME' || state === 'IDLE' || state === 'RUN') ? (((frame || 1) - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1 : (frame || 1);
     
     switch (state) {
@@ -117,11 +127,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const renderFallbackCharacter = () => {
     const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
+    const sizeClass = isMobile ? 'w-24 h-24' : 'w-40 h-40';
     return (
-      <div data-name={name} className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
+      <div data-name={name} className={`relative ${sizeClass} ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
         <div className="flex gap-4 mb-4">
-          <div className="w-3 h-6 bg-white rounded-full animate-bounce"></div>
-          <div className="w-3 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-2 h-4 md:w-3 md:h-6 bg-white rounded-full animate-bounce"></div>
+          <div className="w-2 h-4 md:w-3 md:h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
         </div>
       </div>
     );
@@ -134,12 +145,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
-      <div className={`absolute bottom-[15%] h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
-        ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
-        ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
+      <div className={`absolute bottom-[15%] h-3 md:h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
+        ${state === 'RUN' ? 'w-24 md:w-32 opacity-40 scale-x-110' : 'w-28 md:w-36 animate-pulse'}
+        ${state === 'IDLE' ? 'w-28 md:w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
-      {/* 核心缩放容器 */}
       <div 
         className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
           ${isDizzy ? 'filter grayscale contrast-125' : ''} 
@@ -151,13 +161,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           transition: 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)' 
         }}
       >
-        {/* WobbleWrapper: 内部晃动容器，防止 transform 冲突导致人物缩小 */}
         <div className={`w-full h-full relative flex items-center justify-center ${isDizzy ? 'animate-dizzy-wobble' : ''}`}>
           {Object.entries(STATE_CONFIGS).map(([sName, config]) => {
             const isActiveState = state === sName;
             if (!isActiveState) return null;
             
-            // 关键：只有 IDLE, RUN, HOME 循环播放。攻击动作由 Combat.tsx 控制 frame。
             const isLoopingState = (sName === 'IDLE' || sName === 'RUN' || sName === 'HOME');
             const currentFrame = isLoopingState 
               ? (((frame || 1) - 1) % config.count) + 1 
@@ -195,8 +203,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         </div>
 
         {isDizzy && (
-          <div className="absolute -top-14 left-0 w-full flex justify-center pointer-events-none z-50">
-            <span className="text-5xl animate-spin">💫</span>
+          <div className="absolute -top-10 md:-top-14 left-0 w-full flex justify-center pointer-events-none z-50">
+            <span className="text-3xl md:text-5xl animate-spin">💫</span>
           </div>
         )}
       </div>
@@ -207,12 +215,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       >
         {name && (
           <div className={`px-4 py-1.5 md:px-6 md:py-2.5 rounded-2xl border-2 backdrop-blur-md shadow-2xl font-black italic tracking-tighter uppercase whitespace-nowrap z-[100] ${isNpc ? 'bg-indigo-950/80 text-blue-200 border-blue-500/50' : 'bg-orange-950/80 text-orange-200 border-orange-500/50'}`}>
-            <span className={isMobile ? 'text-[10px]' : 'text-[13px]'}>{name}</span>
+            <span className={isMobile ? 'text-[9px]' : 'text-[13px]'}>{name}</span>
           </div>
         )}
         
         {accessory?.head && (
-          <div className="text-xs px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20">
+          <div className="text-[10px] px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg font-black whitespace-nowrap animate-bounce flex items-center gap-1 border border-white/20">
             👑 {accessory.head}
           </div>
         )}
@@ -227,8 +235,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
           100% { transform: translate(0, 0) rotate(0deg); }
         }
         .animate-dizzy-wobble { animation: dizzy-wobble 0.5s linear infinite; }
-        
-        /* 残影拖尾效果 */
         .afterimage-effect {
           filter: drop-shadow(-8px 0px 0px rgba(0, 150, 255, 0.4)) 
                   drop-shadow(-16px 0px 2px rgba(0, 150, 255, 0.2)) 
