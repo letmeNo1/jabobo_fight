@@ -123,7 +123,7 @@ export const config = {
       "steps": [
         { "state": "KICK", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 200, "playSfx": true },
         { "state": "KICK", "frame": 2, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 150, "playSfx": true, "calculateHit": true },
-        { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 3000 },
+        { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 2000 },
         { "state": "KICK", "frame": 2, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 200, "calculateHit": true, "shaking": null }
       ]
     },
