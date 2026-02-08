@@ -3,7 +3,7 @@ import { Weapon, Skill, WeaponType, SkillCategory, Dressing } from './types';
 
 export const WEAPONS: Weapon[] = [
   // LARGE
-  { id: 'w1', name: '方天画戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'SWING', sfx: 'heavy_swing', sfxFrame: 1, isArtifact: true },
+  { id: 'w1', name: '方天画戟', type: WeaponType.LARGE, baseDmg: [15, 20], description: '10%概率触发自身闪避', module: 'SWING', sfx: 'swing2', sfxFrame: 1, isArtifact: true },
   { id: 'w2', name: '三叉戟', type: WeaponType.LARGE, baseDmg: [25, 50], description: '10%概率MISS，攻击后休息1回合', module: 'CLEAVE', sfx: 'heavy_hit', sfxFrame: 1 },
   { id: 'w3', name: '充气锤子', type: WeaponType.LARGE, baseDmg: [20, 35], description: '10%概率让对方跳过1回合', module: 'CLEAVE', sfx: 'toy_hit', sfxFrame: 2 },
   { id: 'w4', name: '开山斧', type: WeaponType.LARGE, baseDmg: [12, 18], description: '5%概率被攻击前反击，5%概率让对方跳过1回合', module: 'CLEAVE', sfx: 'heavy_hit', sfxFrame: 1 },
@@ -13,7 +13,7 @@ export const WEAPONS: Weapon[] = [
   { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'CLEAVE', sfx: 'blunt_hit', sfxFrame: 2 },
   // MEDIUM
   { id: 'w9', name: '红缨枪', type: WeaponType.MEDIUM, baseDmg: [15, 30], description: '10%概率连击', module: 'PIERCE', sfx: 'pierce', sfxFrame: 2 },
-  { id: 'w10', name: '环扣刀', type: WeaponType.MEDIUM, baseDmg: [12, 12], description: '对方无法反击', module: 'SLASH', sfx: 'slash', sfxFrame: 1 },
+  { id: 'w10', name: '环扣刀', type: WeaponType.MEDIUM, baseDmg: [12, 12], description: '对方无法反击', module: 'KICK', sfx: 'draw_knife', sfxFrame: 1 },
   { id: 'w11', name: '双截棍', type: WeaponType.MEDIUM, baseDmg: [10, 18], description: '被攻击命中后15%概率反击', module: 'SWING', sfx: 'blunt_hit', sfxFrame: 1 },
   { id: 'w12', name: '蛇影弓', type: WeaponType.MEDIUM, baseDmg: [10, 20], description: '攻击时自身命中率+10%', module: 'THROW', sfx: 'bow_shot', sfxFrame: 1 },
   { id: 'w13', name: '平底锅', type: WeaponType.MEDIUM, baseDmg: [18, 22], description: '5%概率闪避+反击', module: 'SWING', sfx: 'pan_hit', sfxFrame: 2 },
