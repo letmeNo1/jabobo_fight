@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { BattleRecord, BattleTurn, VisualState, BattleLog, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
@@ -134,17 +133,31 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           const containerHeight = containerRef.current?.offsetHeight || 450;
           
           setMoveDuration(step.moveDuration);
-          
           let dx = 0;
-          if (step.offset === 'MELEE') {
+          // 打印当前步骤的原始offset值
+          console.log(`[Combat] 第${currentTurnIdx}回合 第${loop}轮 步骤offset原始值:`, step.offset);
+          
+          const offsetMatch = step.offset.match(/^([A-Z]+)(\+(\d+))?$/);
+          const baseOffsetType = offsetMatch?.[1] || step.offset;
+          const offsetAdd = Number(offsetMatch?.[3] || 0); // 提取+后的增量，无则为0
+          
+          // 打印解析后的结果
+          console.log(`[Combat] offset解析结果: 基础类型=${baseOffsetType}, 增量=${offsetAdd}`);
+
+          if (baseOffsetType === 'MELEE') {
             const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
-            dx = (containerWidth * pct) / 100;
-          } else if (step.offset === 'BASE') {
-            const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
-            dx = (containerWidth * pct) / 100;
+            dx = (containerWidth * pct) / 100 + offsetAdd; // 基础值 + 增量
+            console.log(`[Combat] MELEE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
+          } else if (baseOffsetType === 'BASE') {
+            const pct = isMobile ? config.combat.spacing.baseActionOffsetPctPC : config.combat.spacing.baseActionOffsetPctPC;
+            dx = (containerWidth * pct) / 100 + offsetAdd; // 基础值 + 增量
+            console.log(`[Combat] BASE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
           }
 
           const dy = (containerHeight * (step.offsetY || 0)) / 100;
+          
+          // 打印最终的偏移量
+          console.log(`[Combat] 最终偏移量: dx=${dx}, dy=${dy}, 方向系数=${dir}, 实际X偏移=${dx * dir}`);
           
           offsetSetter({ x: dx * dir, y: dy });
           atkSetter({ 
@@ -186,7 +199,19 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             const hitDelay = module === 'THROW' ? 450 : 0;
             setTimeout(() => {
               if (turn.isHit) {
-                if (hitSfx) playSFX(hitSfx);
+                // ========== 核心修改：THROW模块播放3次伤害音效 ==========
+                if (hitSfx) {
+                  if (module === 'THROW') {
+                    // 投掷动作：循环3次播放，每次间隔100ms，匹配弹幕发射节奏
+                    for (let i = 0; i < 3; i++) {
+                      setTimeout(() => playSFX(hitSfx), i * 100);
+                    }
+                  } else {
+                    // 普通动作：单次播放
+                    playSFX(hitSfx);
+                  }
+                }
+                // ======================================================
                 applyImpact(turn.damage, isP, defSetter);
                 oppStatsSetter(s => ({ 
                   ...s, 

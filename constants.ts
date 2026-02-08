@@ -13,7 +13,7 @@ export const WEAPONS: Weapon[] = [
   { id: 'w8', name: '木槌', type: WeaponType.LARGE, baseDmg: [7, 14], description: '无额外效果', module: 'CLEAVE', sfx: 'blunt_hit', hitSfx: 'blunt_hit', sfxFrame: 2 },
   // MEDIUM
   { id: 'w9', name: '红缨枪', type: WeaponType.MEDIUM, baseDmg: [15, 30], description: '10%概率连击', module: 'PIERCE', sfx: 'pierce', hitSfx: 'pierce', sfxFrame: 2 },
-  { id: 'w10', name: 'kick', type: WeaponType.MEDIUM, baseDmg: [12, 12], description: '对方无法反击', module: 'KICK', sfx: 'swing_light', hitSfx: 'blunt_hit', sfxFrame: 1 },
+  { id: 'w10', name: 'kick', type: WeaponType.MEDIUM, baseDmg: [12, 12], description: '对方无法反击', module: 'KICK', sfx: 'draw_knife', hitSfx: 'draw_knife_hit', sfxFrame: 1 },
   { id: 'w11', name: '双截棍', type: WeaponType.MEDIUM, baseDmg: [10, 18], description: '被攻击命中后15%概率反击', module: 'SWING', sfx: 'blunt_hit', hitSfx: 'blunt_hit', sfxFrame: 1 },
   { id: 'w12', name: '蛇影弓', type: WeaponType.MEDIUM, baseDmg: [10, 20], description: '攻击时自身命中率+10%', module: 'THROW', sfx: 'bow_shot', hitSfx: 'pierce', sfxFrame: 1 },
   { id: 'w13', name: '平底锅', type: WeaponType.MEDIUM, baseDmg: [18, 22], description: '5%概率闪避+反击', module: 'SWING', sfx: 'pan_hit', hitSfx: 'pan_hit', sfxFrame: 2 },
@@ -23,13 +23,13 @@ export const WEAPONS: Weapon[] = [
   { id: 'w16', name: '短剑', type: WeaponType.SMALL, baseDmg: [3, 8], description: '20%概率连击', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w17', name: '判官笔', type: WeaponType.SMALL, baseDmg: [5, 8], description: '必中', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w18', name: '流星球', type: WeaponType.SMALL, baseDmg: [15, 24], description: '对方闪避率+15%，可连扔2次', module: 'SWING', sfx: 'swing_light', hitSfx: 'blunt_hit', sfxFrame: 1 },
-  { id: 'w19', name: '老鼠', type: WeaponType.SMALL, baseDmg: [5, 10], description: '对方命中率-10%(2回合)', module: 'THROW', sfx: 'squeak', hitSfx: 'throw_hit', sfxFrame: 1 },
-  { id: 'w20', name: '板砖', type: WeaponType.SMALL, baseDmg: [8, 12], description: '5%概率让对方眩晕1回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'blunt_hit', sfxFrame: 2 },
+  { id: 'w19', name: '老鼠', type: WeaponType.SMALL, baseDmg: [5, 10], description: '对方命中率-10%(2回合)', module: 'THROW', sfx: 'squeak', hitSfx: 'heavy_hit', sfxFrame: 1 },
+  { id: 'w20', name: '板砖', type: WeaponType.SMALL, baseDmg: [8, 12], description: '5%概率让对方眩晕1回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 2 },
   // THROW
-  { id: 'w21', name: 'speaker 310', type: WeaponType.THROW, baseDmg: [10, 18], description: '无视装死，5%概率瞬杀', module: 'THROW', sfx: 'throw_knife', hitSfx: 'throw_hit', sfxFrame: 1 },
-  { id: 'w22', name: '接力棒', type: WeaponType.THROW, baseDmg: [10, 15], description: '10%概率连击', module: 'THROW', sfx: 'throw_light', hitSfx: 'blunt_hit', sfxFrame: 1 },
-  { id: 'w23', name: '胶水(瓶)', type: WeaponType.THROW, baseDmg: [0, 0], description: '黏住对方3回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'bottle_break', sfxFrame: 2 },
-  { id: 'w24', name: '仙人掌', type: WeaponType.THROW, baseDmg: [10, 15], description: '造成持续伤害(5点, 3回合)', module: 'THROW', sfx: 'throw_light', hitSfx: 'throw_hit', sfxFrame: 2 },
+  { id: 'w21', name: 'speaker 310', type: WeaponType.THROW, baseDmg: [10, 18], description: '无视装死，5%概率瞬杀', module: 'THROW', sfx: 'throw_knife', hitSfx: 'heavy_hit', sfxFrame: 1 },
+  { id: 'w22', name: '接力棒', type: WeaponType.THROW, baseDmg: [10, 15], description: '10%概率连击', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 1 },
+  { id: 'w23', name: '胶水(瓶)', type: WeaponType.THROW, baseDmg: [0, 0], description: '黏住对方3回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 2 },
+  { id: 'w24', name: '仙人掌', type: WeaponType.THROW, baseDmg: [10, 15], description: '造成持续伤害(5点, 3回合)', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit ', sfxFrame: 2 },
 ];
 
 export const SKILLS: Skill[] = [

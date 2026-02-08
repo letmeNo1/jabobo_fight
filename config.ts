@@ -109,7 +109,7 @@ export const config = {
       "steps": [
         { "state": "SWING", "frame": 1, "offset": "BASE", "moveDuration": 150, "delay": 150, "playSfx": true },
         { "state": "SWING", "frame": 2, "offset": "BASE", "moveDuration": 0, "delay": 150 },
-        { "state": "SWING", "frame": 4, "offset": "MELEE", "moveDuration": 100, "delay": 400, "playSfx": true, "calculateHit": true, "shaking": "SCREEN" }
+        { "state": "SWING", "frame": 4, "offset": "MELEE", "moveDuration": 100, "delay": 400,  "calculateHit": true, "shaking": "SCREEN" }
       ]
     },
     "PUNCH": {
@@ -120,11 +120,11 @@ export const config = {
       ]
     },
     "KICK": {
-      "steps": [
-        { "state": "KICK", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 200, "playSfx": true },
-        { "state": "KICK", "frame": 2, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 150, "playSfx": true, "calculateHit": true },
-        { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 2000 },
-        { "state": "KICK", "frame": 2, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 200, "calculateHit": true, "shaking": null }
+      "steps": [       
+        { "state": "KICK", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 100, "playSfx": true },
+        { "state": "KICK", "frame": 2, "offset": "MELEE+100", "offsetY": 0, "moveDuration": 0, "delay": 1000 },
+        { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120, "calculateHit": true},
+        { "state": "KICK", "frame": 4, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120, }
       ]
     },
     "THROW": {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, Weapon, AttackModule, WeaponType, Skill, SkillCategory, VisualState } from '../types';
 import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
@@ -89,22 +88,51 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
     const totalLoops = seq.repeat || 1;
 
+    // 打印测试基础信息
+    console.log(`[TestPanel] 开始测试 - 类型=${testType}, 选中ID=${testType === 'WEAPON' ? selectedWeaponId : selectedSkillId}, 攻击模块=${module}`);
+    console.log(`[TestPanel] 攻击序列配置:`, seq);
+
     for (let loop = 0; loop < totalLoops; loop++) {
+      console.log(`[TestPanel] 第${loop}轮攻击开始`);
       for (const step of seq.steps) {
         const containerWidth = containerRef.current?.offsetWidth || 1000;
         const containerHeight = containerRef.current?.offsetHeight || 450;
         const isMobile = window.innerWidth < 768;
 
-        // Move Logic
+        // Move Logic - 重构为支持 MELEE+数值/BASE+数值 格式
         let dx = 0;
-        if (step.offset === 'MELEE') {
-          const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
-          dx = (containerWidth * pct) / 100;
-        } else if (step.offset === 'BASE') {
-          const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
-          dx = (containerWidth * pct) / 100;
+        // 【核心修改1】添加offset解析和日志
+        if (!step.offset) {
+          console.warn(`[TestPanel] 第${loop}轮 步骤offset为空/undefined`, step);
+        } else {
+          console.log(`[TestPanel] 第${loop}轮 步骤offset原始值:`, step.offset);
+          const offsetMatch = step.offset.match(/^([A-Z]+)(\+(\d+))?$/);
+          
+          if (!offsetMatch) {
+            console.warn(`[TestPanel] 第${loop}轮 offset格式不匹配，原始值:`, step.offset);
+            dx = 0;
+          } else {
+            const baseOffsetType = offsetMatch[1];
+            const offsetAdd = Number(offsetMatch[3] || 0);
+            console.log(`[TestPanel] 第${loop}轮 offset解析结果: 基础类型=${baseOffsetType}, 增量=${offsetAdd}`);
+
+            if (baseOffsetType === 'MELEE') {
+              const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+              dx = (containerWidth * pct) / 100 + offsetAdd;
+              console.log(`[TestPanel] 第${loop}轮 MELEE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
+            } else if (baseOffsetType === 'BASE') {
+              const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
+              dx = (containerWidth * pct) / 100 + offsetAdd;
+              console.log(`[TestPanel] 第${loop}轮 BASE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
+            } else {
+              console.warn(`[TestPanel] 第${loop}轮 未知offset类型:${baseOffsetType}，dx兜底为0`);
+              dx = 0;
+            }
+          }
         }
+        
         const dy = (containerHeight * (step.offsetY || 0)) / 100;
+        console.log(`[TestPanel] 第${loop}轮 最终偏移量: dx=${dx}, dy=${dy}`);
 
         setAtkOffset({ x: dx, y: dy });
         setAtkVisual({ 
@@ -125,6 +153,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
            const targetX = containerWidth - 200; // Approximate right position
            const asset = findProjectileAsset(visualId, actionType);
            
+           console.log(`[TestPanel] 第${loop}轮 生成投射物: startX=${startX}, targetX=${targetX}, asset=${asset ? '存在' : '不存在'}`);
+           
            for(let j=0; j<3; j++) {
              setTimeout(() => {
                const pId = ++projectileCounter.current;
@@ -138,7 +168,19 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           const hitDelay = module === 'THROW' ? 450 : 0;
           setTimeout(() => {
             // HIT LOGIC
-            if (hitSfx) playSFX(hitSfx);
+            // ========== 核心修改：THROW模块播放3次伤害音效 ==========
+            if (hitSfx) {
+              if (module === 'THROW') {
+                // 投掷动作：循环3次播放，每次间隔100ms，匹配弹幕发射节奏
+                for (let i = 0; i < 3; i++) {
+                  setTimeout(() => playSFX(hitSfx), i * 100);
+                }
+              } else {
+                // 普通动作：单次播放
+                playSFX(hitSfx);
+              }
+            }
+            // ======================================================
             
             // Damage Number
             const dmg = Math.floor(Math.random() * 50) + 10;
@@ -147,6 +189,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
             setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
 
             setDefHp(prev => Math.max(0, prev - dmg));
+            console.log(`[TestPanel] 第${loop}轮 命中生效: 伤害=${dmg}, 剩余HP=${Math.max(0, defHp - dmg)}`);
             
             // Def hurt anim
             setDefVisual(v => ({ ...v, state: 'HURT', frame: 1 }));
@@ -160,6 +203,7 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     }
 
     // Reset
+    console.log(`[TestPanel] 测试结束，重置状态`);
     setAtkOffset({ x: 0, y: 0 });
     setAtkVisual({ state: 'IDLE', frame: 1, weaponId: player.dressing.WEAPON });
     setIsTesting(false);
