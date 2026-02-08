@@ -19,7 +19,7 @@ export const WEAPONS: Weapon[] = [
   { id: 'w13', name: '平底锅', type: WeaponType.MEDIUM, baseDmg: [18, 22], description: '5%概率闪避+反击', module: 'SWING', sfx: 'pan_hit', hitSfx: 'pan_hit', sfxFrame: 2 },
   { id: 'w14', name: '宽刃剑', type: WeaponType.MEDIUM, baseDmg: [10, 18], description: '无额外效果', module: 'SLASH', sfx: 'slash', hitSfx: 'slash', sfxFrame: 1 },
   // SMALL
-  { id: 'w15', name: '木剑', type: WeaponType.SMALL, baseDmg: [10, 25], description: '5%连击/5%闪避反击/无视装死', module: 'SPIKE', sfx: 'slash_light', hitSfx: 'slash_light', sfxFrame: 1 },
+  { id: 'w15', name: '西洋剑', type: WeaponType.SMALL, baseDmg: [10, 25], description: '5%连击/5%闪避反击/无视装死', module: 'SPIKE', sfx: 'draw_knife', hitSfx: 'draw_knife_hit', sfxFrame: 1 },
   { id: 'w16', name: '短剑', type: WeaponType.SMALL, baseDmg: [3, 8], description: '20%概率连击', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w17', name: '判官笔', type: WeaponType.SMALL, baseDmg: [5, 8], description: '必中', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w18', name: '流星球', type: WeaponType.SMALL, baseDmg: [15, 24], description: '对方闪避率+15%，可连扔2次', module: 'SWING', sfx: 'swing_light', hitSfx: 'blunt_hit', sfxFrame: 1 },

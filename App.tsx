@@ -80,7 +80,7 @@ const App: React.FC = () => {
     const soundBase = 'Sounds/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2, kick: 3
+      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2, kick: 3, spike:4
     };
 
     const coreImages = ['character.png'];

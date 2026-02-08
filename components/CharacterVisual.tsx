@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import configSettings from '../config';
 import { VisualState } from '../types';
 
@@ -36,18 +35,67 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 }) => {
   const basePath = 'Images/';
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
+  const [weaponLoadLog, setWeaponLoadLog] = useState<string>('');
+
+  // ========== 新增：组件入参日志 ==========
+  useEffect(() => {
+    console.log('[CharacterVisual] 组件接收参数：', {
+      name,
+      state, // 重点关注SPIKE状态是否正确传递
+      frame,
+      weaponId, // 重点关注武器ID是否存在
+      isMobile,
+      debug
+    });
+    // 专门针对SPIKE状态打印醒目日志
+    if (state === 'SPIKE') {
+      console.log('[CharacterVisual][SPIKE] 检测到SPIKE状态，开始加载逻辑');
+    }
+  }, [name, state, frame, weaponId, isMobile, debug]);
 
   const handleImageError = (path: string) => {
     setImageError(prev => ({ ...prev, [path]: true }));
+    // ========== 新增：图片加载错误日志 ==========
+    console.error(`[CharacterVisual] 图片加载失败：${path}`);
+    if (debug) {
+      setWeaponLoadLog(`武器加载失败：${path}`);
+    }
   };
 
   const findAsset = (paths: string[]): string | null => {
-    if (!window.assetMap) return null;
+    // ========== 新增：资源查找前置日志 ==========
+    console.log('[CharacterVisual] 尝试查找资源，候选路径：', paths);
+    
+    if (!window.assetMap) {
+      console.error('[CharacterVisual] window.assetMap 未初始化！');
+      if (debug) setWeaponLoadLog('assetMap 未初始化');
+      return null;
+    }
+
+    // ========== 新增：打印assetMap中的所有键（debug模式） ==========
+    if (debug) {
+      console.log('[CharacterVisual][DEBUG] assetMap 包含的所有资源路径：', Array.from(window.assetMap.keys()));
+    }
+
     for (const path of paths) {
-      if (window.assetMap.has(path) && !imageError[path]) {
+      const isPathInMap = window.assetMap.has(path);
+      const isPathError = imageError[path];
+      
+      // ========== 新增：单个路径检查日志 ==========
+      console.log(`[CharacterVisual] 检查路径 "${path}"：`, {
+        isPathInMap, // 是否在assetMap中
+        isPathError, // 是否之前加载失败
+        isAvailable: isPathInMap && !isPathError // 是否可用
+      });
+
+      if (isPathInMap && !isPathError) {
+        console.log(`[CharacterVisual] 资源找到：${path} -> ${window.assetMap.get(path)}`);
         return window.assetMap.get(path)!;
       }
     }
+
+    console.warn(`[CharacterVisual] 所有候选路径均未找到：${paths.join(', ')}`);
+    if (debug) setWeaponLoadLog(`未找到资源：${paths.join(', ')}`);
     return null;
   };
 
@@ -72,12 +120,19 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     THROW: { prefix: 'throw', count: 4 },
     PUNCH: { prefix: 'punch', count: 2 },
     KICK: { prefix: 'kick', count: 3 },
-    SPIKE: { prefix: 'spike', count: 3 },
-
+    SPIKE: { prefix: 'spike', count: 4 },
   };
 
   const getFrameTransform = () => {
     const f = (state === 'HOME' || state === 'IDLE' || state === 'RUN') ? (((frame || 1) - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1 : (frame || 1);
+    
+    // ========== 新增：帧变换计算日志 ==========
+    console.log(`[CharacterVisual] 计算帧变换：`, {
+      state,
+      inputFrame: frame,
+      calculatedFrame: f,
+      stateConfig: STATE_CONFIGS[state]
+    });
     
     switch (state) {
       case 'HOME': {
@@ -105,16 +160,13 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'THROW':
         return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
-        // 修正：移除 scale 放大，保持人物大小一致
         return f === 2 
           ? `scale(${BASE_SCALE}) rotate(-8deg) translateX(20px)` 
           : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'KICK':
-        // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
         return `scale(${BASE_SCALE})`;
       case 'SPIKE':
-          // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
-          return `scale(${BASE_SCALE})`;
+        return `scale(${BASE_SCALE})`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
@@ -126,12 +178,24 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const renderFallbackCharacter = () => {
     const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
+    // ========== 新增：渲染兜底角色日志 ==========
+    console.warn(`[CharacterVisual] 角色图片加载失败，渲染兜底占位符`);
     return (
       <div data-name={name} className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
         <div className="flex gap-4 mb-4">
           <div className="w-3 h-6 bg-white rounded-full animate-bounce"></div>
           <div className="w-3 h-6 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
         </div>
+      </div>
+    );
+  };
+
+  const renderFallbackWeapon = (path: string) => {
+    // ========== 新增：渲染兜底武器日志 ==========
+    console.warn(`[CharacterVisual] 武器图片加载失败，渲染兜底提示：${path}`);
+    return (
+      <div className="absolute inset-0 w-full h-full flex items-center justify-center z-[30] text-red-500 font-bold text-sm">
+        武器缺失:<br/>{path.split('/').pop()}
       </div>
     );
   };
@@ -143,6 +207,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
       style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
+      {debug && (
+        <div className="absolute top-0 left-0 text-xs text-red-600 bg-white/80 p-1 z-999">
+          {weaponLoadLog}
+        </div>
+      )}
+
       <div className={`absolute bottom-[15%] h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
         ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
@@ -167,14 +237,42 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
             const isLoopingState = (sName === 'IDLE' || sName === 'RUN' || sName === 'HOME');
             const currentFrame = isLoopingState 
               ? (((frame || 1) - 1) % config.count) + 1 
-              : Math.min(frame || 1, config.count);
+              : Math.max(1, Math.min(frame || 1, config.count));
+
+            // ========== 新增：帧计算日志 ==========
+            console.log(`[CharacterVisual][${sName}] 帧计算结果：`, {
+              isLoopingState,
+              inputFrame: frame,
+              currentFrame,
+              maxCount: config.count
+            });
 
             return Array.from({ length: config.count }).map((_, i) => {
               const frameIndex = i + 1;
               if (frameIndex !== currentFrame) return null;
 
-              const charUrl = findAsset([`${basePath}${config.prefix}${frameIndex}.png`, `${basePath}character.png`]);
-              const weaponUrl = (weaponId && state !== 'THROW') ? findAsset([`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`]) : null;
+              const charPaths = [`${basePath}${config.prefix}${frameIndex}.png`, `${basePath}character.png`];
+              const charUrl = findAsset(charPaths);
+              
+              const weaponPaths = weaponId && state !== 'THROW' 
+                ? [
+                    `${basePath}${weaponId}_${config.prefix}${frameIndex}.png`,
+                    `${basePath}${weaponId}_${config.prefix.toUpperCase()}${frameIndex}.png`,
+                    `${basePath}${weaponId}_${sName.toLowerCase()}${frameIndex}.png`,
+                    `${basePath}${weaponId}_${sName.toUpperCase()}${frameIndex}.png`
+                  ] 
+                : [];
+              
+              // ========== 新增：武器路径生成日志 ==========
+              if (weaponId && state !== 'THROW') {
+                console.log(`[CharacterVisual][${sName}] 生成武器加载路径：`, weaponPaths);
+                // SPIKE状态专门标注
+                if (sName === 'SPIKE') {
+                  console.log('[CharacterVisual][SPIKE] 生成SPIKE武器路径：', weaponPaths);
+                }
+              }
+
+              const weaponUrl = weaponPaths.length > 0 ? findAsset(weaponPaths) : null;
 
               return (
                 <React.Fragment key={`${sName}-${frameIndex}`}>
@@ -186,13 +284,20 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                       className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass} z-[20]`}
                     />
                   ) : renderFallbackCharacter()}
-                  {weaponId && weaponUrl && (
-                    <img 
-                      src={weaponUrl}
-                      data-name={name}
-                      onError={() => handleImageError(weaponUrl)}
-                      className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
-                    />
+                  
+                  {weaponId && state !== 'THROW' && (
+                    <>
+                      {weaponUrl ? (
+                        <img 
+                          src={weaponUrl}
+                          data-name={name}
+                          onError={() => handleImageError(weaponUrl)}
+                          className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
+                        />
+                      ) : debug ? (
+                        renderFallbackWeapon(weaponPaths[0])
+                      ) : null}
+                    </>
                   )}
                 </React.Fragment>
               );

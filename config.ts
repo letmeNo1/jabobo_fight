@@ -130,11 +130,12 @@ export const config = {
       ]
     },
     "SPIKE": {
-      "steps": [       
-        { "state": "SPIKE", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 100, "playSfx": true },
-        { "state": "SPIKE", "frame": 2, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 120 },
-        { "state": "SPIKE", "frame": 3, "offset": "MELEE+250", "offsetY": 0, "moveDuration": 0, "delay": 120, "calculateHit": true},
-        { "state": "SPIKE", "frame": 4, "offset": "MELEE+250", "offsetY": 0, "moveDuration": 0, "delay": 120, }
+      "steps": [    
+        { "state": "SPIKE", "frame": 1, "offset": "MELEE", "offsetY": 0, "moveDuration": 0, "delay": 80, "playSfx": true },
+        { "state": "SPIKE", "frame": 2, "offset": "MELEE+10", "offsetY": 0, "moveDuration": 0, "delay": 120 },
+        { "state": "SPIKE", "frame": 3, "offset": "MELEE+30", "offsetY": 0, "moveDuration": 0, "delay": 100, },
+        { "state": "SPIKE", "frame": 4, "offset": "MELEE+90", "offsetY": 0, "moveDuration": 0, "delay": 220, "calculateHit": true},
+
       ]
     },
     "THROW": {

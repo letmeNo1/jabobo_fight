@@ -186,23 +186,23 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       {/* Stage */}
       <div className={`relative w-full max-w-4xl h-[400px] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-800 ${shaking ? 'animate-heavyShake' : ''}`}>
         <div ref={containerRef} className="absolute inset-0 flex items-end justify-between px-20 pb-16">
-           
-           {/* Attacker */}
-           <div ref={atkRef} style={{ transform: `translate(${atkOffset.x}px, ${atkOffset.y}px)`, transition: 'transform 0.2s linear' }} className="relative z-10">
+           {/* Attacker - 【修改1】提升z-index到30，实现层叠覆盖 */}
+           <div ref={atkRef} style={{ transform: `translate(${atkOffset.x}px, ${atkOffset.y}px)`, transition: 'transform 0.2s linear' }} className="relative z-30">
               <CharacterVisual name={player.name} state={atkVisual.state} frame={atkVisual.frame} weaponId={atkVisual.weaponId} />
            </div>
 
-           {/* Defender (Dummy) */}
-           <div ref={defRef} className="relative z-10 scale-x-[-1]">
+           {/* Defender (Dummy) - 【修改2】z-index设为20，低于攻击者的30 */}
+           <div ref={defRef} className="relative z-20 scale-x-[-1]">
               <CharacterVisual name="木桩人偶" isNpc state={defVisual.state} frame={defVisual.frame} />
-              <div className="absolute -top-10 left-0 w-full text-center scale-x-[-1]">
+              {/* 【修改3】血条z-index设为40，高于攻击者，避免血条被遮挡 */}
+              <div className="absolute -top-10 left-0 w-full text-center scale-x-[-1] z-40">
                  <div className="bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded-full">{defHp} HP</div>
               </div>
            </div>
 
         </div>
 
-        {/* Projectiles & Damage Text */}
+        {/* Projectiles & Damage Text - 保留z-50，仍为最上层 */}
         <div className="absolute inset-0 z-50 pointer-events-none">
           {projectiles.map(p => {
              if (p.type === 'TEXT') {
