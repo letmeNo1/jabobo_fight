@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData, Weapon, AttackModule, WeaponType, Skill, SkillCategory, VisualState } from '../types';
 import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
+import { DEFAULT_ATTACK_MODULE, DEFAULT_SFX, DEFAULT_HIT_SFX } from '../constants/combat';
 import CharacterVisual from './CharacterVisual';
 import { playSFX, playUISound } from '../utils/audio';
+import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact } from '../utils/combat';
 import config from '../config';
+import '../styles/combat-animations.css'; // 引入公共样式
 
 interface TestPanelProps {
   player: CharacterData;
@@ -44,43 +47,29 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     return () => clearInterval(timer);
   }, [isTesting]);
 
-  const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL') => {
-    if (!id || !window.assetMap) return null;
-    let paths: string[] = [];
-    if (type === 'SKILL') {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
-    } else {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
-    }
-    for (const p of paths) { 
-      if (window.assetMap.has(p)) return window.assetMap.get(p); 
-    }
-    return null;
-  };
-
   const runTest = async () => {
     if (isTesting) return;
     setIsTesting(true);
     setDefHp(1000); // Reset HP
 
-    let module: any = 'PUNCH';
+    let module: any = DEFAULT_ATTACK_MODULE;
     let visualId = undefined;
-    let sfx = 'punch';
-    let hitSfx = 'blunt_hit';
+    let sfx = DEFAULT_SFX.punch;
+    let hitSfx = DEFAULT_HIT_SFX.blunt;
     let actionType: 'WEAPON' | 'SKILL' = 'WEAPON';
 
     if (testType === 'WEAPON') {
       const w = WEAPONS.find(we => we.id === selectedWeaponId);
       module = w?.module || 'SLASH';
-      sfx = w?.sfx || 'slash';
-      hitSfx = w?.hitSfx || 'blunt_hit';
+      sfx = w?.sfx || DEFAULT_SFX.slash;
+      hitSfx = w?.hitSfx || DEFAULT_HIT_SFX.blunt;
       visualId = w?.id;
       actionType = 'WEAPON';
     } else {
       const s = SKILLS.find(sk => sk.id === selectedSkillId);
-      module = s?.module || 'PUNCH';
-      sfx = s?.sfx || 'skill_cast';
-      hitSfx = s?.hitSfx || 'heavy_hit';
+      module = s?.module || DEFAULT_ATTACK_MODULE;
+      sfx = s?.sfx || DEFAULT_SFX.skillCast;
+      hitSfx = s?.hitSfx || DEFAULT_HIT_SFX.heavy;
       visualId = s?.id;
       actionType = 'SKILL';
     }
@@ -99,38 +88,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         const containerHeight = containerRef.current?.offsetHeight || 450;
         const isMobile = window.innerWidth < 768;
 
-        // Move Logic - 重构为支持 MELEE+数值/BASE+数值 格式
-        let dx = 0;
-        // 【核心修改1】添加offset解析和日志
-        if (!step.offset) {
-          console.warn(`[TestPanel] 第${loop}轮 步骤offset为空/undefined`, step);
-        } else {
-          console.log(`[TestPanel] 第${loop}轮 步骤offset原始值:`, step.offset);
-          const offsetMatch = step.offset.match(/^([A-Z]+)(\+(\d+))?$/);
-          
-          if (!offsetMatch) {
-            console.warn(`[TestPanel] 第${loop}轮 offset格式不匹配，原始值:`, step.offset);
-            dx = 0;
-          } else {
-            const baseOffsetType = offsetMatch[1];
-            const offsetAdd = Number(offsetMatch[3] || 0);
-            console.log(`[TestPanel] 第${loop}轮 offset解析结果: 基础类型=${baseOffsetType}, 增量=${offsetAdd}`);
-
-            if (baseOffsetType === 'MELEE') {
-              const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
-              dx = (containerWidth * pct) / 100 + offsetAdd;
-              console.log(`[TestPanel] 第${loop}轮 MELEE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
-            } else if (baseOffsetType === 'BASE') {
-              const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
-              dx = (containerWidth * pct) / 100 + offsetAdd;
-              console.log(`[TestPanel] 第${loop}轮 BASE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
-            } else {
-              console.warn(`[TestPanel] 第${loop}轮 未知offset类型:${baseOffsetType}，dx兜底为0`);
-              dx = 0;
-            }
-          }
-        }
-        
+        // 调用公共偏移解析函数
+        const dx = parseAttackOffset(step.offset, containerWidth, isMobile);
         const dy = (containerHeight * (step.offsetY || 0)) / 100;
         console.log(`[TestPanel] 第${loop}轮 最终偏移量: dx=${dx}, dy=${dy}`);
 
@@ -155,45 +114,30 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
            
            console.log(`[TestPanel] 第${loop}轮 生成投射物: startX=${startX}, targetX=${targetX}, asset=${asset ? '存在' : '不存在'}`);
            
-           for(let j=0; j<3; j++) {
-             setTimeout(() => {
-               const pId = ++projectileCounter.current;
-               setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: 'P' }]);
-               setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
-             }, j * 120);
-           }
+           // 调用公共投射物生成函数
+           generateProjectiles(
+             projectileCounter,
+             setProjectiles,
+             startX,
+             targetX,
+             asset,
+             'P'
+           );
         }
 
         if (step.calculateHit) {
           const hitDelay = module === 'THROW' ? 450 : 0;
           setTimeout(() => {
-            // HIT LOGIC
-            // ========== 核心修改：THROW模块播放3次伤害音效 ==========
-            if (hitSfx) {
-              if (module === 'THROW') {
-                // 投掷动作：循环3次播放，每次间隔100ms，匹配弹幕发射节奏
-                for (let i = 0; i < 3; i++) {
-                  setTimeout(() => playSFX(hitSfx), i * 100);
-                }
-              } else {
-                // 普通动作：单次播放
-                playSFX(hitSfx);
-              }
-            }
-            // ======================================================
+            // 调用公共音效播放函数
+            playHitSFX(hitSfx, module);
             
             // Damage Number
             const dmg = Math.floor(Math.random() * 50) + 10;
-            const id = Date.now();
-            setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: false, color: '#ef4444', type: 'TEXT' }]);
-            setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
+            // 调用公共伤害应用函数
+            applyImpact(dmg, false, setProjectiles, setDefVisual);
 
             setDefHp(prev => Math.max(0, prev - dmg));
             console.log(`[TestPanel] 第${loop}轮 命中生效: 伤害=${dmg}, 剩余HP=${Math.max(0, defHp - dmg)}`);
-            
-            // Def hurt anim
-            setDefVisual(v => ({ ...v, state: 'HURT', frame: 1 }));
-            setTimeout(() => setDefVisual(v => ({ ...v, state: 'IDLE', frame: 1 })), 400);
 
           }, hitDelay);
         }
@@ -288,18 +232,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           })}
         </div>
       </div>
-       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes projectile-fly-pro {
-          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
-        }
-        .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
-        @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
-        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
-        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
-        .animate-damage { animation: damage 0.8s ease-out forwards; }
-      `}} />
     </div>
   );
 };

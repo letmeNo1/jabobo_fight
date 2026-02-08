@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BattleRecord, BattleTurn, VisualState, BattleLog, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
+import { DEFAULT_ATTACK_MODULE, DEFAULT_SFX, DEFAULT_HIT_SFX } from '../constants/combat';
 import CharacterVisual from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
 import { playSFX } from '../utils/audio';
+import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact, applyMiss } from '../utils/combat';
 import config from '../config';
+import '../styles/combat-animations.css'; // 引入公共样式
 
 interface CombatProps {
   record: BattleRecord;
@@ -34,20 +37,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const nRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
-
-  const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL' | 'PUNCH') => {
-    if (!id || !window.assetMap) return null;
-    let paths: string[] = [];
-    if (type === 'SKILL') {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
-    } else {
-      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
-    }
-    for (const p of paths) { 
-      if (window.assetMap.has(p)) return window.assetMap.get(p); 
-    }
-    return null;
-  };
 
   useEffect(() => {
     setLogs([{ attacker: '系统', text: '战斗开始！' }]);
@@ -102,23 +91,23 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       setLogs(prev => [...prev, ...turn.logs]);
 
-      let module: any = 'PUNCH';
+      let module: any = DEFAULT_ATTACK_MODULE;
       let visualId = undefined;
-      let sfx = 'punch';
-      let hitSfx = 'blunt_hit'; // 默认为钝击音效
+      let sfx = DEFAULT_SFX.punch;
+      let hitSfx = DEFAULT_HIT_SFX.blunt;
       let isWeaponUsed = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
-        module = s?.module || 'PUNCH';
-        sfx = s?.sfx || 'skill_cast';
-        hitSfx = s?.hitSfx || 'heavy_hit';
+        module = s?.module || DEFAULT_ATTACK_MODULE;
+        sfx = s?.sfx || DEFAULT_SFX.skillCast;
+        hitSfx = s?.hitSfx || DEFAULT_HIT_SFX.heavy;
         visualId = s?.id;
       } else if (turn.actionType === 'WEAPON') {
         const w = WEAPONS.find(we => we.id === turn.actionId);
         module = w?.module || 'SLASH';
-        sfx = w?.sfx || 'slash';
-        hitSfx = w?.hitSfx || 'blunt_hit';
+        sfx = w?.sfx || DEFAULT_SFX.slash;
+        hitSfx = w?.hitSfx || DEFAULT_HIT_SFX.blunt;
         visualId = w?.id;
         isWeaponUsed = true;
       }
@@ -133,33 +122,15 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           const containerHeight = containerRef.current?.offsetHeight || 450;
           
           setMoveDuration(step.moveDuration);
-          let dx = 0;
-          // 打印当前步骤的原始offset值
-          console.log(`[Combat] 第${currentTurnIdx}回合 第${loop}轮 步骤offset原始值:`, step.offset);
+          // 调用公共偏移解析函数
+          let dx = parseAttackOffset(step.offset, containerWidth, isMobile);
+          // 应用方向系数
+          dx *= dir;
           
-          const offsetMatch = step.offset.match(/^([A-Z]+)(\+(\d+))?$/);
-          const baseOffsetType = offsetMatch?.[1] || step.offset;
-          const offsetAdd = Number(offsetMatch?.[3] || 0); // 提取+后的增量，无则为0
-          
-          // 打印解析后的结果
-          console.log(`[Combat] offset解析结果: 基础类型=${baseOffsetType}, 增量=${offsetAdd}`);
-
-          if (baseOffsetType === 'MELEE') {
-            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
-            dx = (containerWidth * pct) / 100 + offsetAdd; // 基础值 + 增量
-            console.log(`[Combat] MELEE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
-          } else if (baseOffsetType === 'BASE') {
-            const pct = isMobile ? config.combat.spacing.baseActionOffsetPctPC : config.combat.spacing.baseActionOffsetPctPC;
-            dx = (containerWidth * pct) / 100 + offsetAdd; // 基础值 + 增量
-            console.log(`[Combat] BASE偏移计算: 容器宽度=${containerWidth}, 百分比=${pct}%, 基础值=${(containerWidth * pct) / 100}, 最终dx=${dx}`);
-          }
-
           const dy = (containerHeight * (step.offsetY || 0)) / 100;
+          console.log(`[Combat] 最终偏移量: dx=${dx}, dy=${dy}, 方向系数=${dir}, 实际X偏移=${dx}`);
           
-          // 打印最终的偏移量
-          console.log(`[Combat] 最终偏移量: dx=${dx}, dy=${dy}, 方向系数=${dir}, 实际X偏移=${dx * dir}`);
-          
-          offsetSetter({ x: dx * dir, y: dy });
+          offsetSetter({ x: dx, y: dy });
           atkSetter({ 
             state: step.state as VisualState, 
             frame: step.frame, 
@@ -185,13 +156,16 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
               const targetX = dRect.left - mainRect.left + dRect.width / 2;
               const asset = findProjectileAsset(visualId, turn.actionType);
 
-              for(let j=0; j<3; j++) {
-                setTimeout(() => {
-                  const pId = ++projectileCounter.current;
-                  setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: turn.side, type: 'WEAPON' }]);
-                  setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
-                }, j * 120);
-              }
+              // 调用公共投射物生成函数
+              generateProjectiles(
+                projectileCounter,
+                setProjectiles,
+                startX,
+                targetX,
+                asset,
+                turn.side,
+                'WEAPON'
+              );
             }
           }
 
@@ -199,20 +173,12 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             const hitDelay = module === 'THROW' ? 450 : 0;
             setTimeout(() => {
               if (turn.isHit) {
-                // ========== 核心修改：THROW模块播放3次伤害音效 ==========
-                if (hitSfx) {
-                  if (module === 'THROW') {
-                    // 投掷动作：循环3次播放，每次间隔100ms，匹配弹幕发射节奏
-                    for (let i = 0; i < 3; i++) {
-                      setTimeout(() => playSFX(hitSfx), i * 100);
-                    }
-                  } else {
-                    // 普通动作：单次播放
-                    playSFX(hitSfx);
-                  }
-                }
-                // ======================================================
-                applyImpact(turn.damage, isP, defSetter);
+                // 调用公共音效播放函数
+                playHitSFX(hitSfx, module);
+                
+                // 调用公共伤害应用函数
+                applyImpact(turn.damage, !isP, setProjectiles, defSetter);
+                
                 oppStatsSetter(s => ({ 
                   ...s, 
                   hp: Math.max(0, s.hp - turn.damage),
@@ -226,7 +192,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                   statsSetter(s => ({ ...s, status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 } }));
                 }
               } else {
-                applyMiss(!isP, defSetter);
+                // 调用公共闪避应用函数
+                applyMiss(!isP, setProjectiles, defSetter);
               }
             }, hitDelay);
           }
@@ -247,25 +214,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
     playTurn();
   }, [currentTurnIdx]);
-
-  const applyImpact = (dmg: number, isPAtk: boolean, defSetter: any) => {
-    const id = Date.now();
-    setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: !isPAtk, color: '#ef4444', type: 'TEXT' }]);
-    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
-    defSetter((v: any) => ({ ...v, state: 'HURT', frame: 1 }));
-    setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
-  };
-
-  const applyMiss = (isPDef: boolean, defSetter: any) => {
-    const id = Date.now();
-    setProjectiles(prev => [...prev, { id: `miss-${id}`, text: 'MISS', isPlayer: isPDef, color: '#94a3b8', type: 'TEXT' }]);
-    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `miss-${id}`)), 800);
-    defSetter((v: any) => ({ ...v, state: 'DODGE', frame: 1 }));
-    setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
-  };
-
-  const isMobile = window.innerWidth < 768;
-  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
 
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
@@ -307,7 +255,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         <div className="relative flex items-end justify-center w-full h-[450px]">
           <div 
             className="w-full flex justify-between pb-16 relative"
-            style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}
+            style={{ paddingLeft: `${window.innerWidth < 768 ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`, paddingRight: `${window.innerWidth < 768 ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%` }}
           >
             <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
@@ -321,18 +269,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         </div>
       </div>
       <CombatLog logs={logs} logEndRef={logEndRef} isMobile={false} />
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes projectile-fly-pro {
-          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
-          15% { opacity: 1; }
-          100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
-        }
-        .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
-        @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
-        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
-        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
-        .animate-damage { animation: damage 0.8s ease-out forwards; }
-      `}} />
     </div>
   );
 };

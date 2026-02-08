@@ -1,0 +1,23 @@
+/* 投射物飞行动画 */
+@keyframes projectile-fly-pro {
+    0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
+  }
+  .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
+  
+  /* 屏幕震动动画 */
+  @keyframes heavyShake { 
+    0%, 100% { transform: translate(0, 0); } 
+    10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 
+    20%, 40%, 60%, 80% { transform: translate(6px, 6px); } 
+  }
+  .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
+  
+  /* 伤害数字动画 */
+  @keyframes damage { 
+    0% { opacity:0; transform: translateY(20px) scale(0.5); } 
+    20% { opacity:1; transform: translateY(0) scale(1.2); } 
+    100% { opacity:0; transform: translateY(-100px) scale(1); } 
+  }
+  .animate-damage { animation: damage 0.8s ease-out forwards; }
