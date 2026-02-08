@@ -92,8 +92,8 @@ export const config = {
     "SLASH": {
       "steps": [
         { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 250, "delay": 250 },
-        { "state": "SLASH", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 80 },
-        { "state": "SLASH", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 120, "playSfx": true, "calculateHit": true },
+        { "state": "SLASH", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 80,"playSfx": true},
+        { "state": "SLASH", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 120, "calculateHit": true },
         { "state": "SLASH", "frame": 3, "offset": "MELEE", "moveDuration": 0, "delay": 80 }
       ]
     },
