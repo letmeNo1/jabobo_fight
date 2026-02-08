@@ -103,8 +103,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'THROW':
         return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
+        // 修正：移除 scale 放大，保持人物大小一致
         return f === 2 
-          ? `scale(${BASE_SCALE * 1.1}) rotate(-8deg) translateX(20px)` 
+          ? `scale(${BASE_SCALE}) rotate(-8deg) translateX(20px)` 
           : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'KICK':
         // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调

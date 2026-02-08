@@ -26,6 +26,7 @@ export const resumeAudio = async () => {
   if (ctx.state === 'suspended') {
     try {
       await ctx.resume();
+      console.log('AudioContext resumed successfully via user gesture.');
     } catch (e) {
       console.error('Failed to resume AudioContext:', e);
     }
@@ -40,8 +41,7 @@ export const setVolume = (v: number) => {
  * 预加载并解码音效
  */
 export const preloadAudio = async (sfxId: string, arrayBuffer: ArrayBuffer) => {
-  // 如果文件太小，可能是错误的占位符
-  if (arrayBuffer.byteLength < 100) return;
+  if (arrayBuffer.byteLength < 500) return;
 
   const ctx = getAudioContext();
   try {
@@ -52,7 +52,7 @@ export const preloadAudio = async (sfxId: string, arrayBuffer: ArrayBuffer) => {
     });
     audioBufferMap.set(sfxId, audioBuffer);
   } catch (err) {
-    console.warn(`Audio decode failed for [${sfxId}]:`, err);
+    // 静默处理解码错误
   }
 };
 
@@ -63,23 +63,17 @@ export const playSFX = (sfxId: string) => {
   if (!sfxId || sfxId === 'NONE') return;
   
   const ctx = getAudioContext();
-  let buffer = audioBufferMap.get(sfxId);
+  const buffer = audioBufferMap.get(sfxId);
 
   if (!buffer) {
-    // 自动回退逻辑：如果找不到特定受击声，尝试回退到通用打击声
-    if (sfxId !== 'punch') {
-      buffer = audioBufferMap.get('punch');
-    }
-    
-    if (!buffer) {
-      // 如果连通用打击声都没有，则静默退出，不再打印大量警告
-      return;
-    }
+    console.warn(`Audio buffer not found for: ${sfxId}. Asset might still be loading or failed.`);
+    return;
   }
 
   try {
+    // 即使不在直接手势回调中，如果之前已经 resume 过，这里调用也是合法的
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(e => console.warn('Could not resume context on play attempt', e));
     }
 
     const source = ctx.createBufferSource();
@@ -91,8 +85,7 @@ export const playSFX = (sfxId: string) => {
     gainNode.connect(ctx.destination);
     source.start(0);
   } catch (e) {
-    // 只有在真正的播放错误时才记录
-    console.error(`Playback Error [${sfxId}]:`, e);
+    console.error(`Error playing SFX [${sfxId}]:`, e);
   }
 };
 

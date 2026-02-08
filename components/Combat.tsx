@@ -105,33 +105,20 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       let module: any = 'PUNCH';
       let visualId = undefined;
-      let actionSfx = 'punch'; 
-      let hitSfx = 'punch'; 
+      let sfx = 'punch';
       let isWeaponUsed = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
         module = s?.module || 'PUNCH';
-        actionSfx = s?.sfx || 'skill_cast';
-        hitSfx = s?.hitSfx || 'heavy_hit'; 
+        sfx = s?.sfx || 'skill_cast';
         visualId = s?.id;
       } else if (turn.actionType === 'WEAPON') {
         const w = WEAPONS.find(we => we.id === turn.actionId);
         module = w?.module || 'SLASH';
-        actionSfx = w?.sfx || 'swing_light';
+        sfx = w?.sfx || 'slash';
         visualId = w?.id;
         isWeaponUsed = true;
-        
-        if (w) {
-          if (w.hitSfx) {
-            hitSfx = w.hitSfx;
-          } else {
-            if (w.type === WeaponType.LARGE) hitSfx = 'heavy_hit';
-            else if (w.type === WeaponType.MEDIUM) hitSfx = 'blunt_hit';
-            else if (w.type === WeaponType.SMALL) hitSfx = 'slash_light';
-            else if (w.type === WeaponType.THROW) hitSfx = 'throw_hit';
-          }
-        }
       }
 
       const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
@@ -163,8 +150,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             weaponId: visualId || (isP ? record.player.dressing.WEAPON : record.opponent.dressing.WEAPON) 
           });
           
-          // 仅播放挥动/施法动作声
-          if (step.playSfx) playSFX(actionSfx);
+          if (step.playSfx) playSFX(sfx);
 
           if (step.shaking === 'SCREEN') {
             setShaking(true);
@@ -193,12 +179,11 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             }
           }
 
-          // 计算伤害的那一帧播受击声音
           if (step.calculateHit) {
             const hitDelay = module === 'THROW' ? 450 : 0;
             setTimeout(() => {
               if (turn.isHit) {
-                applyImpact(turn.damage, isP, defSetter, hitSfx);
+                applyImpact(turn.damage, isP, defSetter);
                 oppStatsSetter(s => ({ 
                   ...s, 
                   hp: Math.max(0, s.hp - turn.damage),
@@ -234,11 +219,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     playTurn();
   }, [currentTurnIdx]);
 
-  const applyImpact = (dmg: number, isPAtk: boolean, defSetter: any, hitSfx: string) => {
+  const applyImpact = (dmg: number, isPAtk: boolean, defSetter: any) => {
     const id = Date.now();
-    // 命中瞬间播放真正的打击/重击音效
-    playSFX(hitSfx);
-    
     setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: !isPAtk, color: '#ef4444', type: 'TEXT' }]);
     setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
     defSetter((v: any) => ({ ...v, state: 'HURT', frame: 1 }));
@@ -294,6 +276,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         </div>
         
         <div className="relative flex items-end justify-center w-full h-[450px]">
+          {/* 这里应用 sidePaddingPct 配置 */}
           <div 
             className="w-full flex justify-between pb-16 relative"
             style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}

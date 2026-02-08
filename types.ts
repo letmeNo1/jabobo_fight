@@ -26,8 +26,7 @@ export interface Weapon {
   effect?: string;
   description: string;
   module: AttackModule;
-  sfx?: string; // 攻击声（挥动）
-  hitSfx?: string; // 受击声（击中）
+  sfx?: string;
   sfxFrame?: number;
   isArtifact?: boolean;
 }
@@ -40,7 +39,6 @@ export interface Skill {
   minLevel?: number;
   module?: AttackModule;
   sfx?: string;
-  hitSfx?: string;
   sfxFrame?: number;
 }
 
@@ -121,6 +119,7 @@ export interface BattleTurn {
   statusChanges: {
     disarmed?: number;
     sticky?: number;
+    stunned?: number;
     afterimage?: number;
     dots?: { id: string; dmg: number; duration: number }[];
   };

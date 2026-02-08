@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, AttackModule, SkillCategory, VisualState } from '../types';
+import { CharacterData, Weapon, AttackModule, WeaponType, Skill, SkillCategory, VisualState } from '../types';
 import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
 import CharacterVisual from './CharacterVisual';
 import { playSFX, playUISound } from '../utils/audio';
@@ -13,33 +13,20 @@ interface TestPanelProps {
 }
 
 interface Projectile {
-  id: string | number;
+  id: number;
   startX: number;
   targetX: number;
   asset?: string;
-  text?: string;
-  isPlayer?: boolean;
-  color?: string;
-  type?: 'TEXT' | 'IMAGE';
 }
 
 const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
   const [selectedWeaponId, setSelectedWeaponId] = useState<string>(player.dressing.WEAPON || 'w1');
-  
-  // 攻击者状态
   const [visual, setVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ 
     state: 'IDLE', 
     frame: 1, 
     weaponId: selectedWeaponId 
   });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  
-  // 受击者状态
-  const [oppVisual, setOppVisual] = useState<{ state: VisualState; frame: number }>({
-    state: 'IDLE',
-    frame: 1
-  });
-
   const [moveDuration, setMoveDuration] = useState(300);
   const [isAnimating, setIsAnimating] = useState(false);
   const [shaking, setShaking] = useState(false);
@@ -48,7 +35,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
   
   const projectileCounter = useRef(0);
   const charContainerRef = useRef<HTMLDivElement>(null);
-  const oppContainerRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,16 +42,9 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     window.addEventListener('resize', handleResize);
     
     const timer = setInterval(() => {
-      // 全局帧循环，驱动 IDLE 动画
       setVisual(v => {
         if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
            return { ...v, frame: v.frame + 1 };
-        }
-        return v;
-      });
-      setOppVisual(v => {
-        if (v.state === 'IDLE' || v.state === 'HOME') {
-          return { ...v, frame: v.frame + 1 };
         }
         return v;
       });
@@ -87,20 +66,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     }
     for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
     return null;
-  };
-
-  const showDamageText = (targetX: number) => {
-    const id = `dmg-${Date.now()}-${Math.random()}`;
-    const dmg = Math.floor(Math.random() * 50) + 10;
-    setProjectiles(prev => [...prev, { 
-      id, 
-      startX: targetX, 
-      targetX, 
-      text: `-${dmg}`, 
-      type: 'TEXT', 
-      color: '#ef4444' 
-    }]);
-    setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== id)), 800);
   };
 
   const runAction = async (module: AttackModule, customSfx?: string, customVisualId?: string, type: 'WEAPON' | 'SKILL' = 'WEAPON') => {
@@ -131,45 +96,27 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         setMoveDuration(step.moveDuration);
         setOffset({ x: dx, y: dy });
         setVisual({ state: step.state as VisualState, frame: step.frame, weaponId: visualId });
-        
         if (step.playSfx) playSFX(actionSfx);
 
-        // 处理飞行道具
         if (step.projectile) {
           const mainRect = mainContainerRef.current?.getBoundingClientRect();
           const charRect = charContainerRef.current?.getBoundingClientRect();
-          const oppRect = oppContainerRef.current?.getBoundingClientRect();
-
-          if (mainRect && charRect && oppRect) {
+          if (mainRect && charRect) {
             const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            const targetX = (oppRect.left - mainRect.left + oppRect.width / 2);
+            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+            const meleeDistance = (mainRect.width * pct / 100);
+            const targetX = startX + meleeDistance;
             const asset = findProjectileAsset(visualId, type);
             
             for (let j = 0; j < 3; j++) {
               setTimeout(() => {
                 const pId = ++projectileCounter.current;
-                setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, type: 'IMAGE' }]);
+                setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset }]);
                 setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
               }, j * 120);
             }
           }
         }
-
-        // 处理打击反馈
-        if (step.calculateHit) {
-          const hitDelay = module === 'THROW' ? 450 : 0;
-          setTimeout(() => {
-            setOppVisual({ state: 'HURT', frame: 1 });
-            playSFX('hurt');
-            const oppRect = oppContainerRef.current?.getBoundingClientRect();
-            const mainRect = mainContainerRef.current?.getBoundingClientRect();
-            if (oppRect && mainRect) {
-              showDamageText(oppRect.left - mainRect.left + oppRect.width / 2);
-            }
-            setTimeout(() => setOppVisual({ state: 'IDLE', frame: 1 }), 400);
-          }, hitDelay);
-        }
-
         if (step.shaking) {
           setShaking(true);
           setTimeout(() => setShaking(false), 500);
@@ -177,8 +124,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         await new Promise(r => setTimeout(r, step.delay));
       }
     }
-
-    // 回位
     setMoveDuration(500);
     setVisual(v => ({...v, state: 'IDLE', frame: 1, weaponId: selectedWeaponId }));
     setOffset({ x: 0, y: 0 });
@@ -197,10 +142,10 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
       <div className="p-6 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-30 shrink-0">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-xl md:text-2xl font-black italic tracking-tighter uppercase">演武竞技场</h2>
-            <span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">LAB V2.5</span>
+            <h2 className="text-xl md:text-2xl font-black italic tracking-tighter uppercase">Mega Pro Arena</h2>
+            <span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">V2.10 LAB</span>
           </div>
-          <p className="text-[9px] md:text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Animation & Feedback Laboratory</p>
+          <p className="text-[9px] md:text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Animation & Skill Laboratory</p>
         </div>
         <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-6 md:px-8 py-2 md:py-3 rounded-2xl font-black text-xs md:text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
       </div>
@@ -210,43 +155,27 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         
         {/* Top: Stage Area */}
         <div 
-          className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-between overflow-hidden min-h-[300px]"
-          style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }} 
+          className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start overflow-hidden min-h-[300px]"
+          style={{ paddingLeft: `${sidePadding}%` }} 
         >
-          {/* Projectiles & Damage Text Layer */}
           <div className="absolute inset-0 z-10 pointer-events-none">
-             {projectiles.map((p) => {
-               if (p.type === 'TEXT') {
-                 return (
-                  <div key={p.id} className="absolute animate-damage text-5xl font-black text-center w-40" style={{ left: p.startX - 80, top: '40%', color: p.color }}>
-                    {p.text}
-                  </div>
-                 );
-               }
-               return (
-                <div 
-                  key={p.id}
-                  className={`absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
-                  style={{ 
-                     bottom: isMobile ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC, 
-                     left: `${p.startX}px`, 
-                     '--tx': `${p.targetX - p.startX}px` 
-                  } as any}
-                >
-                  {p.asset ? <img src={p.asset} className="w-full h-full object-contain drop-shadow-xl" alt="projectile" /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
-                </div>
-               );
-             })}
+             {projectiles.map((p) => (
+               <div 
+                 key={p.id}
+                 className={`absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
+                 style={{ 
+                    bottom: isMobile ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC, 
+                    left: `${p.startX}px`, 
+                    '--tx': `${p.targetX - p.startX}px` 
+                 } as any}
+               >
+                 {p.asset ? <img src={p.asset} className="w-full h-full object-contain drop-shadow-xl" alt="projectile" /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
+               </div>
+             ))}
           </div>
-
-          {/* Player Character */}
           <div ref={charContainerRef} className="relative z-20 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
+            {/* 人物缩放比例下调 30%: 1.1 -> 0.77, 1.35 -> 0.95 */}
             <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[0.77] md:scale-[0.95]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
-          </div>
-
-          {/* Target/Opponent Character */}
-          <div ref={oppContainerRef} className="relative z-20 pointer-events-none scale-x-[-1]">
-             <CharacterVisual name="测试桩" isNpc state={oppVisual.state} frame={oppVisual.frame} isMobile={isMobile} className="scale-[0.77] md:scale-[0.95]" />
           </div>
         </div>
         
@@ -307,8 +236,6 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
-        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
-        .animate-damage { animation: damage 0.8s ease-out forwards; }
       `}} />
     </div>
   );
