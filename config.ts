@@ -48,13 +48,43 @@ export const config = {
   },
 
   /** 战斗核心参数配置 */
-  "combat": {
-    /** 战斗状态面板（血条/状态栏）配置 */
-    "status": {
-      "widthMobile": "w-[35%]",    // 移动端状态面板宽度（百分比）
-      "widthPC": "md:w-[60%]",     // PC端状态面板宽度（Tailwind响应式类）
-      "maxWidth": "max-w-[800px]"  // 状态面板最大宽度（防止过宽）
+  // config.ts 
+// config.ts 
+"combat": {
+  "status": {
+    "widthMobile": "w-[40%]",
+    "widthPC": "md:w-[45%]",           // PC 端可以适当收窄，显得更精致
+    "maxWidth": "max-w-[800px]",
+    "mobile": {
+      "labelFontSize": "text-[10px]",
+      "levelFontSize": "text-[9px]",
+      "cpFontSize": "text-[9px]",
+      "badgeFontSize": "text-[8px]",
+      "barHeight": "h-5",
+      "barTextFontSize": "text-[10px]", 
+      "showBarText": true,
+      "itemFontSize": "text-[9px]",
+      "spacing": "gap-1",
+      "paddingX": "px-1.5",
+      "paddingY": "py-0.5"
     },
+    "pc": {
+      "labelFontSize": "md:text-sm",
+      "levelFontSize": "md:text-xs",
+      "cpFontSize": "md:text-xs",
+      "badgeFontSize": "md:text-xs",
+      "barHeight": "md:h-7",           // PC 端血条加厚，更有质感
+      "barTextFontSize": "md:text-sm", // PC 端数值更清晰
+      "showBarText": true,             // 同步开启
+      "itemFontSize": "md:text-xs",
+      "spacing": "md:gap-2",
+      "paddingX": "md:px-4",
+      "paddingY": "md:py-1"
+    }
+  },
+
+
+  
 
     /** UI缩放配置 */
     "uiScale": {
@@ -98,8 +128,8 @@ export const config = {
       "baseScale": 1.7,             // 角色基础缩放比例（1=100%，1.7=放大70%）
       "containerWidth": 270,        // PC端角色容器宽度（固定像素，备用）
       "containerHeight": 310,       // PC端角色容器高度（固定像素，备用）
-      "mobileWidth": "170%",         // 移动端角色宽度（百分比，相对于父容器）
-      "mobileHeight": "170%",        // 移动端角色高度（百分比，相对于父容器）
+      "mobileWidth": "120px",  // 先改为固定像素测试，看人物是否出现
+      "mobileHeight": "140px",       // 移动端角色高度（百分比，相对于父容器）
       "pcWidth": "70%",             // PC端角色宽度（百分比，可选替代固定像素）
       "pcHeight": "85%"             // PC端角色高度（百分比，可选替代固定像素）
     }
