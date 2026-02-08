@@ -23,9 +23,10 @@ export const WEAPONS: Weapon[] = [
   { id: 'w16', name: '短剑', type: WeaponType.SMALL, baseDmg: [3, 8], description: '20%概率连击', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w17', name: '判官笔', type: WeaponType.SMALL, baseDmg: [5, 8], description: '必中', module: 'PIERCE', sfx: 'pierce_light', hitSfx: 'pierce_light', sfxFrame: 2 },
   { id: 'w18', name: '流星球', type: WeaponType.SMALL, baseDmg: [15, 24], description: '对方闪避率+15%，可连扔2次', module: 'SWING', sfx: 'swing_light', hitSfx: 'blunt_hit', sfxFrame: 1 },
+
+  // THROW
   { id: 'w19', name: '老鼠', type: WeaponType.SMALL, baseDmg: [5, 10], description: '对方命中率-10%(2回合)', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 1 },
   { id: 'w20', name: '板砖', type: WeaponType.SMALL, baseDmg: [8, 12], description: '5%概率让对方眩晕1回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 2 },
-  // THROW
   { id: 'w21', name: 'speaker 310', type: WeaponType.THROW, baseDmg: [10, 18], description: '无视装死，5%概率瞬杀', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 1 },
   { id: 'w22', name: '接力棒', type: WeaponType.THROW, baseDmg: [10, 15], description: '10%概率连击', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 1 },
   { id: 'w23', name: '胶水(瓶)', type: WeaponType.THROW, baseDmg: [0, 0], description: '黏住对方3回合', module: 'THROW', sfx: 'throw_light', hitSfx: 'heavy_hit', sfxFrame: 2 },

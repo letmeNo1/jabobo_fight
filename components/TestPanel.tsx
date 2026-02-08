@@ -4,7 +4,7 @@ import { DRESSINGS, WEAPONS, SKILLS } from '../constants';
 import { DEFAULT_ATTACK_MODULE, DEFAULT_SFX, DEFAULT_HIT_SFX } from '../constants/combat';
 import CharacterVisual from './CharacterVisual';
 import { playSFX, playUISound } from '../utils/audio';
-import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact } from '../utils/combat';
+import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact } from '../utils/fight';
 import config from '../config';
 import '../styles/combat-animations.css'; // 引入公共样式
 

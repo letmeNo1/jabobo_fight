@@ -6,7 +6,7 @@ import CharacterVisual from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
 import { playSFX } from '../utils/audio';
-import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact, applyMiss } from '../utils/combat';
+import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact, applyMiss } from '../utils/fight';
 import config from '../config';
 import '../styles/combat-animations.css'; // 引入公共样式
 

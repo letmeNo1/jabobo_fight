@@ -16,8 +16,8 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
     const lvl = Math.max(10, playerLevel + 5);
     const baseStats = {
       level: lvl,
-      hp: 800 + lvl * 20,
-      maxHp: 800 + lvl * 20,
+      hp: 100 + lvl * 20,
+      maxHp: 100 + lvl * 20,
       str: 20 + lvl,
       agi: 20 + lvl,
       spd: 20 + lvl,
@@ -31,7 +31,7 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
           name: '暗器至尊·唐门',
           spd: baseStats.spd + 30,
           agi: baseStats.agi + 10,
-          weapons: WEAPONS.filter(w => w.type === WeaponType.SMALL || w.type === WeaponType.THROW).map(w => w.id).sort(() => 0.5 - Math.random()).slice(0, 6),
+          weapons: ["w15","w16","w17","w18","w19","w20", "w21","w22","w23","w24"],
           skills: ['s3', 's9', 's15', 's25']
         };
       case 'LARGE':
@@ -39,10 +39,10 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
           ...baseStats,
           name: '巨刃战神·雷震',
           str: baseStats.str + 40,
-          hp: baseStats.hp + 200,
-          maxHp: baseStats.maxHp + 200,
-          weapons: WEAPONS.filter(w => w.type === WeaponType.LARGE).map(w => w.id).sort(() => 0.5 - Math.random()).slice(0, 5),
-          skills: ['s1', 's14', 's12', 's20']
+          hp: baseStats.hp + 10,
+          maxHp: baseStats.maxHp + 10,
+          weapons: ["w1","w2", "w3","w4","w5","w6","w7","w8"],
+          skills: []
         };
       case 'MEDIUM':
         return {
@@ -50,15 +50,15 @@ const GrandmasterChallenge: React.FC<GrandmasterChallengeProps> = ({ playerLevel
           name: '均衡宗师·无名',
           agi: baseStats.agi + 25,
           spd: baseStats.spd + 15,
-          weapons: WEAPONS.filter(w => w.type === WeaponType.MEDIUM).map(w => w.id).sort(() => 0.5 - Math.random()).slice(0, 5),
-          skills: ['s2', 's6', 's13', 's23']
+          weapons: ["w9","w10", "w11","w12","w13","w14"],
+          skills: []
         };
       case 'SKILL':
         return {
           ...baseStats,
           name: '秘籍尊者·玄难',
-          weapons: ['w6', 'w17'],
-          skills: ['s30', 's29', 's26', 's24', 's18', 's32']
+          weapons: [],
+          skills: ['s19', 's20', 's21', 's22', 's23', 's24', 's25','s26','s27','s28','s29','s30','s31'] // 只有技能，没有武器
         };
       case 'ALL_WEAPONS':
         return {

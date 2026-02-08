@@ -101,8 +101,10 @@ export const config = {
       "steps": [
         { "state": "RUN", "frame": 1, "offset": "MELEE", "moveDuration": 220, "delay": 220 },
         { "state": "PIERCE", "frame": 1, "offset": "MELEE", "moveDuration": 0, "delay": 80 },
-        { "state": "PIERCE", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 100, "playSfx": true, "calculateHit": true },
-        { "state": "PIERCE", "frame": 4, "offset": "MELEE", "moveDuration": 0, "delay": 100 }
+        { "state": "PIERCE", "frame": 2, "offset": "MELEE", "moveDuration": 0, "delay": 80,},
+        { "state": "PIERCE", "frame": 3, "offset": "MELEE", "moveDuration": 0, "delay": 80 },
+        { "state": "PIERCE", "frame": 4, "offset": "MELEE", "moveDuration": 0, "delay": 80 ,"playSfx": true, "calculateHit": true },
+
       ]
     },
     "SWING": {
@@ -122,7 +124,7 @@ export const config = {
     "KICK": {
       "steps": [       
         { "state": "KICK", "frame": 1, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 100, "playSfx": true },
-        { "state": "KICK", "frame": 2, "offset": "MELEE+150", "offsetY": 0, "moveDuration": 0, "delay": 1000 },
+        { "state": "KICK", "frame": 2, "offset": "MELEE+250", "offsetY": 0, "moveDuration": 0, "delay": 1000 },
         { "state": "KICK", "frame": 3, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120, "calculateHit": true},
         { "state": "KICK", "frame": 4, "offset": "HOME", "offsetY": 0, "moveDuration": 0, "delay": 120, }
       ]
