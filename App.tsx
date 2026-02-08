@@ -113,7 +113,7 @@ const App: React.FC = () => {
       'throw_light', 'bottle_break', 'throw_hit', 'punch', 'hurt', 'skill_cast',
       'thunder', 'wind_storm', 'drink', 'sticky', 'wing_flap', 'kick_combo', 
       'rapid_throw', 'roar', 'scratch', 'master_arrive', 'dragon_roar', 'buddha_palm', 'blood_drain',
-      'ui_click', 'ui_equip', 'ui_buy', 'ui_levelup', 'battle_win', 'battle_loss'
+      'ui_click', 'ui_equip', 'ui_buy', 'ui_levelup', 'battle_win', 'battle_loss', 'draw_knife', 'swing2'
     ];
 
     const imagePaths = [...new Set([...coreImages, ...animationImages])].map(p => `${assetBase}${p}`);
