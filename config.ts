@@ -98,8 +98,8 @@ export const config = {
       "baseScale": 1.7,             // 角色基础缩放比例（1=100%，1.7=放大70%）
       "containerWidth": 270,        // PC端角色容器宽度（固定像素，备用）
       "containerHeight": 310,       // PC端角色容器高度（固定像素，备用）
-      "mobileWidth": "70%",         // 移动端角色宽度（百分比，相对于父容器）
-      "mobileHeight": "70%",        // 移动端角色高度（百分比，相对于父容器）
+      "mobileWidth": "170%",         // 移动端角色宽度（百分比，相对于父容器）
+      "mobileHeight": "170%",        // 移动端角色高度（百分比，相对于父容器）
       "pcWidth": "70%",             // PC端角色宽度（百分比，可选替代固定像素）
       "pcHeight": "85%"             // PC端角色高度（百分比，可选替代固定像素）
     }
