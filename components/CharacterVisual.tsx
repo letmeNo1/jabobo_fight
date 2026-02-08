@@ -37,17 +37,16 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
   const [weaponLoadLog, setWeaponLoadLog] = useState<string>('');
 
-  // ========== 新增：组件入参日志 ==========
+  // ========== 组件入参日志 ==========
   useEffect(() => {
     console.log('[CharacterVisual] 组件接收参数：', {
       name,
-      state, // 重点关注SPIKE状态是否正确传递
+      state,
       frame,
-      weaponId, // 重点关注武器ID是否存在
+      weaponId,
       isMobile,
       debug
     });
-    // 专门针对SPIKE状态打印醒目日志
     if (state === 'SPIKE') {
       console.log('[CharacterVisual][SPIKE] 检测到SPIKE状态，开始加载逻辑');
     }
@@ -55,7 +54,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const handleImageError = (path: string) => {
     setImageError(prev => ({ ...prev, [path]: true }));
-    // ========== 新增：图片加载错误日志 ==========
     console.error(`[CharacterVisual] 图片加载失败：${path}`);
     if (debug) {
       setWeaponLoadLog(`武器加载失败：${path}`);
@@ -63,7 +61,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   };
 
   const findAsset = (paths: string[]): string | null => {
-    // ========== 新增：资源查找前置日志 ==========
     console.log('[CharacterVisual] 尝试查找资源，候选路径：', paths);
     
     if (!window.assetMap) {
@@ -72,7 +69,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       return null;
     }
 
-    // ========== 新增：打印assetMap中的所有键（debug模式） ==========
     if (debug) {
       console.log('[CharacterVisual][DEBUG] assetMap 包含的所有资源路径：', Array.from(window.assetMap.keys()));
     }
@@ -81,11 +77,10 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       const isPathInMap = window.assetMap.has(path);
       const isPathError = imageError[path];
       
-      // ========== 新增：单个路径检查日志 ==========
       console.log(`[CharacterVisual] 检查路径 "${path}"：`, {
-        isPathInMap, // 是否在assetMap中
-        isPathError, // 是否之前加载失败
-        isAvailable: isPathInMap && !isPathError // 是否可用
+        isPathInMap,
+        isPathError,
+        isAvailable: isPathInMap && !isPathError
       });
 
       if (isPathInMap && !isPathError) {
@@ -99,11 +94,24 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     return null;
   };
 
+  // ========== 核心修改：读取百分比配置 ==========
   const BASE_SCALE = configSettings.visuals.character.baseScale; 
-  const containerWidth = configSettings.visuals.character.containerWidth;
-  const containerHeight = configSettings.visuals.character.containerHeight;
-  const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
-  const visualBaseHeight = isMobile ? configSettings.visuals.character.mobileHeight : configSettings.visuals.character.pcHeight;
+  // 移动端读取百分比，PC端可选：百分比 / 固定像素（这里保留PC端固定像素，也可改成百分比）
+  const visualWidth = isMobile 
+    ? configSettings.visuals.character.mobileWidth // 移动端：百分比字符串（如"80%"）
+    : `${configSettings.visuals.character.containerWidth}px`; // PC端：固定像素
+  const visualHeight = isMobile 
+    ? configSettings.visuals.character.mobileHeight // 移动端：百分比字符串（如"90%"）
+    : `${configSettings.visuals.character.containerHeight}px`; // PC端：固定像素
+
+  // 外层容器样式：绑定百分比+最小宽高（避免人物消失）
+  const containerStyle = { 
+    width: visualWidth,
+    height: visualHeight,
+    minWidth: '50px', // 最小宽度，防止百分比太小导致消失
+    minHeight: '60px', // 最小高度
+    boxSizing: 'border-box' // 避免padding/margin影响宽高
+  };
 
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
     HOME: { prefix: 'home', count: 2 },
@@ -126,7 +134,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   const getFrameTransform = () => {
     const f = (state === 'HOME' || state === 'IDLE' || state === 'RUN') ? (((frame || 1) - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1 : (frame || 1);
     
-    // ========== 新增：帧变换计算日志 ==========
     console.log(`[CharacterVisual] 计算帧变换：`, {
       state,
       inputFrame: frame,
@@ -178,7 +185,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const renderFallbackCharacter = () => {
     const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
-    // ========== 新增：渲染兜底角色日志 ==========
     console.warn(`[CharacterVisual] 角色图片加载失败，渲染兜底占位符`);
     return (
       <div data-name={name} className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
@@ -191,7 +197,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   };
 
   const renderFallbackWeapon = (path: string) => {
-    // ========== 新增：渲染兜底武器日志 ==========
     console.warn(`[CharacterVisual] 武器图片加载失败，渲染兜底提示：${path}`);
     return (
       <div className="absolute inset-0 w-full h-full flex items-center justify-center z-[30] text-red-500 font-bold text-sm">
@@ -205,7 +210,7 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
   return (
     <div 
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
-      style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
+      style={containerStyle} // 绑定百分比样式
     >
       {debug && (
         <div className="absolute top-0 left-0 text-xs text-red-600 bg-white/80 p-1 z-999">
@@ -218,15 +223,18 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
         ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
+      {/* 内部角色容器：占满外层容器100%宽高 */}
       <div 
-        className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
+        className={`relative flex items-center justify-center
           ${isDizzy ? 'filter grayscale contrast-125' : ''} 
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
           ${hasAfterimage ? 'afterimage-effect' : ''}
         `}
         style={{ 
           transform: getFrameTransform(), 
-          transition: 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)' 
+          transition: 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          width: '100%', // 占满外层容器宽度
+          height: '100%' // 占满外层容器高度
         }}
       >
         <div className={`w-full h-full relative flex items-center justify-center ${isDizzy ? 'animate-dizzy-wobble' : ''}`}>
@@ -239,7 +247,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
               ? (((frame || 1) - 1) % config.count) + 1 
               : Math.max(1, Math.min(frame || 1, config.count));
 
-            // ========== 新增：帧计算日志 ==========
             console.log(`[CharacterVisual][${sName}] 帧计算结果：`, {
               isLoopingState,
               inputFrame: frame,
@@ -263,10 +270,8 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
                   ] 
                 : [];
               
-              // ========== 新增：武器路径生成日志 ==========
               if (weaponId && state !== 'THROW') {
                 console.log(`[CharacterVisual][${sName}] 生成武器加载路径：`, weaponPaths);
-                // SPIKE状态专门标注
                 if (sName === 'SPIKE') {
                   console.log('[CharacterVisual][SPIKE] 生成SPIKE武器路径：', weaponPaths);
                 }

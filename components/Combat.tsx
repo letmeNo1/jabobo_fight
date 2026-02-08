@@ -32,11 +32,36 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [moveDuration, setMoveDuration] = useState(400);
   const [projectiles, setProjectiles] = useState<any[]>([]);
   
+  // 修复点1：全局计算 isMobile，并监听窗口大小变化
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // 核心：读取离地高度配置 + 新增的角色初始间距可选配置
+  const groundHeightPct = isMobile 
+    ? config.combat.spacing.groundHeightPctMobile 
+    : config.combat.spacing.groundHeightPctPC;
+  // 可选配置：玩家左侧偏移（控制初始位置）
+  const playerLeftOffsetPct = isMobile
+    ? config.combat.spacing.playerLeftOffsetPctMobile
+    : config.combat.spacing.playerLeftOffsetPctPC;
+  // 可选配置：NPC右侧偏移（控制初始位置，避免重合）
+  const npcRightOffsetPct = isMobile
+    ? config.combat.spacing.npcRightOffsetPctMobile
+    : config.combat.spacing.npcRightOffsetPctPC;
+  
   const projectileCounter = useRef(0);
   const pRef = useRef<HTMLDivElement>(null);
   const nRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  // 修复点2：监听窗口大小变化，实时更新 isMobile + 配置值
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     setLogs([{ attacker: '系统', text: '战斗开始！' }]);
@@ -117,7 +142,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       for (let loop = 0; loop < totalLoops; loop++) {
         for (const step of seq.steps) {
-          const isMobile = window.innerWidth < 768;
+          // 这里用全局的 isMobile，无需重复计算
           const containerWidth = containerRef.current?.offsetWidth || 1000;
           const containerHeight = containerRef.current?.offsetHeight || 450;
           
@@ -213,7 +238,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     };
 
     playTurn();
-  }, [currentTurnIdx]);
+  }, [currentTurnIdx, isMobile]); // 依赖添加 isMobile
 
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
@@ -233,7 +258,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                 className="absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
                 style={{
                   left: `${p.startX}px`,
-                  bottom: window.innerWidth < 768 ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
+                  bottom: isMobile ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
                   '--tx': `${p.targetX - p.startX}px`
                 } as any}
               >
@@ -252,23 +277,69 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           <CombatStatus fighter={nStats as any} side="right" uiScale={1} label="OPPONENT" />
         </div>
         
+        {/* 修复点3：角色父容器 - 移除justify-between，保留内边距配置 */}
         <div className="relative flex items-end justify-center w-full h-[450px]">
           <div 
-            className="w-full flex justify-between pb-16 relative"
-            style={{ paddingLeft: `${window.innerWidth < 768 ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`, paddingRight: `${window.innerWidth < 768 ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%` }}
+            className="w-full relative h-full" 
+            style={{ 
+              paddingLeft: `${isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`, 
+              paddingRight: `${isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`,
+              height: '100%'
+            }}
           >
-            <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
-              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
+            {/* 核心：玩家角色 - 用可选配置定位左侧，避免重合 */}
+            <div 
+              ref={pRef} 
+              style={{ 
+                transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, 
+                transition: `transform ${moveDuration}ms ease-out`,
+                bottom: `${groundHeightPct}%`, // 离地高度配置
+                position: 'absolute', 
+                left: `${playerLeftOffsetPct}%`, // 可选配置：玩家左侧偏移（核心！避免重合）
+                zIndex: 10 // 确保层级正确
+              }}
+            >
+              <CharacterVisual 
+                name={pStats.name} 
+                state={pVisual.state} 
+                frame={pVisual.frame} 
+                weaponId={pVisual.weaponId} 
+                hasAfterimage={pStats.status.afterimage > 0}
+                isMobile={isMobile}
+                debug={false}
+              />
             </div>
-            <div ref={nRef} style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
+
+            {/* 核心：NPC角色 - 用可选配置定位右侧，避免重合 */}
+            <div 
+              ref={nRef} 
+              style={{ 
+                transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, 
+                transition: `transform ${moveDuration}ms ease-out`,
+                bottom: `${groundHeightPct}%`, // 离地高度配置
+                position: 'absolute', 
+                right: `${npcRightOffsetPct}%`, // 可选配置：NPC右侧偏移（核心！避免重合）
+                zIndex: 10 // 确保层级正确
+              }}
+            >
               <div className="scale-x-[-1]">
-                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} hasAfterimage={nStats.status.afterimage > 0} />
+                <CharacterVisual 
+                  name={nStats.name} 
+                  isNpc 
+                  state={nVisual.state} 
+                  frame={nVisual.frame} 
+                  weaponId={nVisual.weaponId} 
+                  hasAfterimage={nStats.status.afterimage > 0}
+                  isMobile={isMobile}
+                  debug={false}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={false} />
+      {/* 修复点5：CombatLog 的 isMobile 传全局值 */}
+      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={isMobile} />
     </div>
   );
 };
