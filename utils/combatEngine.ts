@@ -1,4 +1,3 @@
-
 import { CharacterData, Friend, BattleRecord, BattleTurn, FighterSnapshot, SkillCategory, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
 
@@ -49,6 +48,21 @@ const applyPassiveStats = (fighter: FighterState) => {
     fighter.agi += 2;
     fighter.spd += 2;
   }
+};
+
+// 新增：夺取武器的工具函数
+const seizeWeapons = (attacker: FighterState, defender: FighterState): string[] => {
+  // 规则1：夺取对方全部武器（也可改为随机夺取1-2件）
+  const seizedWeapons = [...defender.weapons];
+  if (seizedWeapons.length === 0) return [];
+  
+  // 规则2：移除对方的武器
+  defender.weapons = [];
+  
+  // 可选规则：将夺取的武器加入攻击者的武器列表（可选，根据游戏设定）
+  // attacker.weapons.push(...seizedWeapons);
+  
+  return seizedWeapons;
 };
 
 export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot): BattleRecord => {
@@ -165,6 +179,8 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
     let logText = "";
     let healAmount = 0;
     let selfEffectLog = "";
+    // 新增：标记是否夺取了武器
+    let seizedWeapons: string[] = [];
 
     // --- 执行逻辑 ---
     if (selected.type === 'SKILL') {
@@ -178,21 +194,33 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
           hitRate = 0.05;
           baseDmg = Math.max(1, def.hp - 1);
           break;
-        case 's17': // 缴械: 50%几率
+        case 's17': // 缴械: 50%几率夺取对方武器（核心修改）
           baseDmg = atk.str * 0.5;
-          if (Math.random() < 0.5) {
-             turn.statusChanges.disarmed = 3;
-             logText = "并成功缴械对手！";
+          const disarmSuccess = Math.random() < 0.5;
+          // 记录判定结果（方便调试）
+          turn.logs.push({ attacker: '系统', text: `缴械判定：${disarmSuccess ? '成功' : '失败'}` });
+          
+          if (disarmSuccess) {
+            // 标记缴械成功（保留原状态，可选）
+            turn.statusChanges.disarmed = 3;
+            // 核心：夺取对方武器
+            seizedWeapons = seizeWeapons(atk, def);
+            
+            if (seizedWeapons.length > 0) {
+              // 转换武器ID为武器名称，提升日志可读性
+              const weaponNames = seizedWeapons.map(wid => WEAPONS.find(w => w.id === wid)?.name || wid);
+              logText = `成功夺取了对方的【${weaponNames.join('、')}】！`;
+            } else {
+              logText = "试图缴械，但对方没有武器！";
+            }
+          } else {
+            logText = "缴械失败！";
           }
           break;
         case 's18': // 残影
           baseDmg = 0;
           hitRate = 1.0; // 必中Buff
           turn.statusChanges.afterimage = 3;
-          // s18实际上是buff自己，这里模拟为必中且无伤害，在statusChanges里标记
-          // 但原逻辑里afterimage是buff，这里稍微变通：buff放在def身上是不对的，应该放在atk身上
-          // 由于simulateBattle结构限制，暂时把buff放在turn.statusChanges里，后续解析时如果是buff类，应用给attacker
-          // **修正**: 在下面伤害结算处处理Buff归属
           break;
         case 's19': // 晴天霹雳: 15 + level*1.5
           baseDmg = 15 + atk.level * 1.5;
@@ -272,9 +300,6 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       switch (w.id) {
         case 'w1': // 方天画戟: 10% 自身闪避(无敌) -> 模拟为下回合无敌
           if (Math.random() < 0.1) {
-            // 这里需要 attacker 的 status，暂时 hack 进 logs 或特殊处理
-            // 简化：回复少量血代表格挡收益，或者直接加 invincible 状态
-            // 由于 turn 结构主要是针对 defender 的 changes，我们直接改 atk 状态
             atk.status.invincible = 1;
             selfEffectLog = "触发格挡姿态！";
           }
@@ -376,6 +401,10 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
 
     } else {
       turn.damage = 0;
+      // 新增：攻击未命中时，即使缴械判定成功也失效
+      if (selected.id === 's17') {
+        turn.logs.push({ attacker: '系统', text: '攻击未命中，缴械效果失效！' });
+      }
     }
 
     // 应用治疗
@@ -397,9 +426,7 @@ export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot)
       if (turn.statusChanges.stunned) def.status.stunned = turn.statusChanges.stunned;
       if (turn.statusChanges.dots) def.status.dots.push(...turn.statusChanges.dots);
     }
-    // 特殊：s18 残影是 Buff 自己，之前放在 turn.statusChanges.afterimage 里了
-    // 修正：直接在上方应用了 Buff，这里不需要额外操作 Def，除非技能设计是给对方加 Debuff
-    // 对于 s18，我们在上方直接 break 并应用了 changes，这里需要把 afterimage 给回 atk
+    // 特殊：s18 残影是 Buff 自己
     if (turn.actionId === 's18' && turn.statusChanges.afterimage) {
       atk.status.afterimage = turn.statusChanges.afterimage;
     }

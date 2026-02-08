@@ -71,7 +71,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SWING: { prefix: 'swing', count: 4 },
     THROW: { prefix: 'throw', count: 4 },
     PUNCH: { prefix: 'punch', count: 2 },
-    KICK: { prefix: 'kick', count: 3 }
+    KICK: { prefix: 'kick', count: 3 },
+    SPIKE: { prefix: 'spike', count: 3 },
+
   };
 
   const getFrameTransform = () => {
@@ -110,6 +112,9 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'KICK':
         // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
         return `scale(${BASE_SCALE})`;
+      case 'SPIKE':
+          // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
+          return `scale(${BASE_SCALE})`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
       case 'HURT':
