@@ -106,17 +106,20 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       let module: any = 'PUNCH';
       let visualId = undefined;
       let sfx = 'punch';
+      let hitSfx = 'blunt_hit'; // 默认为钝击音效
       let isWeaponUsed = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
         module = s?.module || 'PUNCH';
         sfx = s?.sfx || 'skill_cast';
+        hitSfx = s?.hitSfx || 'heavy_hit';
         visualId = s?.id;
       } else if (turn.actionType === 'WEAPON') {
         const w = WEAPONS.find(we => we.id === turn.actionId);
         module = w?.module || 'SLASH';
         sfx = w?.sfx || 'slash';
+        hitSfx = w?.hitSfx || 'blunt_hit';
         visualId = w?.id;
         isWeaponUsed = true;
       }
@@ -183,6 +186,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             const hitDelay = module === 'THROW' ? 450 : 0;
             setTimeout(() => {
               if (turn.isHit) {
+                if (hitSfx) playSFX(hitSfx);
                 applyImpact(turn.damage, isP, defSetter);
                 oppStatsSetter(s => ({ 
                   ...s, 
@@ -276,7 +280,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
         </div>
         
         <div className="relative flex items-end justify-center w-full h-[450px]">
-          {/* 这里应用 sidePaddingPct 配置 */}
           <div 
             className="w-full flex justify-between pb-16 relative"
             style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}

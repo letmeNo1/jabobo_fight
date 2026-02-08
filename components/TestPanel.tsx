@@ -12,49 +12,38 @@ interface TestPanelProps {
   onBack: () => void;
 }
 
-interface Projectile {
-  id: number;
-  startX: number;
-  targetX: number;
-  asset?: string;
-}
-
 const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBack }) => {
-  const [selectedWeaponId, setSelectedWeaponId] = useState<string>(player.dressing.WEAPON || 'w1');
-  const [visual, setVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ 
-    state: 'IDLE', 
-    frame: 1, 
-    weaponId: selectedWeaponId 
-  });
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [moveDuration, setMoveDuration] = useState(300);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [shaking, setShaking] = useState(false);
-  const [projectiles, setProjectiles] = useState<Projectile[]>([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [selectedWeaponId, setSelectedWeaponId] = useState<string>(WEAPONS[0].id);
+  const [selectedSkillId, setSelectedSkillId] = useState<string>(SKILLS[0].id);
+  const [testType, setTestType] = useState<'WEAPON' | 'SKILL'>('WEAPON');
   
+  // Attacker State
+  const [atkVisual, setAtkVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ state: 'IDLE', frame: 1, weaponId: player.dressing.WEAPON });
+  const [atkOffset, setAtkOffset] = useState({ x: 0, y: 0 });
+  
+  // Defender State (Dummy)
+  const [defVisual, setDefVisual] = useState<{ state: VisualState; frame: number; weaponId?: string }>({ state: 'IDLE', frame: 1 });
+  const [defHp, setDefHp] = useState(1000);
+  
+  const [projectiles, setProjectiles] = useState<any[]>([]);
+  const [shaking, setShaking] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const projectileCounter = useRef(0);
-  const charContainerRef = useRef<HTMLDivElement>(null);
-  const mainContainerRef = useRef<HTMLDivElement>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const atkRef = useRef<HTMLDivElement>(null);
+  const defRef = useRef<HTMLDivElement>(null);
 
+  // Idle animation loop
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    
     const timer = setInterval(() => {
-      setVisual(v => {
-        if (v.state === 'IDLE' || v.state === 'RUN' || v.state === 'HOME') {
-           return { ...v, frame: v.frame + 1 };
-        }
-        return v;
-      });
-    }, 125);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      clearInterval(timer);
-    };
-  }, []);
+      if (!isTesting) {
+        setAtkVisual(v => (v.state === 'IDLE' ? { ...v, frame: (v.frame % 2) + 1 } : v));
+        setDefVisual(v => (v.state === 'IDLE' ? { ...v, frame: (v.frame % 2) + 1 } : v));
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [isTesting]);
 
   const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL') => {
     if (!id || !window.assetMap) return null;
@@ -64,24 +53,49 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
     } else {
       paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
     }
-    for (const p of paths) { if (window.assetMap.has(p)) return window.assetMap.get(p); }
+    for (const p of paths) { 
+      if (window.assetMap.has(p)) return window.assetMap.get(p); 
+    }
     return null;
   };
 
-  const runAction = async (module: AttackModule, customSfx?: string, customVisualId?: string, type: 'WEAPON' | 'SKILL' = 'WEAPON') => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    const visualId = customVisualId || selectedWeaponId;
-    const actionSfx = customSfx || WEAPONS.find(w => w.id === selectedWeaponId)?.sfx || 'slash';
-    
-    const containerWidth = mainContainerRef.current?.offsetWidth || 1000;
-    const containerHeight = mainContainerRef.current?.offsetHeight || 450;
+  const runTest = async () => {
+    if (isTesting) return;
+    setIsTesting(true);
+    setDefHp(1000); // Reset HP
 
-    const moduleConfig = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.SLASH;
-    const totalLoops = moduleConfig.repeat || 1;
+    let module: any = 'PUNCH';
+    let visualId = undefined;
+    let sfx = 'punch';
+    let hitSfx = 'blunt_hit';
+    let actionType: 'WEAPON' | 'SKILL' = 'WEAPON';
+
+    if (testType === 'WEAPON') {
+      const w = WEAPONS.find(we => we.id === selectedWeaponId);
+      module = w?.module || 'SLASH';
+      sfx = w?.sfx || 'slash';
+      hitSfx = w?.hitSfx || 'blunt_hit';
+      visualId = w?.id;
+      actionType = 'WEAPON';
+    } else {
+      const s = SKILLS.find(sk => sk.id === selectedSkillId);
+      module = s?.module || 'PUNCH';
+      sfx = s?.sfx || 'skill_cast';
+      hitSfx = s?.hitSfx || 'heavy_hit';
+      visualId = s?.id;
+      actionType = 'SKILL';
+    }
+
+    const seq = config.ATTACK_SEQUENCES[module] || config.ATTACK_SEQUENCES.PUNCH;
+    const totalLoops = seq.repeat || 1;
 
     for (let loop = 0; loop < totalLoops; loop++) {
-      for (const step of moduleConfig.steps) {
+      for (const step of seq.steps) {
+        const containerWidth = containerRef.current?.offsetWidth || 1000;
+        const containerHeight = containerRef.current?.offsetHeight || 450;
+        const isMobile = window.innerWidth < 768;
+
+        // Move Logic
         let dx = 0;
         if (step.offset === 'MELEE') {
           const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
@@ -90,144 +104,147 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
           const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
           dx = (containerWidth * pct) / 100;
         }
-
         const dy = (containerHeight * (step.offsetY || 0)) / 100;
 
-        setMoveDuration(step.moveDuration);
-        setOffset({ x: dx, y: dy });
-        setVisual({ state: step.state as VisualState, frame: step.frame, weaponId: visualId });
-        if (step.playSfx) playSFX(actionSfx);
+        setAtkOffset({ x: dx, y: dy });
+        setAtkVisual({ 
+          state: step.state as VisualState, 
+          frame: step.frame, 
+          weaponId: visualId || player.dressing.WEAPON 
+        });
+
+        if (step.playSfx) playSFX(sfx);
+
+        if (step.shaking === 'SCREEN') {
+          setShaking(true);
+          setTimeout(() => setShaking(false), 400);
+        }
 
         if (step.projectile) {
-          const mainRect = mainContainerRef.current?.getBoundingClientRect();
-          const charRect = charContainerRef.current?.getBoundingClientRect();
-          if (mainRect && charRect) {
-            const startX = (charRect.left - mainRect.left + charRect.width / 2);
-            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
-            const meleeDistance = (mainRect.width * pct / 100);
-            const targetX = startX + meleeDistance;
-            const asset = findProjectileAsset(visualId, type);
+           const startX = 200; // Approximate left position
+           const targetX = containerWidth - 200; // Approximate right position
+           const asset = findProjectileAsset(visualId, actionType);
+           
+           for(let j=0; j<3; j++) {
+             setTimeout(() => {
+               const pId = ++projectileCounter.current;
+               setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: 'P' }]);
+               setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
+             }, j * 120);
+           }
+        }
+
+        if (step.calculateHit) {
+          const hitDelay = module === 'THROW' ? 450 : 0;
+          setTimeout(() => {
+            // HIT LOGIC
+            if (hitSfx) playSFX(hitSfx);
             
-            for (let j = 0; j < 3; j++) {
-              setTimeout(() => {
-                const pId = ++projectileCounter.current;
-                setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset }]);
-                setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
-              }, j * 120);
-            }
-          }
+            // Damage Number
+            const dmg = Math.floor(Math.random() * 50) + 10;
+            const id = Date.now();
+            setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: false, color: '#ef4444', type: 'TEXT' }]);
+            setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
+
+            setDefHp(prev => Math.max(0, prev - dmg));
+            
+            // Def hurt anim
+            setDefVisual(v => ({ ...v, state: 'HURT', frame: 1 }));
+            setTimeout(() => setDefVisual(v => ({ ...v, state: 'IDLE', frame: 1 })), 400);
+
+          }, hitDelay);
         }
-        if (step.shaking) {
-          setShaking(true);
-          setTimeout(() => setShaking(false), 500);
-        }
+
         await new Promise(r => setTimeout(r, step.delay));
       }
     }
-    setMoveDuration(500);
-    setVisual(v => ({...v, state: 'IDLE', frame: 1, weaponId: selectedWeaponId }));
-    setOffset({ x: 0, y: 0 });
-    await new Promise(r => setTimeout(r, 500));
-    setIsAnimating(false);
+
+    // Reset
+    setAtkOffset({ x: 0, y: 0 });
+    setAtkVisual({ state: 'IDLE', frame: 1, weaponId: player.dressing.WEAPON });
+    setIsTesting(false);
   };
 
-  const getDressingName = (part: 'HEAD' | 'BODY' | 'WEAPON') => DRESSINGS.find(d => d.id === player.dressing[part])?.name;
-  const testableSkills = SKILLS.filter(s => s.module && (s.category === SkillCategory.ACTIVE || s.category === SkillCategory.SPECIAL));
-
-  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
-
   return (
-    <div ref={mainContainerRef} className={`bg-slate-50 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[88vh] transition-all duration-500 border border-slate-200 ${shaking ? 'animate-heavyShake' : ''}`}>
-      {/* Header */}
-      <div className="p-6 border-b flex justify-between items-center bg-indigo-700 text-white shadow-xl z-30 shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl md:text-2xl font-black italic tracking-tighter uppercase">Mega Pro Arena</h2>
-            <span className="bg-white/20 text-[10px] px-2 py-0.5 rounded-full font-bold">V2.10 LAB</span>
-          </div>
-          <p className="text-[9px] md:text-[11px] opacity-70 uppercase font-black tracking-[0.3em] mt-1">Full Animation & Skill Laboratory</p>
+    <div className="bg-slate-50 min-h-screen p-4 flex flex-col items-center">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden mb-6 p-4">
+        <div className="flex justify-between items-center mb-4 border-b pb-2">
+           <h2 className="text-xl font-black text-slate-800">实验室 (Test Lab)</h2>
+           <button onClick={onBack} className="text-slate-400 hover:text-slate-600 font-bold">退出</button>
         </div>
-        <button onClick={onBack} className="bg-white text-indigo-700 hover:bg-slate-100 px-6 md:px-8 py-2 md:py-3 rounded-2xl font-black text-xs md:text-sm transition-all active:scale-90 shadow-lg border-b-4 border-indigo-900/20">退出演武</button>
+        
+        <div className="flex flex-wrap gap-4 mb-4">
+          <div className="flex gap-2">
+            <button onClick={() => setTestType('WEAPON')} className={`px-4 py-2 rounded-lg font-bold ${testType === 'WEAPON' ? 'bg-orange-500 text-white' : 'bg-slate-200'}`}>测试武器</button>
+            <button onClick={() => setTestType('SKILL')} className={`px-4 py-2 rounded-lg font-bold ${testType === 'SKILL' ? 'bg-blue-500 text-white' : 'bg-slate-200'}`}>测试技能</button>
+          </div>
+
+          {testType === 'WEAPON' ? (
+             <select className="border-2 border-slate-200 rounded-lg px-3 py-2 font-bold" value={selectedWeaponId} onChange={e => setSelectedWeaponId(e.target.value)}>
+               {WEAPONS.map(w => <option key={w.id} value={w.id}>{w.name} ({w.module})</option>)}
+             </select>
+          ) : (
+             <select className="border-2 border-slate-200 rounded-lg px-3 py-2 font-bold" value={selectedSkillId} onChange={e => setSelectedSkillId(e.target.value)}>
+               {SKILLS.filter(s => s.module).map(s => <option key={s.id} value={s.id}>{s.name} ({s.module})</option>)}
+             </select>
+          )}
+          
+          <button onClick={runTest} disabled={isTesting} className="bg-emerald-500 text-white px-8 py-2 rounded-lg font-black shadow-lg active:scale-95 transition-all disabled:opacity-50">
+            {isTesting ? '测试中...' : '开始测试'}
+          </button>
+        </div>
       </div>
 
-      {/* Main Body */}
-      <div className="flex-grow flex flex-col overflow-hidden bg-slate-100 relative">
-        
-        {/* Top: Stage Area */}
-        <div 
-          className="flex-grow relative bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)] [background-size:40px_40px] flex items-center justify-start overflow-hidden min-h-[300px]"
-          style={{ paddingLeft: `${sidePadding}%` }} 
-        >
-          <div className="absolute inset-0 z-10 pointer-events-none">
-             {projectiles.map((p) => (
+      {/* Stage */}
+      <div className={`relative w-full max-w-4xl h-[400px] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-800 ${shaking ? 'animate-heavyShake' : ''}`}>
+        <div ref={containerRef} className="absolute inset-0 flex items-end justify-between px-20 pb-16">
+           
+           {/* Attacker */}
+           <div ref={atkRef} style={{ transform: `translate(${atkOffset.x}px, ${atkOffset.y}px)`, transition: 'transform 0.2s linear' }} className="relative z-10">
+              <CharacterVisual name={player.name} state={atkVisual.state} frame={atkVisual.frame} weaponId={atkVisual.weaponId} />
+           </div>
+
+           {/* Defender (Dummy) */}
+           <div ref={defRef} className="relative z-10 scale-x-[-1]">
+              <CharacterVisual name="木桩人偶" isNpc state={defVisual.state} frame={defVisual.frame} />
+              <div className="absolute -top-10 left-0 w-full text-center scale-x-[-1]">
+                 <div className="bg-red-600 text-white text-xs font-black px-2 py-0.5 rounded-full">{defHp} HP</div>
+              </div>
+           </div>
+
+        </div>
+
+        {/* Projectiles & Damage Text */}
+        <div className="absolute inset-0 z-50 pointer-events-none">
+          {projectiles.map(p => {
+             if (p.type === 'TEXT') {
+               return (
+                 <div key={p.id} className="absolute animate-damage text-4xl font-black text-center w-40" style={{ left: '60%', top: '40%', color: p.color }}>
+                   {p.text}
+                 </div>
+               );
+             }
+             return (
                <div 
-                 key={p.id}
-                 className={`absolute w-16 h-16 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro`}
-                 style={{ 
-                    bottom: isMobile ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC, 
-                    left: `${p.startX}px`, 
-                    '--tx': `${p.targetX - p.startX}px` 
+                 key={p.id} 
+                 className="absolute w-16 h-16 flex items-center justify-center animate-projectile-pro"
+                 style={{
+                   left: `${p.startX}px`,
+                   bottom: window.innerWidth < 768 ? config.combat.spacing.testProjectileBottomMobile : config.combat.spacing.testProjectileBottomPC,
+                   '--tx': `${p.targetX - p.startX}px`
                  } as any}
                >
-                 {p.asset ? <img src={p.asset} className="w-full h-full object-contain drop-shadow-xl" alt="projectile" /> : <div className="w-8 h-8 bg-orange-500 rounded-full shadow-lg" />}
+                 {p.asset ? (
+                   <img src={p.asset} className="w-full h-full object-contain" alt="projectile" />
+                 ) : (
+                   <div className="w-6 h-6 bg-yellow-400 rounded-full shadow-lg" />
+                 )}
                </div>
-             ))}
-          </div>
-          <div ref={charContainerRef} className="relative z-20 transition-transform pointer-events-none" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: isAnimating ? `transform ${moveDuration}ms cubic-bezier(0.2, 0.8, 0.2, 1.1)` : 'none' }}>
-            {/* 人物缩放比例下调 30%: 1.1 -> 0.77, 1.35 -> 0.95 */}
-            <CharacterVisual name="演武测试员" state={visual.state} frame={visual.frame} weaponId={visual.weaponId} debug={isDebugMode} isMobile={isMobile} className="scale-[0.77] md:scale-[0.95]" accessory={{ head: getDressingName('HEAD'), body: getDressingName('BODY'), weapon: getDressingName('WEAPON') }} />
-          </div>
-        </div>
-        
-        {/* Bottom: Controls Area */}
-        <div className="w-full h-[45%] min-h-[280px] bg-white border-t border-slate-200 flex flex-col shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-30 overflow-hidden">
-          <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">⚔️</span>
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">武器模组库</h3>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {WEAPONS.map(w => (
-                    <button 
-                      key={w.id} 
-                      onClick={() => { playUISound('CLICK'); setSelectedWeaponId(w.id); runAction(w.module, undefined, undefined, 'WEAPON'); }} 
-                      disabled={isAnimating} 
-                      className={`px-2 py-2 text-[10px] font-bold rounded-xl border transition-all truncate ${selectedWeaponId === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}
-                      title={w.name}
-                    >
-                      {w.name}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">📜</span>
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">江湖绝学库</h3>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {testableSkills.map(s => (
-                    <button 
-                      key={s.id} 
-                      onClick={() => { playUISound('CLICK'); runAction(s.module!, s.sfx, s.id, 'SKILL'); }} 
-                      disabled={isAnimating} 
-                      className="px-2 py-2 text-[10px] font-bold rounded-xl border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm truncate"
-                      title={s.name}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </div>
+             );
+          })}
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
+       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes projectile-fly-pro {
           0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
           15% { opacity: 1; }
@@ -236,6 +253,8 @@ const TestPanel: React.FC<TestPanelProps> = ({ player, isDebugMode = false, onBa
         .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
         @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
         .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
+        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
+        .animate-damage { animation: damage 0.8s ease-out forwards; }
       `}} />
     </div>
   );

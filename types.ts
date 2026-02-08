@@ -28,6 +28,7 @@ export interface Weapon {
   module: AttackModule;
   sfx?: string;
   sfxFrame?: number;
+  hitSfx?: string;
   isArtifact?: boolean;
 }
 
@@ -40,6 +41,7 @@ export interface Skill {
   module?: AttackModule;
   sfx?: string;
   sfxFrame?: number;
+  hitSfx?: string;
 }
 
 // Define Dressing interface for shop and visuals
