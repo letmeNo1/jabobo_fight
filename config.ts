@@ -51,7 +51,7 @@ export const config = {
   "combat": {
     /** 战斗状态面板（血条/状态栏）配置 */
     "status": {
-      "widthMobile": "w-[85%]",    // 移动端状态面板宽度（百分比）
+      "widthMobile": "w-[35%]",    // 移动端状态面板宽度（百分比）
       "widthPC": "md:w-[60%]",     // PC端状态面板宽度（Tailwind响应式类）
       "maxWidth": "max-w-[800px]"  // 状态面板最大宽度（防止过宽）
     },
@@ -80,7 +80,7 @@ export const config = {
       "groundHeightPctMobile": 23.0,     // 移动端角色离地高度（百分比，数值越小离地越高）
       "vsTextTopPC": "22%",              // PC端VS文字顶部位置（百分比）
       "vsTextTopMobile": "18%",          // 移动端VS文字顶部位置
-      "projectileBottomPC": "15%",       // PC端投射物底部位置（百分比，控制投射物发射高度）
+      "projectileBottomPC": "32%",       // PC端投射物底部位置（百分比，控制投射物发射高度）
       "projectileBottomMobile": "20%",   // 移动端投射物底部位置
       "testProjectileBottomPC": "50%",   // 测试模式下PC端投射物底部位置
       "testProjectileBottomMobile": "45%",// 测试模式下移动端投射物底部位置
@@ -98,8 +98,8 @@ export const config = {
       "baseScale": 1.7,             // 角色基础缩放比例（1=100%，1.7=放大70%）
       "containerWidth": 270,        // PC端角色容器宽度（固定像素，备用）
       "containerHeight": 310,       // PC端角色容器高度（固定像素，备用）
-      "mobileWidth": "30%",         // 移动端角色宽度（百分比，相对于父容器）
-      "mobileHeight": "30%",        // 移动端角色高度（百分比，相对于父容器）
+      "mobileWidth": "70%",         // 移动端角色宽度（百分比，相对于父容器）
+      "mobileHeight": "70%",        // 移动端角色高度（百分比，相对于父容器）
       "pcWidth": "70%",             // PC端角色宽度（百分比，可选替代固定像素）
       "pcHeight": "85%"             // PC端角色高度（百分比，可选替代固定像素）
     }
