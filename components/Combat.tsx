@@ -103,6 +103,54 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       const statsSetter = isP ? setPStats : setNStats;
       const oppStatsSetter = isP ? setNStats : setPStats;
       const dir = isP ? 1 : -1;
+      // --- 新增：处理 DOT 动画展示 ---
+      // 从 logs 中查找当前回合是否有“持续伤害”字样
+      const dotLog = turn.logs.find(l => l.attacker === '系统' && l.text.includes('持续伤害'));
+      // --- 在 Combat.tsx 的 playTurn 函数内找到 DOT 处理部分 ---
+
+      if (dotLog) {
+        const dmgMatch = dotLog.text.match(/-(\d+)/);
+        if (dmgMatch) {
+          const dotDmg = parseInt(dmgMatch[1]);
+          
+          // 1. 播放紫色伤害数字 (保持你的逻辑)
+          setProjectiles(prev => [...prev, {
+              id: `dot-${Date.now()}-${projectileCounter.current++}`,
+              type: 'TEXT', text: `-${dotDmg}`, color: '#a855f7',
+              isPlayer: isP, side: turn.side
+          }]);
+
+          // 2. 核心修复：更新血量的同时，更新 status
+          statsSetter(prev => {
+            // 计算剩余持续时间并过滤
+            const nextDots = prev.status.dots
+              .map(d => ({ ...d, duration: d.duration - 1 }))
+              .filter(d => d.duration > 0);
+
+            return {
+              ...prev,
+              hp: Math.max(0, prev.hp - dotDmg), // 这里必须扣血，血条才会动！
+              status: {
+                ...prev.status,
+                dots: nextDots // 更新后的 dots 传给 CombatStatus 渲染
+              }
+            };
+          });
+
+          playSFX(DEFAULT_HIT_SFX.blunt);
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
+      // --- DOT 处理结束 ---
+
+      // 如果 DOT 导致角色死亡，直接跳过攻击逻辑
+      const currentFighter = isP ? pStats : nStats; // 注意这里要拿最新的值判断
+      if (currentFighter.hp <= 0 && currentTurnIdx < record.turns.length) {
+          // 略过攻击，直接进入下一回合或结束
+          await new Promise(r => setTimeout(r, 500));
+          setCurrentTurnIdx(prev => prev + 1);
+          return;
+      }
 
       statsSetter(prev => ({
         ...prev,

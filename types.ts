@@ -113,7 +113,10 @@ export interface FighterSnapshot {
 
 export interface BattleTurn {
   side: 'P' | 'N';
-  actionType: 'WEAPON' | 'SKILL' | 'PUNCH';
+  /** * 新增 'SKIPPED' 类型：用于表示被眩晕、胶水黏住等无法行动的回合
+   * 前端可以根据此类型跳过攻击动画，直接显示受困动画或纯文本日志
+   */
+  actionType: 'WEAPON' | 'SKILL' | 'PUNCH' | 'SKIPPED'; 
   actionId?: string;
   isHit: boolean;
   damage: number;
@@ -123,7 +126,10 @@ export interface BattleTurn {
     sticky?: number;
     stunned?: number;
     afterimage?: number;
+    // 允许数组形式存储持续伤害
     dots?: { id: string; dmg: number; duration: number }[];
+    // 可选：用于记录本回合是否消耗了武器或触发了单次技能（如装死）
+    usedSkills?: string[];
   };
 }
 
