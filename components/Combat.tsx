@@ -1,14 +1,12 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { BattleRecord, BattleTurn, VisualState, BattleLog, WeaponType } from '../types';
 import { WEAPONS, SKILLS } from '../constants';
-import { DEFAULT_ATTACK_MODULE, DEFAULT_SFX, DEFAULT_HIT_SFX } from '../constants/combat';
 import CharacterVisual from './CharacterVisual';
 import CombatStatus from './CombatStatus';
 import CombatLog from './CombatLog';
 import { playSFX } from '../utils/audio';
-import { findProjectileAsset, parseAttackOffset, playHitSFX, generateProjectiles, applyImpact, applyMiss } from '../utils/fight';
 import config from '../config';
-import '../styles/combat-animations.css'; // 引入公共样式
 
 interface CombatProps {
   record: BattleRecord;
@@ -32,36 +30,25 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
   const [moveDuration, setMoveDuration] = useState(400);
   const [projectiles, setProjectiles] = useState<any[]>([]);
   
-  // 修复点1：全局计算 isMobile，并监听窗口大小变化
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
-  // 核心：读取离地高度配置 + 新增的角色初始间距可选配置
-  const groundHeightPct = isMobile 
-    ? config.combat.spacing.groundHeightPctMobile 
-    : config.combat.spacing.groundHeightPctPC;
-  // 可选配置：玩家左侧偏移（控制初始位置）
-  const playerLeftOffsetPct = isMobile
-    ? config.combat.spacing.playerLeftOffsetPctMobile
-    : config.combat.spacing.playerLeftOffsetPctPC;
-  // 可选配置：NPC右侧偏移（控制初始位置，避免重合）
-  const npcRightOffsetPct = isMobile
-    ? config.combat.spacing.npcRightOffsetPctMobile
-    : config.combat.spacing.npcRightOffsetPctPC;
-  
   const projectileCounter = useRef(0);
   const pRef = useRef<HTMLDivElement>(null);
   const nRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // 修复点2：监听窗口大小变化，实时更新 isMobile + 配置值
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const findProjectileAsset = (id?: string, type?: 'WEAPON' | 'SKILL' | 'PUNCH') => {
+    if (!id || !window.assetMap) return null;
+    let paths: string[] = [];
+    if (type === 'SKILL') {
+      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_projectile1.png` ];
+    } else {
+      paths = [`Images/${id}_throw.png`, `Images/${id}_projectile.png`, `Images/${id}_throw1.png`, `Images/${id}_atk1.png` ];
+    }
+    for (const p of paths) { 
+      if (window.assetMap.has(p)) return window.assetMap.get(p); 
+    }
+    return null;
+  };
 
   useEffect(() => {
     setLogs([{ attacker: '系统', text: '战斗开始！' }]);
@@ -103,54 +90,6 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
       const statsSetter = isP ? setPStats : setNStats;
       const oppStatsSetter = isP ? setNStats : setPStats;
       const dir = isP ? 1 : -1;
-      // --- 新增：处理 DOT 动画展示 ---
-      // 从 logs 中查找当前回合是否有“持续伤害”字样
-      const dotLog = turn.logs.find(l => l.attacker === '系统' && l.text.includes('持续伤害'));
-      // --- 在 Combat.tsx 的 playTurn 函数内找到 DOT 处理部分 ---
-
-      if (dotLog) {
-        const dmgMatch = dotLog.text.match(/-(\d+)/);
-        if (dmgMatch) {
-          const dotDmg = parseInt(dmgMatch[1]);
-          
-          // 1. 播放紫色伤害数字 (保持你的逻辑)
-          setProjectiles(prev => [...prev, {
-              id: `dot-${Date.now()}-${projectileCounter.current++}`,
-              type: 'TEXT', text: `-${dotDmg}`, color: '#a855f7',
-              isPlayer: isP, side: turn.side
-          }]);
-
-          // 2. 核心修复：更新血量的同时，更新 status
-          statsSetter(prev => {
-            // 计算剩余持续时间并过滤
-            const nextDots = prev.status.dots
-              .map(d => ({ ...d, duration: d.duration - 1 }))
-              .filter(d => d.duration > 0);
-
-            return {
-              ...prev,
-              hp: Math.max(0, prev.hp - dotDmg), // 这里必须扣血，血条才会动！
-              status: {
-                ...prev.status,
-                dots: nextDots // 更新后的 dots 传给 CombatStatus 渲染
-              }
-            };
-          });
-
-          playSFX(DEFAULT_HIT_SFX.blunt);
-          await new Promise(r => setTimeout(r, 600));
-        }
-      }
-      // --- DOT 处理结束 ---
-
-      // 如果 DOT 导致角色死亡，直接跳过攻击逻辑
-      const currentFighter = isP ? pStats : nStats; // 注意这里要拿最新的值判断
-      if (currentFighter.hp <= 0 && currentTurnIdx < record.turns.length) {
-          // 略过攻击，直接进入下一回合或结束
-          await new Promise(r => setTimeout(r, 500));
-          setCurrentTurnIdx(prev => prev + 1);
-          return;
-      }
 
       statsSetter(prev => ({
         ...prev,
@@ -164,23 +103,48 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       setLogs(prev => [...prev, ...turn.logs]);
 
-      let module: any = DEFAULT_ATTACK_MODULE;
+      // 检查是否有 DOT 伤害日志
+      const dotLog = turn.logs.find(l => l.attacker === '系统' && l.text.includes('持续伤害'));
+      if (dotLog) {
+        // 提取伤害数值，支持纯文本或HTML格式，使用更严格的正则避免匹配到 class 中的数字
+        const match = dotLog.text.match(/>-(\d+)</) || dotLog.text.match(/-(\d+)/);
+        if (match) {
+          const dotDmg = parseInt(match[1], 10);
+          // DOT 是扣 attacker 的血，使用紫色显示
+          applyImpact(dotDmg, !isP, atkSetter, '#a855f7'); 
+          // 更新 attacker 血量状态
+          statsSetter(s => ({ ...s, hp: Math.max(0, s.hp - dotDmg) }));
+          await new Promise(r => setTimeout(r, 600)); // 等待 DOT 动画
+        }
+      }
+
+      // 检查是否跳过回合 (被黏住/眩晕) 或 无行动(如DOT致死)
+      const isSkipped = turn.logs.some(l => l.text.includes('无法行动'));
+      const hasAction = turn.logs.some(l => l.attacker === (isP ? record.player.name : record.opponent.name));
+      
+      if (isSkipped || !hasAction) {
+        await new Promise(r => setTimeout(r, 1000));
+        setCurrentTurnIdx(prev => prev + 1);
+        return;
+      }
+
+      let module: any = 'PUNCH';
       let visualId = undefined;
-      let sfx = DEFAULT_SFX.punch;
-      let hitSfx = DEFAULT_HIT_SFX.blunt;
+      let sfx = 'punch';
+      let hitSfx = 'blunt_hit'; // 默认为钝击音效
       let isWeaponUsed = false;
 
       if (turn.actionType === 'SKILL') {
         const s = SKILLS.find(sk => sk.id === turn.actionId);
-        module = s?.module || DEFAULT_ATTACK_MODULE;
-        sfx = s?.sfx || DEFAULT_SFX.skillCast;
-        hitSfx = s?.hitSfx || DEFAULT_HIT_SFX.heavy;
+        module = s?.module || 'PUNCH';
+        sfx = s?.sfx || 'skill_cast';
+        hitSfx = s?.hitSfx || 'heavy_hit';
         visualId = s?.id;
       } else if (turn.actionType === 'WEAPON') {
         const w = WEAPONS.find(we => we.id === turn.actionId);
         module = w?.module || 'SLASH';
-        sfx = w?.sfx || DEFAULT_SFX.slash;
-        hitSfx = w?.hitSfx || DEFAULT_HIT_SFX.blunt;
+        sfx = w?.sfx || 'slash';
+        hitSfx = w?.hitSfx || 'blunt_hit';
         visualId = w?.id;
         isWeaponUsed = true;
       }
@@ -190,20 +154,24 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
 
       for (let loop = 0; loop < totalLoops; loop++) {
         for (const step of seq.steps) {
-          // 这里用全局的 isMobile，无需重复计算
+          const isMobile = window.innerWidth < 768;
           const containerWidth = containerRef.current?.offsetWidth || 1000;
           const containerHeight = containerRef.current?.offsetHeight || 450;
           
           setMoveDuration(step.moveDuration);
-          // 调用公共偏移解析函数
-          let dx = parseAttackOffset(step.offset, containerWidth, isMobile);
-          // 应用方向系数
-          dx *= dir;
           
+          let dx = 0;
+          if (step.offset === 'MELEE') {
+            const pct = isMobile ? config.combat.spacing.meleeDistancePctMobile : config.combat.spacing.meleeDistancePctPC;
+            dx = (containerWidth * pct) / 100;
+          } else if (step.offset === 'BASE') {
+            const pct = isMobile ? config.combat.spacing.baseActionOffsetPctMobile : config.combat.spacing.baseActionOffsetPctPC;
+            dx = (containerWidth * pct) / 100;
+          }
+
           const dy = (containerHeight * (step.offsetY || 0)) / 100;
-          console.log(`[Combat] 最终偏移量: dx=${dx}, dy=${dy}, 方向系数=${dir}, 实际X偏移=${dx}`);
           
-          offsetSetter({ x: dx, y: dy });
+          offsetSetter({ x: dx * dir, y: dy });
           atkSetter({ 
             state: step.state as VisualState, 
             frame: step.frame, 
@@ -229,16 +197,13 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
               const targetX = dRect.left - mainRect.left + dRect.width / 2;
               const asset = findProjectileAsset(visualId, turn.actionType);
 
-              // 调用公共投射物生成函数
-              generateProjectiles(
-                projectileCounter,
-                setProjectiles,
-                startX,
-                targetX,
-                asset,
-                turn.side,
-                'WEAPON'
-              );
+              for(let j=0; j<3; j++) {
+                setTimeout(() => {
+                  const pId = ++projectileCounter.current;
+                  setProjectiles(prev => [...prev, { id: pId, startX, targetX, asset, side: turn.side, type: 'WEAPON' }]);
+                  setTimeout(() => setProjectiles(prev => prev.filter(p => p.id !== pId)), 800);
+                }, j * 120);
+              }
             }
           }
 
@@ -246,12 +211,8 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
             const hitDelay = module === 'THROW' ? 450 : 0;
             setTimeout(() => {
               if (turn.isHit) {
-                // 调用公共音效播放函数
-                playHitSFX(hitSfx, module);
-                
-                // 调用公共伤害应用函数
-                applyImpact(turn.damage, !isP, setProjectiles, defSetter);
-                
+                if (hitSfx) playSFX(hitSfx);
+                applyImpact(turn.damage, isP, defSetter);
                 oppStatsSetter(s => ({ 
                   ...s, 
                   hp: Math.max(0, s.hp - turn.damage),
@@ -265,8 +226,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                   statsSetter(s => ({ ...s, status: { ...s.status, afterimage: turn.statusChanges.afterimage || 0 } }));
                 }
               } else {
-                // 调用公共闪避应用函数
-                applyMiss(!isP, setProjectiles, defSetter);
+                applyMiss(!isP, defSetter);
               }
             }, hitDelay);
           }
@@ -286,7 +246,26 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
     };
 
     playTurn();
-  }, [currentTurnIdx, isMobile]); // 依赖添加 isMobile
+  }, [currentTurnIdx]);
+
+  const applyImpact = (dmg: number, isPAtk: boolean, defSetter: any, color: string = '#ef4444') => {
+    const id = Date.now();
+    setProjectiles(prev => [...prev, { id: `dmg-${id}`, text: `-${dmg}`, isPlayer: !isPAtk, color: color, type: 'TEXT' }]);
+    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `dmg-${id}`)), 800);
+    defSetter((v: any) => ({ ...v, state: 'HURT', frame: 1 }));
+    setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
+  };
+
+  const applyMiss = (isPDef: boolean, defSetter: any) => {
+    const id = Date.now();
+    setProjectiles(prev => [...prev, { id: `miss-${id}`, text: 'MISS', isPlayer: isPDef, color: '#94a3b8', type: 'TEXT' }]);
+    setTimeout(() => setProjectiles(prev => prev.filter(e => e.id !== `miss-${id}`)), 800);
+    defSetter((v: any) => ({ ...v, state: 'DODGE', frame: 1 }));
+    setTimeout(() => defSetter((v: any) => ({ ...v, state: 'IDLE', frame: 1 })), 400);
+  };
+
+  const isMobile = window.innerWidth < 768;
+  const sidePadding = isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC;
 
   return (
     <div className={`fixed inset-0 z-[200] bg-slate-950 flex flex-col h-screen overflow-hidden ${shaking ? 'animate-heavyShake' : ''}`}>
@@ -306,7 +285,7 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
                 className="absolute w-20 h-20 md:w-24 md:h-24 flex items-center justify-center animate-projectile-pro"
                 style={{
                   left: `${p.startX}px`,
-                  bottom: isMobile ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
+                  bottom: window.innerWidth < 768 ? config.combat.spacing.projectileBottomMobile : config.combat.spacing.projectileBottomPC,
                   '--tx': `${p.targetX - p.startX}px`
                 } as any}
               >
@@ -325,69 +304,35 @@ const Combat: React.FC<CombatProps> = ({ record, onFinish, isReplay = false }) =
           <CombatStatus fighter={nStats as any} side="right" uiScale={1} label="OPPONENT" />
         </div>
         
-        {/* 修复点3：角色父容器 - 移除justify-between，保留内边距配置 */}
         <div className="relative flex items-end justify-center w-full h-[450px]">
           <div 
-            className="w-full relative h-full" 
-            style={{ 
-              paddingLeft: `${isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`, 
-              paddingRight: `${isMobile ? config.combat.spacing.sidePaddingPctMobile : config.combat.spacing.sidePaddingPctPC}%`,
-              height: '100%'
-            }}
+            className="w-full flex justify-between pb-16 relative"
+            style={{ paddingLeft: `${sidePadding}%`, paddingRight: `${sidePadding}%` }}
           >
-            {/* 核心：玩家角色 - 用可选配置定位左侧，避免重合 */}
-            <div 
-              ref={pRef} 
-              style={{ 
-                transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, 
-                transition: `transform ${moveDuration}ms ease-out`,
-                bottom: `${groundHeightPct}%`, // 离地高度配置
-                position: 'absolute', 
-                left: `${playerLeftOffsetPct}%`, // 可选配置：玩家左侧偏移（核心！避免重合）
-                zIndex: 10 // 确保层级正确
-              }}
-            >
-              <CharacterVisual 
-                name={pStats.name} 
-                state={pVisual.state} 
-                frame={pVisual.frame} 
-                weaponId={pVisual.weaponId} 
-                hasAfterimage={pStats.status.afterimage > 0}
-                isMobile={isMobile}
-                debug={false}
-              />
+            <div ref={pRef} style={{ transform: `translate(${pOffset.x}px, ${pOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
+              <CharacterVisual name={pStats.name} state={pVisual.state} frame={pVisual.frame} weaponId={pVisual.weaponId} hasAfterimage={pStats.status.afterimage > 0} />
             </div>
-
-            {/* 核心：NPC角色 - 用可选配置定位右侧，避免重合 */}
-            <div 
-              ref={nRef} 
-              style={{ 
-                transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, 
-                transition: `transform ${moveDuration}ms ease-out`,
-                bottom: `${groundHeightPct}%`, // 离地高度配置
-                position: 'absolute', 
-                right: `${npcRightOffsetPct}%`, // 可选配置：NPC右侧偏移（核心！避免重合）
-                zIndex: 10 // 确保层级正确
-              }}
-            >
+            <div ref={nRef} style={{ transform: `translate(${nOffset.x}px, ${nOffset.y}px)`, transition: `transform ${moveDuration}ms ease-out` }}>
               <div className="scale-x-[-1]">
-                <CharacterVisual 
-                  name={nStats.name} 
-                  isNpc 
-                  state={nVisual.state} 
-                  frame={nVisual.frame} 
-                  weaponId={nVisual.weaponId} 
-                  hasAfterimage={nStats.status.afterimage > 0}
-                  isMobile={isMobile}
-                  debug={false}
-                />
+                <CharacterVisual name={nStats.name} isNpc state={nVisual.state} frame={nVisual.frame} weaponId={nVisual.weaponId} hasAfterimage={nStats.status.afterimage > 0} />
               </div>
             </div>
           </div>
         </div>
       </div>
-      {/* 修复点5：CombatLog 的 isMobile 传全局值 */}
-      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={isMobile} />
+      <CombatLog logs={logs} logEndRef={logEndRef} isMobile={false} />
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes projectile-fly-pro {
+          0% { transform: translate(0, 0) scale(0.7) rotate(0deg); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate(var(--tx), -40px) scale(1.1) rotate(1080deg); opacity: 1; }
+        }
+        .animate-projectile-pro { animation: projectile-fly-pro 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) forwards; }
+        @keyframes heavyShake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-6px, -6px); } 20%, 40%, 60%, 80% { transform: translate(6px, 6px); } }
+        .animate-heavyShake { animation: heavyShake 0.4s ease-out; }
+        @keyframes damage { 0% { opacity:0; transform: translateY(20px) scale(0.5); } 20% { opacity:1; transform: translateY(0) scale(1.2); } 100% { opacity:0; transform: translateY(-100px) scale(1); } }
+        .animate-damage { animation: damage 0.8s ease-out forwards; }
+      `}} />
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CharacterData, Weapon, Skill, WeaponType, SkillCategory, Dressing, Friend, BattleRecord, FighterSnapshot } from './types';
 import { WEAPONS, SKILLS, DRESSINGS } from './constants';
@@ -60,7 +61,7 @@ const App: React.FC = () => {
   const [battleResult, setBattleResult] = useState<{ isWin: boolean; gold: number; exp: number } | null>(null);
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0); // 现在存储的是百分比（0-100）
+  const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
 
   const totalCP = calculateTotalCP(player);
@@ -79,7 +80,7 @@ const App: React.FC = () => {
     const soundBase = 'Sounds/';
     const stateConfigs: Record<string, number> = {
       home: 2, idle: 2, run: 5, atk: 4, hurt: 1, dodge: 1,
-      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2, kick: 3, spike:4
+      jump: 1, cleave: 3, slash: 3, pierce: 4, swing: 4, throw: 4, punch: 2, kick: 3
     };
 
     const coreImages = ['character.png'];
@@ -112,19 +113,13 @@ const App: React.FC = () => {
       'throw_light', 'bottle_break', 'throw_hit', 'punch', 'hurt', 'skill_cast',
       'thunder', 'wind_storm', 'drink', 'sticky', 'wing_flap', 'kick_combo', 
       'rapid_throw', 'roar', 'scratch', 'master_arrive', 'dragon_roar', 'buddha_palm', 'blood_drain',
-      'ui_click', 'ui_equip', 'ui_buy', 'ui_levelup', 'battle_win', 'battle_loss',"draw_knife","draw_knife_hit"
+      'ui_click', 'ui_equip', 'ui_buy', 'ui_levelup', 'battle_win', 'battle_loss'
     ];
 
     const imagePaths = [...new Set([...coreImages, ...animationImages])].map(p => `${assetBase}${p}`);
     const soundPaths = soundIds.map(id => `${soundBase}${id}.mp3`);
     const totalResourcePaths = [...imagePaths, ...soundPaths];
-    
-    // ========== 关键修改1：同步计算总数量，避免异步state问题 ==========
-    const totalCount = totalResourcePaths.length;
-    setTotalAssets(totalCount);
-    
-    // ========== 关键修改2：使用本地计数器跟踪加载进度 ==========
-    let loadedCount = 0;
+    setTotalAssets(totalResourcePaths.length);
 
     const loadAll = async () => {
       let db = null;
@@ -152,15 +147,10 @@ const App: React.FC = () => {
         } catch (e) {
           console.warn(`Failed to load asset: ${path}`, e);
         } finally { 
-          // ========== 关键修改3：计算百分比进度，限制最大值为100 ==========
-          loadedCount++;
-          const progress = Math.min(Math.floor((loadedCount / totalCount) * 100), 100);
-          setLoadProgress(progress);
+          setLoadProgress(prev => prev + 1); 
         }
       }));
       
-      // ========== 关键修改4：加载完成后强制设为100% ==========
-      setLoadProgress(100);
       setLoading(false);
     };
     loadAll();
@@ -256,12 +246,12 @@ const App: React.FC = () => {
   return (
     <div className={`${view === 'TEST' ? config.layout.maxWidthTest : config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800 transition-all duration-500`}>
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
-        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Jabobo-Fight Master</h1>
+        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Q-Fight Master</h1>
         
         <div className="flex flex-wrap items-center justify-center gap-2">
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
-          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
+          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
           <div className="flex items-center space-x-3 text-sm font-black ml-2">
             <span className="text-slate-600">💰 {player.gold}</span>
             <span className="text-slate-600">✨ Lv.{player.level}</span>

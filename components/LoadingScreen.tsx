@@ -19,7 +19,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ progress, total }) => {
         <div className="mb-12 text-center animate-popIn">
           <div className="text-6xl mb-4 filter drop-shadow-[0_0_15px_rgba(249,115,22,0.5)]">⚔️</div>
           <h1 className="text-3xl font-black italic tracking-tighter uppercase bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-transparent">
-            Jabobo-Fight Master
+            Q-Fight Master
           </h1>
           <p className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase mt-2">
             Loading Assets... {percentage}%

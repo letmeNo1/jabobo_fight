@@ -23,7 +23,7 @@ const CombatLog: React.FC<CombatLogProps> = ({ logs, logEndRef, isMobile }) => {
           <div key={i} className={`px-3 md:px-5 py-2 md:py-3.5 rounded-lg md:rounded-2xl border-l-4 text-[11px] md:text-sm shadow-lg animate-popIn ${log.attacker === '你' ? 'bg-blue-950/30 border-blue-500 text-blue-100' : log.attacker === '系统' ? 'bg-orange-900/30 border-orange-500 text-orange-100 font-bold' : 'bg-red-950/30 border-red-500 text-red-100'}`}>
             <div className="flex items-center">
               <span className="font-black opacity-30 mr-2 md:mr-4 uppercase text-[8px] md:text-[11px] shrink-0 tracking-widest">[{log.attacker}]</span>
-              <span className="tracking-tight font-medium leading-tight">{log.text}</span>
+              <span className="tracking-tight font-medium leading-tight" dangerouslySetInnerHTML={{ __html: log.text }} />
             </div>
           </div>
         ))}

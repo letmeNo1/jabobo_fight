@@ -1,13 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import configSettings from '../config';
 import { VisualState } from '../types';
-
-// 🌟 新增：声明window.assetMap的类型，解决TS隐式any警告
-declare global {
-  interface Window {
-    assetMap: Map<string, string>;
-  }
-}
 
 interface CharacterVisualProps {
   name?: string; 
@@ -42,82 +36,26 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 }) => {
   const basePath = 'Images/';
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
-  const [weaponLoadLog, setWeaponLoadLog] = useState<string>('');
-
-  // ========== 组件入参日志 ==========
-  useEffect(() => {
-    console.log('[CharacterVisual] 组件接收参数：', {
-      name,
-      state,
-      frame,
-      weaponId,
-      isMobile,
-      debug
-    });
-    if (state === 'SPIKE') {
-      console.log('[CharacterVisual][SPIKE] 检测到SPIKE状态，开始加载逻辑');
-    }
-  }, [name, state, frame, weaponId, isMobile, debug]);
 
   const handleImageError = (path: string) => {
     setImageError(prev => ({ ...prev, [path]: true }));
-    console.error(`[CharacterVisual] 图片加载失败：${path}`);
-    if (debug) {
-      setWeaponLoadLog(`武器加载失败：${path}`);
-    }
   };
 
   const findAsset = (paths: string[]): string | null => {
-    console.log('[CharacterVisual] 尝试查找资源，候选路径：', paths);
-    
-    if (!window.assetMap) {
-      console.error('[CharacterVisual] window.assetMap 未初始化！');
-      if (debug) setWeaponLoadLog('assetMap 未初始化');
-      return null;
-    }
-
-    if (debug) {
-      console.log('[CharacterVisual][DEBUG] assetMap 包含的所有资源路径：', Array.from(window.assetMap.keys()));
-    }
-
+    if (!window.assetMap) return null;
     for (const path of paths) {
-      const isPathInMap = window.assetMap.has(path);
-      const isPathError = imageError[path];
-      
-      console.log(`[CharacterVisual] 检查路径 "${path}"：`, {
-        isPathInMap,
-        isPathError,
-        isAvailable: isPathInMap && !isPathError
-      });
-
-      if (isPathInMap && !isPathError) {
-        console.log(`[CharacterVisual] 资源找到：${path} -> ${window.assetMap.get(path)}`);
+      if (window.assetMap.has(path) && !imageError[path]) {
         return window.assetMap.get(path)!;
       }
     }
-
-    console.warn(`[CharacterVisual] 所有候选路径均未找到：${paths.join(', ')}`);
-    if (debug) setWeaponLoadLog(`未找到资源：${paths.join(', ')}`);
     return null;
   };
 
-  // ========== 核心修改：修复CSSProperties类型错误 ==========
   const BASE_SCALE = configSettings.visuals.character.baseScale; 
-  const visualWidth = isMobile 
-    ? configSettings.visuals.character.mobileWidth 
-    : `${configSettings.visuals.character.containerWidth}px`;
-  const visualHeight = isMobile 
-    ? configSettings.visuals.character.mobileHeight 
-    : `${configSettings.visuals.character.containerHeight}px`;
-
-  // 🌟 修改1：显式指定containerStyle为React.CSSProperties类型，修复boxSizing类型错误
-  const containerStyle: React.CSSProperties = { 
-    width: visualWidth,
-    height: visualHeight,
-    minWidth: '50px',
-    minHeight: '60px',
-    boxSizing: 'border-box' as const, // 明确指定为字面量类型，符合BoxSizing要求
-  };
+  const containerWidth = configSettings.visuals.character.containerWidth;
+  const containerHeight = configSettings.visuals.character.containerHeight;
+  const visualBaseWidth = isMobile ? configSettings.visuals.character.mobileWidth : configSettings.visuals.character.pcWidth;
+  const visualBaseHeight = isMobile ? configSettings.visuals.character.mobileHeight : configSettings.visuals.character.pcHeight;
 
   const STATE_CONFIGS: Record<VisualState, { prefix: string; count: number }> = {
     HOME: { prefix: 'home', count: 2 },
@@ -133,28 +71,11 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     SWING: { prefix: 'swing', count: 4 },
     THROW: { prefix: 'throw', count: 4 },
     PUNCH: { prefix: 'punch', count: 2 },
-    KICK: { prefix: 'kick', count: 3 },
-    SPIKE: { prefix: 'spike', count: 4 },
-  };
-
-  // 🌟 优化1：提取帧计算逻辑为独立函数，避免冗余计算
-  const calculateCurrentFrame = (sName: VisualState): number => {
-    const config = STATE_CONFIGS[sName];
-    const isLoopingState = ['IDLE', 'RUN', 'HOME'].includes(sName);
-    return isLoopingState 
-      ? (((frame || 1) - 1) % config.count) + 1 
-      : Math.max(1, Math.min(frame || 1, config.count));
+    KICK: { prefix: 'kick', count: 3 }
   };
 
   const getFrameTransform = () => {
-    const f = calculateCurrentFrame(state);
-    
-    console.log(`[CharacterVisual] 计算帧变换：`, {
-      state,
-      inputFrame: frame,
-      calculatedFrame: f,
-      stateConfig: STATE_CONFIGS[state]
-    });
+    const f = (state === 'HOME' || state === 'IDLE' || state === 'RUN') ? (((frame || 1) - 1) % (STATE_CONFIGS[state]?.count || 1)) + 1 : (frame || 1);
     
     switch (state) {
       case 'HOME': {
@@ -182,12 +103,12 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
       case 'THROW':
         return `scale(${BASE_SCALE}) rotate(0deg) translateY(0px)`;
       case 'PUNCH':
+        // 修正：移除 scale 放大，保持人物大小一致
         return f === 2 
           ? `scale(${BASE_SCALE}) rotate(-8deg) translateX(20px)` 
           : `scale(${BASE_SCALE}) rotate(0deg) translateX(-8px)`;
       case 'KICK':
-        return `scale(${BASE_SCALE})`;
-      case 'SPIKE':
+        // 瞬斩：绝对原地且恒定比例。移除所有旋转、缩放变化、位移微调
         return `scale(${BASE_SCALE})`;
       case 'ATTACK':
         return `scale(${BASE_SCALE}) rotate(-5deg)`;
@@ -200,7 +121,6 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
 
   const renderFallbackCharacter = () => {
     const colorClass = isNpc ? 'bg-indigo-600' : 'bg-orange-500';
-    console.warn(`[CharacterVisual] 角色图片加载失败，渲染兜底占位符`);
     return (
       <div data-name={name} className={`relative w-40 h-40 ${colorClass} rounded-full border-4 border-white/50 shadow-2xl flex items-center justify-center overflow-hidden`}>
         <div className="flex gap-4 mb-4">
@@ -211,113 +131,68 @@ const CharacterVisual: React.FC<CharacterVisualProps> = ({
     );
   };
 
-  const renderFallbackWeapon = (path: string) => {
-    console.warn(`[CharacterVisual] 武器图片加载失败，渲染兜底提示：${path}`);
-    return (
-      <div className="absolute inset-0 w-full h-full flex items-center justify-center z-[30] text-red-500 font-bold text-sm">
-        武器缺失:<br/>{path.split('/').pop()}
-      </div>
-    );
-  };
-
   const charFilterClass = isNpc ? 'filter hue-rotate-[180deg] brightness-90' : '';
-  // 🌟 优化2：提前获取当前状态配置，避免渲染时重复遍历
-  const currentStateConfig = STATE_CONFIGS[state];
-  const currentFrame = calculateCurrentFrame(state);
 
   return (
     <div 
       className={`relative flex flex-col items-center select-none group transition-all duration-300 ${className} ${debug ? 'outline-2 outline-dashed outline-red-500 rounded-lg bg-red-500/5' : ''}`} 
-      style={containerStyle}
+      style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}
     >
-      {debug && (
-        <div className="absolute top-0 left-0 text-xs text-red-600 bg-white/80 p-1 z-999">
-          {weaponLoadLog}
-        </div>
-      )}
-
       <div className={`absolute bottom-[15%] h-4 bg-black/10 rounded-[100%] blur-[4px] transition-all duration-300
         ${state === 'RUN' ? 'w-32 opacity-40 scale-x-110' : 'w-36 animate-pulse'}
         ${state === 'IDLE' ? 'w-36 opacity-20 scale-x-100' : ''}
       `}></div>
 
-      {/* 内部角色容器：占满外层容器100%宽高 */}
       <div 
-        className={`relative flex items-center justify-center
+        className={`relative ${visualBaseWidth} ${visualBaseHeight} flex items-center justify-center
           ${isDizzy ? 'filter grayscale contrast-125' : ''} 
           ${state === 'HURT' ? 'filter saturate-150 brightness-110' : ''}
           ${hasAfterimage ? 'afterimage-effect' : ''}
         `}
         style={{ 
           transform: getFrameTransform(), 
-          transition: 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)',
-          width: '100%',
-          height: '100%'
+          transition: 'transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1)' 
         }}
       >
         <div className={`w-full h-full relative flex items-center justify-center ${isDizzy ? 'animate-dizzy-wobble' : ''}`}>
-          {/* 🌟 优化3：直接渲染当前状态，避免遍历所有状态，提升性能 */}
-          {currentStateConfig && (
-            <>
-              {console.log(`[CharacterVisual][${state}] 帧计算结果：`, {
-                isLoopingState: ['IDLE', 'RUN', 'HOME'].includes(state),
-                inputFrame: frame,
-                currentFrame,
-                maxCount: currentStateConfig.count
-              })}
-              
-              {(() => {
-                const charPaths = [`${basePath}${currentStateConfig.prefix}${currentFrame}.png`, `${basePath}character.png`];
-                const charUrl = findAsset(charPaths);
-                
-                const weaponPaths = weaponId && state !== 'THROW' 
-                  ? [
-                      `${basePath}${weaponId}_${currentStateConfig.prefix}${currentFrame}.png`,
-                      `${basePath}${weaponId}_${currentStateConfig.prefix.toUpperCase()}${currentFrame}.png`,
-                      `${basePath}${weaponId}_${state.toLowerCase()}${currentFrame}.png`,
-                      `${basePath}${weaponId}_${state.toUpperCase()}${currentFrame}.png`
-                    ] 
-                  : [];
-                
-                if (weaponId && state !== 'THROW') {
-                  console.log(`[CharacterVisual][${state}] 生成武器加载路径：`, weaponPaths);
-                  if (state === 'SPIKE') {
-                    console.log('[CharacterVisual][SPIKE] 生成SPIKE武器路径：', weaponPaths);
-                  }
-                }
+          {Object.entries(STATE_CONFIGS).map(([sName, config]) => {
+            const isActiveState = state === sName;
+            if (!isActiveState) return null;
+            
+            const isLoopingState = (sName === 'IDLE' || sName === 'RUN' || sName === 'HOME');
+            const currentFrame = isLoopingState 
+              ? (((frame || 1) - 1) % config.count) + 1 
+              : Math.min(frame || 1, config.count);
 
-                const weaponUrl = weaponPaths.length > 0 ? findAsset(weaponPaths) : null;
+            return Array.from({ length: config.count }).map((_, i) => {
+              const frameIndex = i + 1;
+              if (frameIndex !== currentFrame) return null;
 
-                return (
-                  <React.Fragment key={`${state}-${currentFrame}`}>
-                    {charUrl ? (
-                      <img 
-                        src={charUrl}
-                        data-name={name}
-                        onError={() => handleImageError(charUrl)}
-                        className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass} z-[20]`}
-                      />
-                    ) : renderFallbackCharacter()}
-                    
-                    {weaponId && state !== 'THROW' && (
-                      <>
-                        {weaponUrl ? (
-                          <img 
-                            src={weaponUrl}
-                            data-name={name}
-                            onError={() => handleImageError(weaponUrl)}
-                            className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
-                          />
-                        ) : debug ? (
-                          renderFallbackWeapon(weaponPaths[0] || '')
-                        ) : null}
-                      </>
-                    )}
-                  </React.Fragment>
-                );
-              })()}
-            </>
-          )}
+              const charUrl = findAsset([`${basePath}${config.prefix}${frameIndex}.png`, `${basePath}character.png`]);
+              const weaponUrl = (weaponId && state !== 'THROW') ? findAsset([`${basePath}${weaponId}_${config.prefix}${frameIndex}.png`]) : null;
+
+              return (
+                <React.Fragment key={`${sName}-${frameIndex}`}>
+                  {charUrl ? (
+                    <img 
+                      src={charUrl}
+                      data-name={name}
+                      onError={() => handleImageError(charUrl)}
+                      className={`absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none ${charFilterClass} z-[20]`}
+                    />
+                  ) : renderFallbackCharacter()}
+                  {weaponId && weaponUrl && (
+                    <img 
+                      src={weaponUrl}
+                      data-name={name}
+                      onError={() => handleImageError(weaponUrl)}
+                      className="absolute inset-0 w-full h-full object-contain drop-shadow-lg pointer-events-none z-[30]"
+                    />
+                  )}
+                </React.Fragment>
+              );
+            });
+          })}
         </div>
 
         {isDizzy && (

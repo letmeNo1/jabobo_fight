@@ -13,10 +13,10 @@ export enum SkillCategory {
   SPECIAL = 'SPECIAL'
 }
 
-export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK'|'SPIKE';
+export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK';
 
 // Define visual states globally
-export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK' | 'SPIKE';
+export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK';
 
 export interface Weapon {
   id: string;
@@ -113,10 +113,7 @@ export interface FighterSnapshot {
 
 export interface BattleTurn {
   side: 'P' | 'N';
-  /** * 新增 'SKIPPED' 类型：用于表示被眩晕、胶水黏住等无法行动的回合
-   * 前端可以根据此类型跳过攻击动画，直接显示受困动画或纯文本日志
-   */
-  actionType: 'WEAPON' | 'SKILL' | 'PUNCH' | 'SKIPPED'; 
+  actionType: 'WEAPON' | 'SKILL' | 'PUNCH';
   actionId?: string;
   isHit: boolean;
   damage: number;
@@ -126,10 +123,7 @@ export interface BattleTurn {
     sticky?: number;
     stunned?: number;
     afterimage?: number;
-    // 允许数组形式存储持续伤害
     dots?: { id: string; dmg: number; duration: number }[];
-    // 可选：用于记录本回合是否消耗了武器或触发了单次技能（如装死）
-    usedSkills?: string[];
   };
 }
 
