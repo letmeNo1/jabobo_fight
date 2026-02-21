@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CharacterData, Weapon, Skill, WeaponType, SkillCategory, Dressing, Friend, BattleRecord, FighterSnapshot } from './types';
 import { WEAPONS, SKILLS, DRESSINGS } from './constants';
@@ -12,10 +11,15 @@ import FriendList from './components/FriendList';
 import RedeemCode from './components/RedeemCode';
 import BattleHistory from './components/BattleHistory';
 import GrandmasterChallenge from './components/GrandmasterChallenge';
+import LoginScreen from './components/LoginScreen';
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playSFX, playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import { calculateTotalCP } from './utils/combatPower';
 import { simulateBattle } from './utils/combatEngine';
+import { 
+  loadUserData, saveUserData, loadUserHistory, saveUserHistory, 
+  loginUser, registerUser, INITIAL_DATA 
+} from './utils/storage';
 import config from './config';
 
 declare global {
@@ -24,38 +28,12 @@ declare global {
   }
 }
 
-const INITIAL_DATA: CharacterData = {
-  name: '乐斗小豆',
-  level: 1,
-  exp: 0,
-  gold: 500,
-  str: 5,
-  agi: 5,
-  spd: 5,
-  maxHp: 300,
-  weapons: [],
-  skills: [],
-  dressing: { HEAD: '', BODY: '', WEAPON: '' },
-  unlockedDressings: [],
-  isConcentrated: false,
-  friends: []
-};
-
 const App: React.FC = () => {
-  const [player, setPlayer] = useState<CharacterData>(() => {
-    const saved = localStorage.getItem('qfight_save');
-    const data = saved ? JSON.parse(saved) : INITIAL_DATA;
-    if (!data.name) data.name = INITIAL_DATA.name;
-    if (!data.friends) data.friends = [];
-    return data;
-  });
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [player, setPlayer] = useState<CharacterData>(INITIAL_DATA || {} as any);
+  const [history, setHistory] = useState<BattleRecord[]>([]);
 
-  const [history, setHistory] = useState<BattleRecord[]>(() => {
-    const saved = localStorage.getItem('qfight_history');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [view, setView] = useState<'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE'>('HOME');
+  const [view, setView] = useState<'LOGIN' | 'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE'>('LOGIN');
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
   const [isExplicitReplay, setIsExplicitReplay] = useState(false);
   const [battleResult, setBattleResult] = useState<{ isWin: boolean; gold: number; exp: number } | null>(null);
@@ -64,15 +42,19 @@ const App: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
 
-  const totalCP = calculateTotalCP(player);
+  const totalCP = player ? calculateTotalCP(player) : 0;
 
   useEffect(() => {
-    localStorage.setItem('qfight_save', JSON.stringify(player));
-  }, [player]);
+    if (currentUser) {
+      saveUserData(currentUser, player);
+    }
+  }, [player, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('qfight_history', JSON.stringify(history));
-  }, [history]);
+    if (currentUser) {
+      saveUserHistory(currentUser, history);
+    }
+  }, [history, currentUser]);
 
   useEffect(() => {
     window.assetMap = new Map<string, string>();
@@ -122,48 +104,87 @@ const App: React.FC = () => {
     setTotalAssets(totalResourcePaths.length);
 
     const loadAll = async () => {
+      // Fallback timeout extended to 60s
+      const timeoutId = setTimeout(() => {
+        console.warn("Asset loading timed out");
+        setLoading(false);
+      }, 60000);
+
       let db = null;
       try { db = await initDB(); } catch (e) {}
       
-      // 取消分批次加载，改为全量并发加载，确保一次性就绪
-      await Promise.all(totalResourcePaths.map(async (path) => {
-        try {
-          const isSound = path.endsWith('.mp3');
-          const assetName = isSound ? path.split('/').pop()?.replace('.mp3', '') : path;
-          let cached = db ? await getCachedAsset(db, path) : null;
-          
-          if (cached) {
-            if (isSound) await preloadAudio(assetName!, await cached.arrayBuffer());
-            else window.assetMap.set(path, URL.createObjectURL(cached));
-          } else {
-            const res = await fetch(path);
-            if (res.ok) {
-              const blob = await res.blob();
-              if (db) await cacheAsset(db, path, blob);
-              if (isSound) await preloadAudio(assetName!, await blob.arrayBuffer());
-              else window.assetMap.set(path, URL.createObjectURL(blob));
+      // Chunked loading to prevent network congestion
+      const CHUNK_SIZE = 32;
+      for (let i = 0; i < totalResourcePaths.length; i += CHUNK_SIZE) {
+        const chunk = totalResourcePaths.slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map(async (path) => {
+          try {
+            const isSound = path.endsWith('.mp3');
+            const assetName = isSound ? path.split('/').pop()?.replace('.mp3', '') : path;
+            let cached = db ? await getCachedAsset(db, path) : null;
+            
+            if (cached) {
+              if (isSound) await preloadAudio(assetName!, await cached.arrayBuffer());
+              else window.assetMap.set(path, URL.createObjectURL(cached));
+            } else {
+              const res = await fetch(path);
+              if (res.ok) {
+                const blob = await res.blob();
+                if (db) await cacheAsset(db, path, blob);
+                if (isSound) await preloadAudio(assetName!, await blob.arrayBuffer());
+                else window.assetMap.set(path, URL.createObjectURL(blob));
+              }
             }
+          } catch (e) {
+            console.warn(`Failed to load asset: ${path}`, e);
+          } finally { 
+            setLoadProgress(prev => prev + 1); 
           }
-        } catch (e) {
-          console.warn(`Failed to load asset: ${path}`, e);
-        } finally { 
-          setLoadProgress(prev => prev + 1); 
-        }
-      }));
+        }));
+      }
       
+      clearTimeout(timeoutId);
       setLoading(false);
     };
     loadAll();
   }, []);
 
+  const handleLogin = (username: string, password: string) => {
+    const res = loginUser(username, password);
+    if (res.success) {
+      setCurrentUser(username);
+      setPlayer(loadUserData(username));
+      setHistory(loadUserHistory(username));
+      setView('HOME');
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleRegister = (username: string, password: string) => {
+    const res = registerUser(username, password);
+    if (res.success) {
+      // Auto login after register
+      setCurrentUser(username);
+      setPlayer(loadUserData(username));
+      setHistory(loadUserHistory(username));
+      setView('HOME');
+    } else {
+      alert(res.message);
+    }
+  };
+
   const resetProgress = () => {
-    if (window.confirm('确定要重置所有进度吗？')) {
+    if (window.confirm('确定要重置当前角色的进度吗？')) {
       resumeAudio();
       playUISound('CLICK');
-      setPlayer(INITIAL_DATA);
-      localStorage.removeItem('qfight_save');
-      localStorage.removeItem('qfight_history');
-      setHistory([]);
+      if (currentUser) {
+        const newData = { ...INITIAL_DATA, name: currentUser };
+        setPlayer(newData);
+        setHistory([]);
+        saveUserData(currentUser, newData);
+        saveUserHistory(currentUser, []);
+      }
       setView('HOME');
     }
   };
@@ -232,6 +253,9 @@ const App: React.FC = () => {
     if (record.rewards) {
       const { gold, exp } = record.rewards;
       const isWin = record.winner === 'P';
+      
+      playSFX(isWin ? 'battle_win' : 'battle_loss');
+      
       setBattleResult({ isWin, gold, exp });
       let newExp = player.exp + exp;
       let nextLvlThreshold = player.level * 100;
@@ -243,12 +267,26 @@ const App: React.FC = () => {
 
   if (loading) return <LoadingScreen progress={loadProgress} total={totalAssets} />;
 
+  if (view === 'LOGIN') {
+    return <LoginScreen onLogin={handleLogin} onRegister={handleRegister} />;
+  }
+
   return (
     <div className={`${view === 'TEST' ? config.layout.maxWidthTest : config.layout.maxWidthHome} mx-auto ${config.layout.paddingMobile} ${config.layout.paddingPC} min-h-screen font-sans text-gray-800 transition-all duration-500`}>
       <header className="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 gap-3">
-        <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Q-Fight Master</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-orange-600 cursor-pointer" onClick={() => {playUISound('CLICK'); setView('HOME');}}>Q-Fight Master</h1>
+          {currentUser && <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">User: {currentUser}</span>}
+        </div>
         
         <div className="flex flex-wrap items-center justify-center gap-2">
+          <button onClick={() => { 
+            if(window.confirm('确定要退出登录吗？')) { 
+              setCurrentUser(null); 
+              setPlayer(INITIAL_DATA); 
+              setView('LOGIN'); 
+            } 
+          }} className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-black uppercase border border-slate-200 hover:bg-slate-200 transition-colors">退出</button>
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
           <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
