@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CharacterData, Friend } from '../types';
-import FriendCard from './FriendCard';
+import { CharacterData } from '../types';
 import { getCurrentUser, getAllServerPlayers } from '../utils/storage';
 
 interface FriendListProps {
   player: CharacterData;
   onBack: () => void;
-  onChallenge: (friend: Friend) => void;
-  onAddFriend: (friend: Friend) => void;
-  onRemoveFriend: (id: string) => void;
+  onChallenge: (player: CharacterData & { id: string, account_id?: number }) => void;
+  // 移除结交/断交相关的props
 }
 
-const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge, onAddFriend, onRemoveFriend }) => {
+const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge }) => {
   const [allPlayers, setAllPlayers] = useState<CharacterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,13 +95,8 @@ const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge, on
     }
   };
 
-  // 判断是否已是好友
-  const isFriend = (friendId: string) => {
-    return player.friends?.some(f => f.id === friendId || f.name === friendId) || false;
-  };
-
-  // 生成唯一ID
-  const generateFriendId = (playerData: CharacterData) => {
+  // 生成唯一ID（用于列表key，保留基础功能）
+  const generatePlayerId = (playerData: CharacterData) => {
     return (playerData as any).account_id?.toString() || 
            `${playerData.name}_${Math.floor(Math.random() * 1000)}`;
   };
@@ -154,72 +147,54 @@ const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge, on
               <p className="text-xs text-slate-300 mt-2">请稍候</p>
             </div>
           ) : allPlayers.length > 0 ? (
-            // 玩家卡片
+            // 玩家卡片（移除结交/断交按钮）
             allPlayers.map((p) => {
-              const friendData: Friend = {
-                id: generateFriendId(p),
+              const playerId = generatePlayerId(p);
+              // 构建切磋所需的玩家数据
+              const challengePlayerData = {
+                ...p,
+                id: playerId,
+                account_id: (p as any).account_id,
                 name: p.name || '无名侠客',
                 level: p.level || 1,
-                avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${p.name || Math.random()}`,
-                hp: p.maxHp || 300,
                 maxHp: p.maxHp || 300,
                 str: p.str || 5,
                 agi: p.agi || 5,
                 spd: p.spd || 5,
-                weapons: p.weapons || [],
-                skills: p.skills || [],
-                dressing: p.dressing || { HEAD: "", BODY: "", WEAPON: "" },
-                account_id: (p as any).account_id,
               };
-
-              const alreadyFriend = isFriend(friendData.id);
 
               return (
                 <div 
-                  key={friendData.id} 
+                  key={playerId} 
                   className="bg-slate-50 rounded-2xl p-4 border-2 border-slate-100 hover:border-emerald-200 transition-all"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <img 
-                      src={friendData.avatar} 
-                      alt={friendData.name} 
+                      src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${p.name || Math.random()}`} 
+                      alt={p.name || '无名侠客'} 
                       className="w-12 h-12 rounded-full bg-white border border-slate-200"
                     />
                     <div>
-                      <div className="font-black text-slate-700 truncate">{friendData.name}</div>
-                      <div className="text-xs font-bold text-slate-400">Lv.{friendData.level}</div>
+                      <div className="font-black text-slate-700 truncate">{p.name || '无名侠客'}</div>
+                      <div className="text-xs font-bold text-slate-400">Lv.{p.level || 1}</div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2 mb-4">
+                  {/* 仅保留切磋按钮 */}
+                  <div className="grid grid-cols-1 gap-2 mb-4">
                     <button 
-                      onClick={() => onChallenge(friendData)}
-                      className="bg-orange-500 text-white py-2 rounded-lg text-xs font-black hover:bg-orange-600 active:scale-95 transition-all"
+                      onClick={() => onChallenge(challengePlayerData)}
+                      className="bg-orange-500 text-white py-2 rounded-lg text-xs font-black hover:bg-orange-600 active:scale-95 transition-all w-full"
                     >
                       ⚔️ 切磋
                     </button>
-                    {alreadyFriend ? (
-                      <button 
-                        onClick={() => onRemoveFriend(friendData.id)}
-                        className="bg-rose-100 text-rose-500 py-2 rounded-lg text-xs font-black hover:bg-rose-200 active:scale-95 transition-all"
-                      >
-                        💔 断交
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => onAddFriend(friendData)}
-                        className="bg-emerald-500 text-white py-2 rounded-lg text-xs font-black hover:bg-emerald-600 active:scale-95 transition-all"
-                      >
-                        🤝 结交
-                      </button>
-                    )}
                   </div>
                   
                   <div className="flex justify-between text-[10px] font-mono text-slate-400 bg-white p-2 rounded-lg">
-                    <span>HP:{friendData.maxHp}</span>
-                    <span>STR:{friendData.str}</span>
-                    <span>AGI:{friendData.agi}</span>
-                    <span>SPD:{friendData.spd}</span>
+                    <span>HP:{p.maxHp || 300}</span>
+                    <span>STR:{p.str || 5}</span>
+                    <span>AGI:{p.agi || 5}</span>
+                    <span>SPD:{p.spd || 5}</span>
                   </div>
                 </div>
               );

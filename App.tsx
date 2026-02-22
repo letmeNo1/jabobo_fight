@@ -487,9 +487,7 @@ const App: React.FC = () => {
       {view === 'FRIENDS' && <FriendList 
         player={player} 
         onBack={() => {playUISound('CLICK'); setView('HOME');}} 
-        onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} 
-        onAddFriend={(f) => savePlayerData({...player, friends: [f, ...player.friends]})} 
-        onRemoveFriend={(id) => savePlayerData({...player, friends: player.friends.filter(f => f.id !== id)})} 
+        onChallenge={(f) => startBattle({ ...f, hp: f.maxHp, maxHp: f.maxHp }, 'DUEL')} 
       />}
       {view === 'DRESSING' && <DressingRoom player={player} setPlayer={savePlayerData} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
       {view === 'SKILLS' && <SkillList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}

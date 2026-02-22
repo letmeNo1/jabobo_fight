@@ -176,18 +176,18 @@ export const login = async (req: LoginRequest): Promise<LoginResponse> => {
 };
 
 /**
- * 注册接口
+ * 注册接口（完全开放，无需管理员权限）
  * @param req 注册参数
  * @returns 注册响应
  */
 export const register = async (req: RegisterRequest): Promise<RegisterResponse> => {
-  const currentUser = getCurrentUser();
-  if (!currentUser) throw new Error('仅管理员可注册新用户，请先以管理员身份登录');
-  
-  // 注册请求：携带管理员信息 + 新用户信息
+  // 移除管理员权限校验：不再检查当前登录用户
+  // 直接传递用户输入的注册信息给后端
   const requestBody = {
-    username: currentUser.username, // 管理员用户名（权限校验）
-    ...req // 新用户信息
+    username: req.username,
+    password: req.password,
+    player_name: req.player_name || '乐斗小豆', // 默认角色名
+    role: req.role || 'Player' // 默认普通玩家角色
   };
   
   const data = await request<RegisterResponse>('/auth/register', {
