@@ -12,10 +12,13 @@ import RedeemCode from './components/RedeemCode';
 import BattleHistory from './components/BattleHistory';
 import GrandmasterChallenge from './components/GrandmasterChallenge';
 import LoginScreen from './components/LoginScreen';
+import AdminPanel from './components/AdminPanel'; // 管理员面板
+
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playSFX, playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import { calculateTotalCP } from './utils/combatPower';
 import { simulateBattle } from './utils/combatEngine';
+
 import { 
   loadUserData, saveUserData, loadUserHistory, saveUserHistory, 
   INITIAL_DATA, login, register, getCurrentUser, logout 
@@ -37,8 +40,8 @@ const App: React.FC = () => {
   // 玩家数据
   const [player, setPlayer] = useState<CharacterData>(INITIAL_DATA || {} as any);
   const [history, setHistory] = useState<BattleRecord[]>([]);
-  // 页面视图
-  const [view, setView] = useState<'LOGIN' | 'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE'>('LOGIN');
+  // 页面视图（🌟 保留 ADMIN 类型）
+  const [view, setView] = useState<'LOGIN' | 'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE' | 'ADMIN'>('LOGIN');
   // 战斗相关
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
   const [isExplicitReplay, setIsExplicitReplay] = useState(false);
@@ -48,6 +51,10 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
+  
+  // 🌟 修复：正确判断管理员权限（基于登录用户的 role，而非 player 数据）
+  const userInfo = getCurrentUser();
+  const isAdmin = userInfo?.role === 'Admin';
 
   const totalCP = player ? calculateTotalCP(player) : 0;
 
@@ -385,6 +392,19 @@ const App: React.FC = () => {
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
           <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
+          {/* 🌟 管理员专属按钮（仅 Admin 可见） */}
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                playUISound('CLICK');
+                setView('ADMIN'); // 切换到管理员视图
+                console.log('切换到管理员面板，当前用户:', userInfo); // 调试日志
+              }}
+              className="text-[10px] bg-red-50 text-red-600 px-3 py-1 rounded-full font-black uppercase border border-red-100 hover:bg-red-200 transition-colors"
+            >
+              管理员控制台
+            </button>
+          )}
           <div className="flex items-center space-x-3 text-sm font-black ml-2">
             <span className="text-slate-600">💰 {player.gold}</span>
             <span className="text-slate-600">✨ Lv.{player.level}</span>
@@ -393,6 +413,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {/* 战斗结果弹窗 */}
       {battleResult && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[300] p-4 backdrop-blur-md">
           <div className={`bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl border-t-[10px] animate-popIn ${battleResult.isWin ? 'border-orange-500' : 'border-slate-50'}`}>
@@ -412,6 +433,18 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* 🌟 核心修复：添加 ADMIN 视图渲染逻辑 */}
+      {view === 'ADMIN' && (
+        <AdminPanel 
+          onBack={() => {
+            playUISound('CLICK');
+            setView('HOME'); // 返回首页
+          }} 
+          currentAccountId={currentAccountId}
+        />
+      )}
+
+      {/* 首页视图 */}
       {view === 'HOME' && (
         <div className="flex flex-col md:grid md:grid-cols-2 gap-8 animate-popIn">
           <Profile player={player} />
@@ -430,14 +463,17 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* 战斗视图 */}
       {view === 'COMBAT' && activeRecord && (
         <Combat record={activeRecord} isReplay={isExplicitReplay} onFinish={(rec) => onBattleFinished(rec)} />
       )}
       
+      {/* 战斗记录视图 */}
       {view === 'HISTORY' && (
         <BattleHistory history={history} onPlay={(rec) => { setIsExplicitReplay(true); setActiveRecord(rec); setView('COMBAT'); }} onBack={() => {playUISound('CLICK'); setView('HOME');}} />
       )}
 
+      {/* 大师挑战赛视图 */}
       {view === 'CHALLENGE' && (
         <GrandmasterChallenge 
           playerLevel={player.level} 
@@ -446,6 +482,7 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* 其他视图 */}
       {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
       {view === 'FRIENDS' && <FriendList 
         player={player} 

@@ -63,6 +63,7 @@ export interface CharacterData {
   name: string;
   level: number;
   exp: number;
+  role: 'Player' | 'Admin';
   gold: number;
   str: number;
   agi: number;
@@ -84,6 +85,7 @@ export interface Friend {
   agi: number;
   spd: number;
   avatar: string;
+  account_id?: number; // 新增：可选字段，兼容后端返回的账号ID
   hp: number;
   maxHp: number;
   weapons: string[];
