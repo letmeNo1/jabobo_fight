@@ -83,7 +83,9 @@ export interface Friend {
   str: number;
   agi: number;
   spd: number;
+  avatar: string;
   hp: number;
+  maxHp: number;
   weapons: string[];
   skills: string[];
   dressing: { HEAD: string; BODY: string; WEAPON: string; };

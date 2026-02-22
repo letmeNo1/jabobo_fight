@@ -34,11 +34,11 @@ export const WEAPONS: Weapon[] = [
 
 export const SKILLS: Skill[] = [
   // Base Stats
-  { id: 's1', name: '天生大力', category: SkillCategory.BASE_STAT, description: '力量+5' },
-  { id: 's2', name: '身手敏捷', category: SkillCategory.BASE_STAT, description: '敏捷+5' },
-  { id: 's3', name: '快人一步', category: SkillCategory.BASE_STAT, description: '速度+5' },
-  { id: 's4', name: '强健身躯', category: SkillCategory.BASE_STAT, description: '生命值上限+20' },
-  { id: 's5', name: '均衡发展', category: SkillCategory.BASE_STAT, description: '力量/敏捷/速度各+2' },
+  { id: 's1', name: '天生大力', category: SkillCategory.BASE_STAT, description: '每次升级力量提升增加30%' },
+  { id: 's2', name: '身手敏捷', category: SkillCategory.BASE_STAT, description: '每次升级敏捷提升增加30%' },
+  { id: 's3', name: '快人一步', category: SkillCategory.BASE_STAT, description: '每次升级速度提升增加30%' },
+  { id: 's4', name: '强健身躯', category: SkillCategory.BASE_STAT, description: '每次升级生命值提升增加30%' },
+  { id: 's5', name: '均衡发展', category: SkillCategory.BASE_STAT, description: '每次升级全属性提升增加10%' },
   // Passive
   { id: 's6', name: '武器好手', category: SkillCategory.PASSIVE, description: '武器伤害+20%' },
   { id: 's7', name: '肉搏好手', category: SkillCategory.PASSIVE, description: '空手伤害+20%' },

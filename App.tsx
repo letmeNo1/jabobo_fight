@@ -18,7 +18,7 @@ import { calculateTotalCP } from './utils/combatPower';
 import { simulateBattle } from './utils/combatEngine';
 import { 
   loadUserData, saveUserData, loadUserHistory, saveUserHistory, 
-  loginUser, registerUser, INITIAL_DATA 
+  INITIAL_DATA, login, register, getCurrentUser, logout 
 } from './utils/storage';
 import config from './config';
 
@@ -29,33 +29,62 @@ declare global {
 }
 
 const App: React.FC = () => {
+  // 登录加载状态
+  const [authLoading, setAuthLoading] = useState(false);
+  // 用户信息
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentAccountId, setCurrentAccountId] = useState<number | null>(null);
+  // 玩家数据
   const [player, setPlayer] = useState<CharacterData>(INITIAL_DATA || {} as any);
   const [history, setHistory] = useState<BattleRecord[]>([]);
-
+  // 页面视图
   const [view, setView] = useState<'LOGIN' | 'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE'>('LOGIN');
+  // 战斗相关
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
   const [isExplicitReplay, setIsExplicitReplay] = useState(false);
   const [battleResult, setBattleResult] = useState<{ isWin: boolean; gold: number; exp: number } | null>(null);
   const [levelUpResults, setLevelUpResults] = useState<string[]>([]);
+  // 资源加载
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
 
   const totalCP = player ? calculateTotalCP(player) : 0;
 
-  useEffect(() => {
-    if (currentUser) {
-      saveUserData(currentUser, player);
-    }
-  }, [player, currentUser]);
+  // 🌟 核心修复1：移除 player 变化自动保存（避免打开界面就更新数据）
+  // 改为：只有主动修改数据时才调用 saveUserData
 
+  // 🌟 核心修复2：history 变化仅本地暂存，主动保存时才同步到后端
   useEffect(() => {
-    if (currentUser) {
-      saveUserHistory(currentUser, history);
-    }
+    const saveHistoryData = async () => {
+      if (currentUser && history.length > 0) {
+        await saveUserHistory(currentUser, history);
+      }
+    };
+    // 仅在 history 有数据且用户登录时，延迟保存（避免频繁请求）
+    const timer = setTimeout(() => saveHistoryData(), 1000);
+    return () => clearTimeout(timer);
   }, [history, currentUser]);
 
+  // 🌟 核心修复3：页面加载/登录后，只执行「获取数据」逻辑，不执行更新
+  useEffect(() => {
+    const restoreLoginState = async () => {
+      const userInfo = getCurrentUser();
+      if (userInfo) {
+        setCurrentUser(userInfo.username);
+        setCurrentAccountId(userInfo.account_id);
+        // 仅获取数据，不修改、不更新
+        const playerData = await loadUserData(userInfo.account_id);
+        setPlayer(playerData);
+        const historyData = await loadUserHistory(userInfo.username);
+        setHistory(historyData);
+        setView('HOME');
+      }
+    };
+    restoreLoginState();
+  }, []);
+
+  // 资源预加载逻辑（保留不变）
   useEffect(() => {
     window.assetMap = new Map<string, string>();
     const assetBase = 'Images/';
@@ -68,7 +97,6 @@ const App: React.FC = () => {
     const coreImages = ['character.png'];
     const animationImages: string[] = [];
     
-    // 生成全量动画帧列表
     Object.entries(stateConfigs).forEach(([prefix, count]) => {
       for (let i = 1; i <= count; i++) {
         animationImages.push(`${prefix}${i}.png`);
@@ -77,7 +105,6 @@ const App: React.FC = () => {
       }
     });
 
-    // 预加载所有飞行道具
     WEAPONS.forEach(w => {
       animationImages.push(`${w.id}_throw.png`); 
       animationImages.push(`${w.id}_projectile.png`); 
@@ -104,7 +131,6 @@ const App: React.FC = () => {
     setTotalAssets(totalResourcePaths.length);
 
     const loadAll = async () => {
-      // Fallback timeout extended to 60s
       const timeoutId = setTimeout(() => {
         console.warn("Asset loading timed out");
         setLoading(false);
@@ -113,7 +139,6 @@ const App: React.FC = () => {
       let db = null;
       try { db = await initDB(); } catch (e) {}
       
-      // Chunked loading to prevent network congestion
       const CHUNK_SIZE = 32;
       for (let i = 0; i < totalResourcePaths.length; i += CHUNK_SIZE) {
         const chunk = totalResourcePaths.slice(i, i + CHUNK_SIZE);
@@ -149,41 +174,69 @@ const App: React.FC = () => {
     loadAll();
   }, []);
 
-  const handleLogin = (username: string, password: string) => {
-    const res = loginUser(username, password);
-    if (res.success) {
+  // 🌟 新增：主动保存玩家数据的函数（只有修改数据时才调用）
+  const savePlayerData = async (newPlayerData: CharacterData) => {
+    if (currentUser && currentAccountId) {
+      await saveUserData(newPlayerData, currentAccountId);
+    }
+    setPlayer(newPlayerData);
+  };
+
+  // 登录逻辑（仅获取数据，不更新）
+  const handleLogin = async (username: string, password: string) => {
+    setAuthLoading(true);
+    try {
+      const loginRes = await login({ username, password });
       setCurrentUser(username);
-      setPlayer(loadUserData(username));
-      setHistory(loadUserHistory(username));
+      setCurrentAccountId(loginRes.account_id);
+      // 仅获取数据
+      const playerData = await loadUserData(loginRes.account_id);
+      setPlayer(playerData);
+      const historyData = await loadUserHistory(username);
+      setHistory(historyData);
       setView('HOME');
-    } else {
-      alert(res.message);
+    } catch (error) {
+      alert((error as Error).message || '登录失败，请检查账号密码');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  const handleRegister = (username: string, password: string) => {
-    const res = registerUser(username, password);
-    if (res.success) {
-      // Auto login after register
+  // 注册逻辑（仅初始化数据，不重复更新）
+  const handleRegister = async (username: string, password: string) => {
+    setAuthLoading(true);
+    try {
+      const registerRes = await register({ 
+        username, 
+        password, 
+        player_name: username,
+        role: 'Player'
+      });
       setCurrentUser(username);
-      setPlayer(loadUserData(username));
-      setHistory(loadUserHistory(username));
+      setCurrentAccountId(registerRes.account_id);
+      // 仅获取初始化数据
+      const playerData = await loadUserData(registerRes.account_id);
+      setPlayer(playerData);
+      setHistory([]);
       setView('HOME');
-    } else {
-      alert(res.message);
+    } catch (error) {
+      alert((error as Error).message || '注册失败，账号已存在');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  const resetProgress = () => {
+  // 重置进度（主动修改数据时才保存）
+  const resetProgress = async () => {
     if (window.confirm('确定要重置当前角色的进度吗？')) {
       resumeAudio();
       playUISound('CLICK');
-      if (currentUser) {
+      if (currentUser && currentAccountId) {
         const newData = { ...INITIAL_DATA, name: currentUser };
-        setPlayer(newData);
+        // 主动保存修改后的数据
+        await savePlayerData(newData);
+        await saveUserHistory(currentUser, []);
         setHistory([]);
-        saveUserData(currentUser, newData);
-        saveUserHistory(currentUser, []);
       }
       setView('HOME');
     }
@@ -198,19 +251,45 @@ const App: React.FC = () => {
     }
   };
 
+  // 升级逻辑（主动修改数据，调用保存函数）
   const handleLevelUp = (currentData: CharacterData) => {
     playUISound('LEVEL_UP');
     const nextLvl = currentData.level + 1;
     const results: string[] = [`恭喜！你升到了等级 ${nextLvl}！`];
-    let newData = { ...currentData, level: nextLvl, exp: 0, maxHp: 290 + nextLvl * 10 };
+    
+    let hpGain = 10;
+    if (currentData.skills.includes('s4')) hpGain = Math.floor(hpGain * 1.3);
+    if (currentData.skills.includes('s5')) hpGain = Math.floor(hpGain * 1.3);
+    
+    let newData = { ...currentData, level: nextLvl, exp: 0, maxHp: currentData.maxHp + hpGain };
+    results.push(`生命上限 +${hpGain}`);
+
     const stats = ['str', 'agi', 'spd'] as const;
+    const statNames = { str: '力量', agi: '敏捷', spd: '速度' };
     const randomStat = stats[Math.floor(Math.random() * stats.length)];
-    newData[randomStat] += 1;
-    results.push(`基础属性加成已应用。`);
-    setPlayer(newData);
+    
+    let statGain = 1;
+    let extraChance = 0;
+    
+    if (randomStat === 'str' && currentData.skills.includes('s1')) extraChance += 0.3;
+    if (randomStat === 'agi' && currentData.skills.includes('s2')) extraChance += 0.3;
+    if (randomStat === 'spd' && currentData.skills.includes('s3')) extraChance += 0.3;
+    if (currentData.skills.includes('s5')) extraChance += 0.3;
+
+    if (Math.random() < extraChance) {
+      statGain += 1;
+      results.push(`天赋触发！额外获得属性点！`);
+    }
+    
+    newData[randomStat] += statGain;
+    results.push(`${statNames[randomStat]} +${statGain}`);
+    
+    // 主动保存升级后的数据
+    savePlayerData(newData);
     setLevelUpResults(results);
   };
 
+  // 开始战斗逻辑
   const startBattle = (opponent: FighterSnapshot, modeName: string) => {
     resumeAudio();
     playUISound('CLICK');
@@ -225,6 +304,7 @@ const App: React.FC = () => {
     setView('COMBAT');
   };
 
+  // 生成对手
   const generateEliteOpponent = (): FighterSnapshot => {
     const lvl = player.level + 2;
     return {
@@ -245,6 +325,7 @@ const App: React.FC = () => {
     };
   };
 
+  // 战斗结束逻辑（主动保存战斗后的数据）
   const onBattleFinished = (record: BattleRecord) => {
     if (isExplicitReplay) {
       setView('HISTORY');
@@ -260,15 +341,35 @@ const App: React.FC = () => {
       let newExp = player.exp + exp;
       let nextLvlThreshold = player.level * 100;
       let tempPlayer = { ...player, gold: player.gold + gold, exp: newExp };
-      if (newExp >= nextLvlThreshold) handleLevelUp(tempPlayer);
-      else setPlayer(tempPlayer);
+      
+      if (newExp >= nextLvlThreshold) {
+        handleLevelUp(tempPlayer);
+      } else {
+        // 主动保存战斗后的数据
+        savePlayerData(tempPlayer);
+      }
+    }
+  };
+
+  // 退出登录
+  const handleLogout = () => {
+    if (window.confirm('确定要退出登录吗？')) {
+      logout();
+      setCurrentUser(null);
+      setCurrentAccountId(null);
+      setPlayer(INITIAL_DATA);
+      setView('LOGIN');
     }
   };
 
   if (loading) return <LoadingScreen progress={loadProgress} total={totalAssets} />;
 
   if (view === 'LOGIN') {
-    return <LoginScreen onLogin={handleLogin} onRegister={handleRegister} />;
+    return <LoginScreen 
+      onLogin={handleLogin} 
+      onRegister={handleRegister} 
+      loading={authLoading} 
+    />;
   }
 
   return (
@@ -280,16 +381,10 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <button onClick={() => { 
-            if(window.confirm('确定要退出登录吗？')) { 
-              setCurrentUser(null); 
-              setPlayer(INITIAL_DATA); 
-              setView('LOGIN'); 
-            } 
-          }} className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-black uppercase border border-slate-200 hover:bg-slate-200 transition-colors">退出</button>
+          <button onClick={handleLogout} className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-black uppercase border border-slate-200 hover:bg-slate-200 transition-colors">退出</button>
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
-          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
+          <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
           <div className="flex items-center space-x-3 text-sm font-black ml-2">
             <span className="text-slate-600">💰 {player.gold}</span>
             <span className="text-slate-600">✨ Lv.{player.level}</span>
@@ -331,7 +426,7 @@ const App: React.FC = () => {
             </div>
             <button onClick={() => {playUISound('CLICK'); setView('HISTORY');}} className="w-full bg-indigo-500 text-white py-4 rounded-xl text-lg font-black italic tracking-widest hover:bg-indigo-600 transition-all active:scale-95">📜 战报回放</button>
           </div>
-          <RedeemCode player={player} setPlayer={setPlayer} />
+          <RedeemCode player={player} setPlayer={savePlayerData} />
         </div>
       )}
 
@@ -352,8 +447,14 @@ const App: React.FC = () => {
       )}
 
       {view === 'TEST' && <TestPanel player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
-      {view === 'FRIENDS' && <FriendList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} onAddFriend={(f) => setPlayer(p => ({...p, friends: [f, ...p.friends]}))} onRemoveFriend={(id) => setPlayer(p => ({...p, friends: p.friends.filter(f => f.id !== id)}))} />}
-      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={setPlayer} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
+      {view === 'FRIENDS' && <FriendList 
+        player={player} 
+        onBack={() => {playUISound('CLICK'); setView('HOME');}} 
+        onChallenge={(f) => startBattle({ ...f, hp: f.hp, maxHp: f.hp }, 'DUEL')} 
+        onAddFriend={(f) => savePlayerData({...player, friends: [f, ...player.friends]})} 
+        onRemoveFriend={(id) => savePlayerData({...player, friends: player.friends.filter(f => f.id !== id)})} 
+      />}
+      {view === 'DRESSING' && <DressingRoom player={player} setPlayer={savePlayerData} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
       {view === 'SKILLS' && <SkillList player={player} onBack={() => {playUISound('CLICK'); setView('HOME');}} />}
     </div>
   );

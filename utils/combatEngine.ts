@@ -32,23 +32,12 @@ interface FighterState extends FighterSnapshot {
 
 // 应用开局被动技能加成
 const applyPassiveStats = (fighter: FighterState) => {
-  // s1: 天生大力 (+5 Str)
-  if (fighter.skills.includes('s1')) fighter.str += 5;
-  // s2: 身手敏捷 (+5 Agi)
-  if (fighter.skills.includes('s2')) fighter.agi += 5;
-  // s3: 快人一步 (+5 Spd)
-  if (fighter.skills.includes('s3')) fighter.spd += 5;
-  // s4: 强健身躯 (+20 HP)
-  if (fighter.skills.includes('s4')) {
-    fighter.maxHp += 20;
-    fighter.hp += 20;
-  }
-  // s5: 均衡发展 (+2 All)
-  if (fighter.skills.includes('s5')) {
-    fighter.str += 2;
-    fighter.agi += 2;
-    fighter.spd += 2;
-  }
+  // s1-s5 are now growth skills handled in level up
+  // s1: 天生大力 (Growth)
+  // s2: 身手敏捷 (Growth)
+  // s3: 快人一步 (Growth)
+  // s4: 强健身躯 (Growth)
+  // s5: 均衡发展 (Growth)
 };
 
 export const simulateBattle = (player: CharacterData, opponent: FighterSnapshot): BattleRecord => {

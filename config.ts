@@ -68,6 +68,10 @@ export const config = {
       "projectileBottomMobile": "20%",
       "testProjectileBottomPC": "50%",
       "testProjectileBottomMobile": "45%"
+    },
+    "api": {
+      port: 8009, // 战斗结算/战斗记录接口的端口
+      timeout: 5000 // 战斗接口请求超时时间（ms）
     }
   },
   "visuals": {
