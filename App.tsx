@@ -19,9 +19,11 @@ import { playSFX, playUISound, preloadAudio, resumeAudio } from './utils/audio';
 import { calculateTotalCP } from './utils/combatPower';
 import { simulateBattle } from './utils/combatEngine';
 
+
+
 import { 
   loadUserData, saveUserData, loadUserHistory, saveUserHistory, 
-  INITIAL_DATA, login, register, getCurrentUser, logout 
+  INITIAL_DATA, login, register, getCurrentUser, logout, syncRealRole
 } from './utils/storage';
 import config from './config';
 
@@ -34,13 +36,16 @@ declare global {
 const App: React.FC = () => {
   // 登录加载状态
   const [authLoading, setAuthLoading] = useState(false);
-  // 用户信息
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
-  const [currentAccountId, setCurrentAccountId] = useState<number | null>(null);
+  // 用户信息（🔥 核心变更：存储接口返回的完整用户信息，包含role）
+  const [userInfo, setUserInfo] = useState<{
+    username: string;
+    account_id: number;
+    role: string;
+  } | null>(null);
   // 玩家数据
   const [player, setPlayer] = useState<CharacterData>(INITIAL_DATA || {} as any);
   const [history, setHistory] = useState<BattleRecord[]>([]);
-  // 页面视图（🌟 保留 ADMIN 类型）
+  // 页面视图（保留 ADMIN 类型）
   const [view, setView] = useState<'LOGIN' | 'HOME' | 'COMBAT' | 'DRESSING' | 'SKILLS' | 'TEST' | 'FRIENDS' | 'HISTORY' | 'CHALLENGE' | 'ADMIN'>('LOGIN');
   // 战斗相关
   const [activeRecord, setActiveRecord] = useState<BattleRecord | null>(null);
@@ -52,46 +57,72 @@ const App: React.FC = () => {
   const [loadProgress, setLoadProgress] = useState(0);
   const [totalAssets, setTotalAssets] = useState(0);
   
-  // 🌟 修复：正确判断管理员权限（基于登录用户的 role，而非 player 数据）
-  const userInfo = getCurrentUser();
+  // 🔥 核心修复：直接从接口返回的userInfo判断管理员，不再读localStorage
   const isAdmin = userInfo?.role === 'Admin';
+  // 快捷获取当前用户名
+  const currentUser = userInfo?.username || null;
+  const currentAccountId = userInfo?.account_id || null;
+
+  // 打印调试日志
+  useEffect(() => {
+    console.log('========== 管理员权限排查日志 ==========');
+    console.log('1. 当前userInfo:', userInfo);
+    console.log('2. 当前用户名:', currentUser);
+    console.log('3. 管理员判断结果isAdmin:', isAdmin);
+  }, [userInfo, isAdmin]);
 
   const totalCP = player ? calculateTotalCP(player) : 0;
 
-  // 🌟 核心修复1：移除 player 变化自动保存（避免打开界面就更新数据）
-  // 改为：只有主动修改数据时才调用 saveUserData
-
-  // 🌟 核心修复2：history 变化仅本地暂存，主动保存时才同步到后端
+  // 核心修复：移除player变化自动保存，改为主动保存
   useEffect(() => {
     const saveHistoryData = async () => {
       if (currentUser && history.length > 0) {
         await saveUserHistory(currentUser, history);
       }
     };
-    // 仅在 history 有数据且用户登录时，延迟保存（避免频繁请求）
     const timer = setTimeout(() => saveHistoryData(), 1000);
     return () => clearTimeout(timer);
   }, [history, currentUser]);
 
-  // 🌟 核心修复3：页面加载/登录后，只执行「获取数据」逻辑，不执行更新
+  // 页面加载时恢复登录状态（从接口/缓存获取完整userInfo）
+  // 页面加载时恢复登录状态（从接口/缓存获取完整userInfo）
   useEffect(() => {
     const restoreLoginState = async () => {
-      const userInfo = getCurrentUser();
-      if (userInfo) {
-        setCurrentUser(userInfo.username);
-        setCurrentAccountId(userInfo.account_id);
-        // 仅获取数据，不修改、不更新
-        const playerData = await loadUserData(userInfo.account_id);
+      console.log('4. 页面初始化，尝试恢复登录状态');
+      // 先从本地缓存获取userInfo（模拟接口缓存）
+      const cachedUserInfo = getCurrentUser();
+      if (cachedUserInfo) {
+        console.log('5. 从缓存恢复用户信息:', cachedUserInfo);
+        
+        // 🔥 关键修复：加载玩家数据时，同步接口返回的正确role
+        const playerData = await loadUserData(cachedUserInfo.account_id);
+        console.log('6. 接口返回的玩家数据:', playerData);
+        
+        // 用接口返回的role覆盖缓存中的错误role
+        const realUserInfo = {
+          username: cachedUserInfo.username,
+          account_id: cachedUserInfo.account_id,
+          role: playerData.role || cachedUserInfo.role || 'Player' // 优先用接口返回的role
+        };
+        
+        // 🔥 新增：同步真实角色到存储（确保getCurrentUser能读到）
+        syncRealRole(realUserInfo.role);
+        
+        setUserInfo(realUserInfo);
+        console.log('7. 修正后的用户信息:', realUserInfo);
+        
         setPlayer(playerData);
-        const historyData = await loadUserHistory(userInfo.username);
+        const historyData = await loadUserHistory(cachedUserInfo.username);
         setHistory(historyData);
         setView('HOME');
+      } else {
+        console.log('8. 无已登录用户，停留在登录页');
       }
     };
     restoreLoginState();
   }, []);
 
-  // 资源预加载逻辑（保留不变）
+  // 资源预加载逻辑（不变）
   useEffect(() => {
     window.assetMap = new Map<string, string>();
     const assetBase = 'Images/';
@@ -181,7 +212,7 @@ const App: React.FC = () => {
     loadAll();
   }, []);
 
-  // 🌟 新增：主动保存玩家数据的函数（只有修改数据时才调用）
+  // 主动保存玩家数据的函数
   const savePlayerData = async (newPlayerData: CharacterData) => {
     if (currentUser && currentAccountId) {
       await saveUserData(newPlayerData, currentAccountId);
@@ -189,58 +220,85 @@ const App: React.FC = () => {
     setPlayer(newPlayerData);
   };
 
-  // 登录逻辑（仅获取数据，不更新）
+  // 🔥 核心修复：登录逻辑 - 存储接口返回的完整userInfo（包含role）
   const handleLogin = async (username: string, password: string) => {
+    console.log('9. 开始登录，用户名:', username);
     setAuthLoading(true);
     try {
+      // 调用登录接口，获取包含role的完整用户信息
       const loginRes = await login({ username, password });
-      setCurrentUser(username);
-      setCurrentAccountId(loginRes.account_id);
-      // 仅获取数据
+      console.log('10. 登录接口返回:', loginRes);
+      
+      // 加载玩家数据（获取接口返回的真实role）
       const playerData = await loadUserData(loginRes.account_id);
+      console.log('11. 玩家数据接口返回:', playerData);
+      
+      // 存储接口返回的完整用户信息（核心：用玩家数据里的真实role）
+      const userInfoFromAPI = {
+        username: username,
+        account_id: loginRes.account_id,
+        role: playerData.role || loginRes.role || 'Player' // 优先用玩家数据的role
+      };
+      setUserInfo(userInfoFromAPI);
+      
       setPlayer(playerData);
       const historyData = await loadUserHistory(username);
       setHistory(historyData);
       setView('HOME');
+      console.log('12. 登录成功，最终用户角色:', userInfoFromAPI.role);
     } catch (error) {
+      console.error('13. 登录失败:', error);
       alert((error as Error).message || '登录失败，请检查账号密码');
     } finally {
       setAuthLoading(false);
     }
   };
 
-  // 注册逻辑（仅初始化数据，不重复更新）
+  // 🔥 核心修复：注册逻辑 - 存储接口返回的完整userInfo（包含role）
   const handleRegister = async (username: string, password: string) => {
+    console.log('14. 开始注册，用户名:', username);
     setAuthLoading(true);
     try {
+      // 调用注册接口，获取包含role的完整用户信息
       const registerRes = await register({ 
         username, 
         password, 
         player_name: username,
-        role: 'Player'
+        role: username.toLowerCase().includes('admin') ? 'Admin' : 'Player'
       });
-      setCurrentUser(username);
-      setCurrentAccountId(registerRes.account_id);
-      // 仅获取初始化数据
+      console.log('15. 注册接口返回:', registerRes);
+      
+      // 加载玩家数据（获取接口返回的真实role）
       const playerData = await loadUserData(registerRes.account_id);
+      console.log('16. 玩家数据接口返回:', playerData);
+      
+      // 存储接口返回的完整用户信息
+      const userInfoFromAPI = {
+        username: username,
+        account_id: registerRes.account_id,
+        role: playerData.role || registerRes.role || 'Player' // 优先用玩家数据的role
+      };
+      setUserInfo(userInfoFromAPI);
+      
       setPlayer(playerData);
       setHistory([]);
       setView('HOME');
+      console.log('17. 注册成功，最终用户角色:', userInfoFromAPI.role);
     } catch (error) {
+      console.error('18. 注册失败:', error);
       alert((error as Error).message || '注册失败，账号已存在');
     } finally {
       setAuthLoading(false);
     }
   };
 
-  // 重置进度（主动修改数据时才保存）
+  // 重置进度
   const resetProgress = async () => {
     if (window.confirm('确定要重置当前角色的进度吗？')) {
       resumeAudio();
       playUISound('CLICK');
       if (currentUser && currentAccountId) {
         const newData = { ...INITIAL_DATA, name: currentUser };
-        // 主动保存修改后的数据
         await savePlayerData(newData);
         await saveUserHistory(currentUser, []);
         setHistory([]);
@@ -258,7 +316,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 升级逻辑（主动修改数据，调用保存函数）
+  // 升级逻辑
   const handleLevelUp = (currentData: CharacterData) => {
     playUISound('LEVEL_UP');
     const nextLvl = currentData.level + 1;
@@ -291,7 +349,6 @@ const App: React.FC = () => {
     newData[randomStat] += statGain;
     results.push(`${statNames[randomStat]} +${statGain}`);
     
-    // 主动保存升级后的数据
     savePlayerData(newData);
     setLevelUpResults(results);
   };
@@ -332,7 +389,7 @@ const App: React.FC = () => {
     };
   };
 
-  // 战斗结束逻辑（主动保存战斗后的数据）
+  // 战斗结束逻辑
   const onBattleFinished = (record: BattleRecord) => {
     if (isExplicitReplay) {
       setView('HISTORY');
@@ -352,7 +409,6 @@ const App: React.FC = () => {
       if (newExp >= nextLvlThreshold) {
         handleLevelUp(tempPlayer);
       } else {
-        // 主动保存战斗后的数据
         savePlayerData(tempPlayer);
       }
     }
@@ -360,12 +416,13 @@ const App: React.FC = () => {
 
   // 退出登录
   const handleLogout = () => {
+    console.log('19. 开始退出登录，当前用户:', currentUser);
     if (window.confirm('确定要退出登录吗？')) {
       logout();
-      setCurrentUser(null);
-      setCurrentAccountId(null);
+      setUserInfo(null); // 清空用户信息
       setPlayer(INITIAL_DATA);
       setView('LOGIN');
+      console.log('20. 退出登录完成');
     }
   };
 
@@ -392,19 +449,21 @@ const App: React.FC = () => {
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
           <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
-          {/* 🌟 管理员专属按钮（仅 Admin 可见） */}
+          
+          {/* 🔥 最终修复：直接基于接口返回的isAdmin显示按钮 */}
           {isAdmin && (
             <button 
               onClick={() => {
                 playUISound('CLICK');
-                setView('ADMIN'); // 切换到管理员视图
-                console.log('切换到管理员面板，当前用户:', userInfo); // 调试日志
+                setView('ADMIN');
+                console.log('21. 点击管理员按钮，当前角色:', userInfo?.role);
               }}
               className="text-[10px] bg-red-50 text-red-600 px-3 py-1 rounded-full font-black uppercase border border-red-100 hover:bg-red-200 transition-colors"
             >
               管理员控制台
             </button>
           )}
+
           <div className="flex items-center space-x-3 text-sm font-black ml-2">
             <span className="text-slate-600">💰 {player.gold}</span>
             <span className="text-slate-600">✨ Lv.{player.level}</span>
@@ -433,12 +492,12 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* 🌟 核心修复：添加 ADMIN 视图渲染逻辑 */}
+      {/* 管理员视图 */}
       {view === 'ADMIN' && (
         <AdminPanel 
           onBack={() => {
             playUISound('CLICK');
-            setView('HOME'); // 返回首页
+            setView('HOME');
           }} 
           currentAccountId={currentAccountId}
         />

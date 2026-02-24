@@ -1,4 +1,4 @@
-// api.ts - 乐斗游戏完整前端 API 封装（针对 422 dressing 错误终极修复版）
+// api.ts - 乐斗游戏完整前端 API 封装（针对 422 dressing 错误 + getCurrentUser 角色同步修复版）
 import { 
   CharacterData, 
   BattleRecord, 
@@ -11,6 +11,8 @@ import {
 // API基础地址配置（必须带/api前缀，匹配后端路由）
 const API_BASE_URL = '/api';
 const AUTH_STORAGE_KEY = 'qfight_auth';
+// 🔥 新增：存储修正后的真实角色（接口返回的Admin）
+const REAL_ROLE_STORAGE_KEY = 'qfight_real_role';
 
 /**
  * 通用请求函数（增强错误处理、类型安全）
@@ -113,18 +115,47 @@ export interface ServerPlayer extends CharacterData {
 const isValidRole = (role: string): role is 'Player' | 'Admin' => role === 'Player' || role === 'Admin';
 const safeConvertRole = (role: string): 'Player' | 'Admin' => isValidRole(role) ? role : 'Player';
 
-// ========== 1. 认证模块 (保留全部逻辑) ==========
+// ========== 1. 认证模块 (核心修复 getCurrentUser + 新增角色同步) ==========
 
+/**
+ * 🔥 核心修复：getCurrentUser 现在会优先读取修正后的真实角色
+ * @returns 包含真实角色的用户信息
+ */
 export const getCurrentUser = (): LoginResponse | null => {
   try {
     const s = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!s) return null;
+    
+    // 1. 读取原始缓存的用户信息
     const user = JSON.parse(s);
-    user.role = safeConvertRole(user.role || 'Player');
+    // 2. 读取修正后的真实角色（App.tsx中从接口获取的Admin）
+    const realRole = localStorage.getItem(REAL_ROLE_STORAGE_KEY);
+    
+    // 3. 优先使用真实角色，没有则用原始角色
+    user.role = realRole ? safeConvertRole(realRole) : safeConvertRole(user.role || 'Player');
+    
+    console.log('[getCurrentUser] 原始角色:', user.role, '| 真实角色:', realRole || '无');
     return user as LoginResponse;
   } catch (error) {
+    console.error('[getCurrentUser] 解析失败:', error);
     return null;
   }
+};
+
+/**
+ * 🔥 新增：同步接口返回的真实角色到本地存储
+ * @param role 接口返回的真实角色（Admin/Player）
+ */
+export const syncRealRole = (role: 'Player' | 'Admin') => {
+  localStorage.setItem(REAL_ROLE_STORAGE_KEY, role);
+  console.log('[syncRealRole] 同步真实角色:', role);
+};
+
+/**
+ * 🔥 新增：清除真实角色缓存（登出时调用）
+ */
+export const clearRealRole = () => {
+  localStorage.removeItem(REAL_ROLE_STORAGE_KEY);
 };
 
 export const login = async (req: LoginRequest): Promise<LoginResponse> => {
@@ -132,13 +163,14 @@ export const login = async (req: LoginRequest): Promise<LoginResponse> => {
     method: 'POST',
     body: JSON.stringify(req),
   });
+  // 登录时先存原始角色，后续由App.tsx同步真实角色
   data.role = safeConvertRole(data.role || 'Player');
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
   return data;
 };
 
 export const register = async (req: RegisterRequest): Promise<RegisterResponse> => {
-  return request<RegisterResponse>('/auth/register', {
+  const data = await request<RegisterResponse>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({
       username: req.username,
@@ -147,9 +179,22 @@ export const register = async (req: RegisterRequest): Promise<RegisterResponse> 
       role: req.role || 'Player'
     }),
   });
+  // 注册时同步存储基础用户信息
+  const loginRes: LoginResponse = {
+    account_id: data.account_id,
+    username: data.username,
+    player_id: data.player_id,
+    player_name: data.player_name,
+    role: 'Player' // 初始角色，后续由App.tsx修正
+  };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loginRes));
+  return data;
 };
 
-export const logout = () => localStorage.removeItem(AUTH_STORAGE_KEY);
+export const logout = () => {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  clearRealRole(); // 登出时清除真实角色缓存
+};
 
 // ========== 2. 玩家数据模块 (针对 422 报错的核心修正) ==========
 
@@ -209,6 +254,8 @@ export const loadUserData = async (account_id?: number): Promise<CharacterData> 
       body: JSON.stringify({ account_id: uid })
     });
     rawData.role = safeConvertRole(rawData.role || 'Player');
+    // 🔥 关键：加载数据时自动同步真实角色到存储
+    syncRealRole(rawData.role);
     // 加载时，如果 dressing 为空，恢复为 UI 需要的对象结构
     if (!rawData.dressing) {
       rawData.dressing = { HEAD: '', BODY: '', WEAPON: '' };
@@ -230,10 +277,11 @@ export const resetGameData = async (account_id?: number) => {
   });
 };
 
-// ========== 3. 管理员与社交功能 (全部保留) ==========
+// ========== 3. 管理员与社交功能 (全部保留 + 日志增强) ==========
 
 export const loadAllPlayers = async (): Promise<Player[]> => {
   const user = getCurrentUser();
+  console.log('[loadAllPlayers] 当前用户信息:', user);
   if (!user || user.role !== 'Admin') throw new Error('权限不足');
 
   const rawPlayers = await request<Player[]>('/player/all', {
@@ -249,6 +297,7 @@ export const loadAllPlayers = async (): Promise<Player[]> => {
 
 export const updatePlayerData = async (account_id: number, updateData: Partial<Player>) => {
   const user = getCurrentUser();
+  console.log('[updatePlayerData] 当前用户信息:', user);
   if (!user || user.role !== 'Admin') throw new Error('权限不足');
   
   const body = {
