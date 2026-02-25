@@ -28,6 +28,11 @@ declare global {
   }
 }
 
+// 定义本地存储的key常量（方便维护）
+const STORAGE_KEYS = {
+  CURRENT_USER: 'qfight_current_user',
+};
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [player, setPlayer] = useState<CharacterData>(INITIAL_DATA || {} as any);
@@ -44,9 +49,12 @@ const App: React.FC = () => {
 
   const totalCP = player ? calculateTotalCP(player) : 0;
 
+  // 🔥 修改1：保存用户状态到localStorage
   useEffect(() => {
     if (currentUser) {
       saveUserData(currentUser, player);
+      // 将当前登录用户保存到localStorage
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, currentUser);
     }
   }, [player, currentUser]);
 
@@ -56,7 +64,32 @@ const App: React.FC = () => {
     }
   }, [history, currentUser]);
 
+  // 🔥 修改2：初始化时自动恢复登录状态
   useEffect(() => {
+    // 先尝试从localStorage读取已登录的用户
+    const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    
+    if (savedUser) {
+      // 如果有保存的用户，自动加载用户数据
+      const loadSavedUserData = async () => {
+        try {
+          const userData = await loadUserData(savedUser);
+          const userHistory = await loadUserHistory(savedUser);
+          setCurrentUser(savedUser);
+          setPlayer(userData);
+          setHistory(userHistory);
+          setView('HOME'); // 直接跳转到首页，无需登录
+        } catch (error) {
+          console.error('加载保存的用户数据失败:', error);
+          // 加载失败时清除无效的存储状态
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+          setView('LOGIN');
+        }
+      };
+      loadSavedUserData();
+    }
+
+    // 原有资源加载逻辑（保持不变）
     window.assetMap = new Map<string, string>();
     const assetBase = 'Images/';
     const soundBase = 'Sounds/';
@@ -174,6 +207,17 @@ const App: React.FC = () => {
     }
   };
 
+  // 🔥 修改3：退出登录时清除localStorage中的登录状态
+  const handleLogout = () => {
+    if(window.confirm('确定要退出登录吗？')) { 
+      // 清除本地存储的登录状态
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      setCurrentUser(null); 
+      setPlayer(INITIAL_DATA); 
+      setView('LOGIN'); 
+    }
+  };
+
   const resetProgress = () => {
     if (window.confirm('确定要重置当前角色的进度吗？')) {
       resumeAudio();
@@ -280,13 +324,8 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <button onClick={() => { 
-            if(window.confirm('确定要退出登录吗？')) { 
-              setCurrentUser(null); 
-              setPlayer(INITIAL_DATA); 
-              setView('LOGIN'); 
-            } 
-          }} className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-black uppercase border border-slate-200 hover:bg-slate-200 transition-colors">退出</button>
+          {/* 🔥 修改4：使用新的退出登录函数 */}
+          <button onClick={handleLogout} className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-black uppercase border border-slate-200 hover:bg-slate-200 transition-colors">退出</button>
           <button onClick={clearAssetCache} className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase border border-emerald-100 hover:bg-emerald-100 transition-colors">重装素材</button>
           <button onClick={resetProgress} className="text-[10px] bg-rose-50 text-rose-500 px-3 py-1 rounded-full font-black uppercase border border-rose-100 hover:bg-rose-100 transition-colors">重置</button>
           <button onClick={() => {playUISound('CLICK'); setView('TEST');}} className="text-[10px] bg-indigo-50 text-indigo-500 px-3 py-1 rounded-full font-black uppercase border border-indigo-100 hover:bg-indigo-100 transition-colors">实验室</button>
