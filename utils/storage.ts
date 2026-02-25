@@ -15,6 +15,7 @@ export const INITIAL_DATA: CharacterData = {
   spd: 5,
   maxHp: 300,
   role: 'Player',
+  winRate:0,
   weapons: [],
   skills: [],
   dressing: { HEAD: '', BODY: '', WEAPON: '' },

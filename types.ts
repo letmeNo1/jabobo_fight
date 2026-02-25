@@ -1,4 +1,4 @@
-
+// ../types.ts（完整修正版）
 export enum WeaponType {
   LARGE = 'LARGE',
   MEDIUM = 'MEDIUM',
@@ -14,8 +14,6 @@ export enum SkillCategory {
 }
 
 export type AttackModule = 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK';
-
-// Define visual states globally
 export type VisualState = 'IDLE' | 'RUN' | 'ATTACK' | 'HURT' | 'DODGE' | 'HOME' | 'JUMP' | 'CLEAVE' | 'SLASH' | 'PIERCE' | 'SWING' | 'THROW' | 'PUNCH' | 'KICK';
 
 export interface Weapon {
@@ -44,7 +42,6 @@ export interface Skill {
   hitSfx?: string;
 }
 
-// Define Dressing interface for shop and visuals
 export interface Dressing {
   id: string;
   name: string;
@@ -59,6 +56,7 @@ export interface Dressing {
   };
 }
 
+// 核心修正：补充 win_count/lose_count 字段（后端返回）
 export interface CharacterData {
   name: string;
   username: string;
@@ -70,6 +68,9 @@ export interface CharacterData {
   agi: number;
   spd: number;
   maxHp: number;
+  winRate: number; // 前端展示用
+  win_count?: number; // 新增：后端返回的胜场（可选）
+  lose_count?: number; // 新增：后端返回的负场（可选）
   weapons: string[];
   skills: string[];
   dressing: { HEAD: string; BODY: string; WEAPON: string; };
@@ -86,7 +87,8 @@ export interface Friend {
   agi: number;
   spd: number;
   avatar: string;
-  account_id?: number; // 新增：可选字段，兼容后端返回的账号ID
+  winRate: number;
+  account_id?: number;
   hp: number;
   maxHp: number;
   weapons: string[];
@@ -100,8 +102,6 @@ export interface BattleLog {
   damage?: number;
   isCrit?: boolean;
 }
-
-// --- 战斗回放相关类型 ---
 
 export interface FighterSnapshot {
   name: string;
