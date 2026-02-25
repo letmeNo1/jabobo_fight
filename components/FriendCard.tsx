@@ -1,16 +1,16 @@
-
 import React from 'react';
 import { Friend } from '../types';
 import CharacterVisual from './CharacterVisual';
 import { calculateTotalCP } from '../utils/combatPower';
 
+// 移除 onRemove 入参
 interface FriendCardProps {
   friend: Friend;
   onChallenge: (friend: Friend) => void;
-  onRemove: (id: string) => void;
 }
 
-const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge, onRemove }) => {
+// 移除 onRemove 入参
+const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge }) => {
   const totalCP = calculateTotalCP(friend);
 
   return (
@@ -57,13 +57,7 @@ const FriendCard: React.FC<FriendCardProps> = ({ friend, onChallenge, onRemove }
         >
           切磋一下
         </button>
-        <button 
-          onClick={() => onRemove(friend.id)}
-          className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-95"
-          title="移除好友"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-        </button>
+        {/* 移除删除按钮 */}
       </div>
     </div>
   );

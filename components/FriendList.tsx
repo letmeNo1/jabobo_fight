@@ -11,8 +11,9 @@ const convertToFriend = (player: CharacterData): Friend => {
   const winRate = total > 0 ? Math.floor((winCount / total) * 100) : 50;
 
   return {
-    id: player.username || player.username || `p${Math.random().toString(36).slice(2)}`,
-    name: player.username || player.username || '未知玩家',
+    // 修复1：重复取值问题（player.username || player.username 无意义）
+    id: player.username || `p${Math.random().toString(36).slice(2)}`,
+    name: player.username || '未知玩家',
     level: player.level || 1,
     str: player.str || 5,
     agi: player.agi || 5,
@@ -50,7 +51,8 @@ const FriendList: React.FC<FriendListProps> = ({
       const res = await getAllServerPlayers();
       if (res.success && res.data) {
         const list = res.data
-          .filter(p => p.name !== player.name) // 排除自己
+          // 修复2：过滤自身时用 username 而非 name（原始数据是 username）
+          .filter(p => p.username !== player.username)
           .map(convertToFriend);
         setPlayers(list);
       } else {
@@ -95,7 +97,9 @@ const FriendList: React.FC<FriendListProps> = ({
                 key={friend.id}
                 friend={friend}
                 onChallenge={onChallenge}
+                // 修复3：注释移到属性外部，避免 JSX 解析错误
               />
+              // 移除 onRemove 传参（已删除该 Props）
             ))}
           </div>
         ) : (

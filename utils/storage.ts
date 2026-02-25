@@ -2,7 +2,7 @@
 import { CharacterData, BattleRecord } from '../types';
 
 // 环境变量 - 后端接口地址（建议在 .env 文件配置 VITE_API_BASE_URL）
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://121.41.168.85:8009';
 
 export const INITIAL_DATA: CharacterData = {
   name: '乐斗小豆',
@@ -15,7 +15,7 @@ export const INITIAL_DATA: CharacterData = {
   spd: 5,
   maxHp: 300,
   role: 'Player',
-  winRate:0,
+  winRate: 0,
   weapons: [],
   skills: [],
   dressing: { HEAD: '', BODY: '', WEAPON: '' },
@@ -142,7 +142,7 @@ export const registerUser = async (username: string, password: string): Promise<
 
   if (res.success) {
     // 正常的本地存储操作（非兜底，保留）：注册成功后同步本地数据
-    const newData = { ...INITIAL_DATA, name: username };
+    const newData = { ...INITIAL_DATA, name: username, username };
     saveUserData(username, newData);
     saveUserHistory(username, []);
     return { success: true, message: res.message || '注册成功' };
@@ -179,25 +179,35 @@ export const fetchAndSaveUserData = async (): Promise<{
   });
 
   if (res.success && res.data) {
+    // 修复1：正确映射后端字段（username → name/username）
+    // 修复2：读取后端返回的str/agi/spd，而非硬编码
+    const winCount = res.data.win_count || 0;
+    const loseCount = res.data.lose_count || 0;
+    const winRate = (winCount + loseCount) > 0 
+      ? Math.floor((winCount / (winCount + loseCount)) * 100) 
+      : 0;
+
     const userData: CharacterData = {
       ...INITIAL_DATA,
-      name: res.data.name || res.data.name, // 适配后端返回的username字段
+      name: res.data.username || '未知玩家', // 后端返回username，映射到name
+      username: res.data.username || '未知玩家', // 保留username字段
       level: res.data.level || INITIAL_DATA.level,
       gold: res.data.gold || INITIAL_DATA.gold,
       maxHp: res.data.maxHp || INITIAL_DATA.maxHp,
+      str: res.data.str || INITIAL_DATA.str, // 读取后端str
+      agi: res.data.agi || INITIAL_DATA.agi, // 读取后端agi
+      spd: res.data.spd || INITIAL_DATA.spd, // 读取后端spd
+      winRate: winRate, // 计算胜率
       weapons: res.data.weapons || [],
       skills: res.data.skills || [],
       dressing: res.data.dressing || INITIAL_DATA.dressing,
-      exp: 0,
-      str: 5,
-      agi: 5,
-      spd: 5,
+      exp: res.data.exp || 0,
       role: res.data.role || 'Player',
       unlockedDressings: [],
       isConcentrated: false,
       friends: []
     };
-    saveUserData(userData.name, userData);
+    saveUserData(userData.username, userData);
     return { success: true, data: userData };
   }
   
@@ -220,24 +230,35 @@ export const getAllServerPlayers = async (): Promise<{
   });
 
   if (res.success && res.data) {
-    const formatPlayers = res.data.map(player => ({
-      ...INITIAL_DATA,
-      name: player.name || player.name, // 适配后端返回的username字段
-      level: player.level || 1,
-      gold: player.gold || 500,
-      maxHp: player.maxHp || 300,
-      weapons: player.weapons || [],
-      skills: player.skills || [],
-      dressing: player.dressing || INITIAL_DATA.dressing,
-      exp: 0,
-      str: 5,
-      agi: 5,
-      spd: 5,
-      role: player.role || 'Player',
-      unlockedDressings: [],
-      isConcentrated: false,
-      friends: []
-    }));
+    // 修复3：正确格式化所有玩家数据，映射username/str/agi/spd
+    const formatPlayers = res.data.map(player => {
+      const winCount = player.win_count || 0;
+      const loseCount = player.lose_count || 0;
+      const winRate = (winCount + loseCount) > 0 
+        ? Math.floor((winCount / (winCount + loseCount)) * 100) 
+        : 0;
+
+      return {
+        ...INITIAL_DATA,
+        name: player.username || '未知玩家', // 关键修复：用username映射name
+        username: player.username || '未知玩家', // 保留username字段
+        level: player.level || 1,
+        gold: player.gold || 500,
+        maxHp: player.maxHp || 300,
+        str: player.str || 5, // 读取后端str
+        agi: player.agi || 5, // 读取后端agi
+        spd: player.spd || 5, // 读取后端spd
+        winRate: winRate, // 计算胜率
+        weapons: player.weapons || [],
+        skills: player.skills || [],
+        dressing: player.dressing || INITIAL_DATA.dressing,
+        exp: player.exp || 0,
+        role: player.role || 'Player',
+        unlockedDressings: [],
+        isConcentrated: false,
+        friends: []
+      };
+    });
     return { success: true, data: formatPlayers };
   } else {
     // 失败直接返回，无本地数据兜底
@@ -258,27 +279,35 @@ export const loadUserData = async (username?: string): Promise<CharacterData> =>
     });
 
     if (res.success && res.data) {
-      // 适配后端返回格式到 CharacterData 类型
+      // 修复4：正确映射后端字段到CharacterData
+      const winCount = res.data.win_count || 0;
+      const loseCount = res.data.lose_count || 0;
+      const winRate = (winCount + loseCount) > 0 
+        ? Math.floor((winCount / (winCount + loseCount)) * 100) 
+        : 0;
+
       const userData: CharacterData = {
         ...INITIAL_DATA,
-        name: res.data.username || res.data.name, // 后端返回的是username字段，映射到name
+        name: res.data.username || '未知玩家', // 关键修复：username → name
+        username: res.data.username || '未知玩家', // 保留username
         level: res.data.level || INITIAL_DATA.level,
         gold: res.data.gold || INITIAL_DATA.gold,
         maxHp: res.data.maxHp || INITIAL_DATA.maxHp,
+        str: res.data.str || INITIAL_DATA.str, // 读取后端str
+        agi: res.data.agi || INITIAL_DATA.agi, // 读取后端agi
+        spd: res.data.spd || INITIAL_DATA.spd, // 读取后端spd
+        winRate: winRate, // 计算胜率
         weapons: res.data.weapons || [],
         skills: res.data.skills || [],
         dressing: res.data.dressing || INITIAL_DATA.dressing,
-        exp: 0,
-        str: 5,
-        agi: 5,
-        spd: 5,
+        exp: res.data.exp || 0,
         role: res.data.role || 'Player',
         unlockedDressings: [],
         isConcentrated: false,
         friends: []
       };
       // 可选：缓存到本地（非兜底，仅提升体验）
-      saveUserData(userData.name, userData);
+      saveUserData(userData.username, userData);
       return userData;
     } else {
       throw new Error(res.message || '获取当前用户数据失败');
