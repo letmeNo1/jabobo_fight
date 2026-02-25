@@ -29,7 +29,7 @@ const request = async <T>(
 ): Promise<{ success: boolean; data?: T; message?: string }> => {
   try {
     const fullUrl = `${API_BASE_URL}${url}`;
-    const token = localStorage.getItem('qfight_user_token'); // 正常的本地Token读取（非兜底，保留）
+    const token = localStorage.getItem('qfight_user_token'); // 登录Token存储键
 
     const headers = {
       'Content-Type': 'application/json',
@@ -77,6 +77,7 @@ const loginRequest = async <T>(
 ): Promise<{ success: boolean; data?: T; message?: string }> => {
   try {
     const fullUrl = `${API_BASE_URL}${url}`;
+    // 构建form-data（适配后端OAuth2PasswordRequestForm）
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
@@ -84,7 +85,7 @@ const loginRequest = async <T>(
     const response = await fetch(fullUrl, {
       method: 'POST',
       credentials: 'include',
-      body: formData,
+      body: formData, // 不用JSON，传form-data
     });
 
     if (!response.ok) {
@@ -92,6 +93,7 @@ const loginRequest = async <T>(
     }
 
     const result = await response.json();
+    // 后端登录接口直接返回token，无code字段（特殊处理）
     if (!result.access_token) {
       return {
         success: false,
@@ -117,7 +119,7 @@ const loginRequest = async <T>(
 const USERS_KEY = 'qfight_users';
 const DATA_PREFIX = 'qfight_data_';
 const HISTORY_PREFIX = 'qfight_history_';
-const TOKEN_KEY = 'qfight_user_token';
+const TOKEN_KEY = 'qfight_user_token'; // 新增：存储登录Token
 
 // 【核心规则】getUsers 不读取本地存储，仅返回空对象
 const getUsers = (): Record<string, { password: string }> => {
@@ -175,10 +177,9 @@ export const fetchAndSaveUserData = async (): Promise<{
   });
 
   if (res.success && res.data) {
-    // 正常的本地数据格式化+存储（非兜底，保留）
     const userData: CharacterData = {
       ...INITIAL_DATA,
-      name: res.data.name,
+      name: res.data.name || res.data.name, // 适配后端返回的username字段
       level: res.data.level || INITIAL_DATA.level,
       gold: res.data.gold || INITIAL_DATA.gold,
       maxHp: res.data.maxHp || INITIAL_DATA.maxHp,
@@ -194,7 +195,7 @@ export const fetchAndSaveUserData = async (): Promise<{
       isConcentrated: false,
       friends: []
     };
-    saveUserData(res.data.name, userData);
+    saveUserData(userData.name, userData);
     return { success: true, data: userData };
   }
   
@@ -217,10 +218,9 @@ export const getAllServerPlayers = async (): Promise<{
   });
 
   if (res.success && res.data) {
-    // 正常的本地数据格式化（非兜底，保留）
     const formatPlayers = res.data.map(player => ({
       ...INITIAL_DATA,
-      name: player.name,
+      name: player.name || player.name, // 适配后端返回的username字段
       level: player.level || 1,
       gold: player.gold || 500,
       maxHp: player.maxHp || 300,
@@ -247,25 +247,48 @@ export const getAllServerPlayers = async (): Promise<{
   }
 };
 
-// --- 正常的本地数据操作（非兜底，全部保留）---
-export const loadUserData = (username: string): CharacterData => {
+// --- 核心修改：loadUserData 调用后端 /player/self 接口（适配实际后端）---
+export const loadUserData = async (username?: string): Promise<CharacterData> => {
   try {
-    const saved = localStorage.getItem(DATA_PREFIX + username);
-    // 保留默认值初始化（正常本地操作，非后端兜底）
-    const data = saved ? JSON.parse(saved) : { ...INITIAL_DATA, name: username };
-    
-    // 保留数据校验/兼容（正常本地操作）
-    if (!data.friends) data.friends = [];
-    if (typeof data.gold !== 'number') data.gold = INITIAL_DATA.gold;
-    
-    return data;
+    // 调用后端实际存在的 /player/self 接口（通过Token识别用户，无需传用户名）
+    const res = await request<CharacterData>('/player/self', {
+      method: 'GET',
+    });
+
+    if (res.success && res.data) {
+      // 适配后端返回格式到 CharacterData 类型
+      const userData: CharacterData = {
+        ...INITIAL_DATA,
+        name: res.data.name || res.data.name, // 后端返回的是username字段，映射到name
+        level: res.data.level || INITIAL_DATA.level,
+        gold: res.data.gold || INITIAL_DATA.gold,
+        maxHp: res.data.maxHp || INITIAL_DATA.maxHp,
+        weapons: res.data.weapons || [],
+        skills: res.data.skills || [],
+        dressing: res.data.dressing || INITIAL_DATA.dressing,
+        exp: 0,
+        str: 5,
+        agi: 5,
+        spd: 5,
+        role: res.data.role || 'Player',
+        unlockedDressings: [],
+        isConcentrated: false,
+        friends: []
+      };
+      // 可选：缓存到本地（非兜底，仅提升体验）
+      saveUserData(userData.name, userData);
+      return userData;
+    } else {
+      throw new Error(res.message || '获取当前用户数据失败');
+    }
   } catch (e) {
-    console.error(`Failed to load data for ${username}:`, e);
-    // 保留异常时的默认值返回（正常本地容错，非后端兜底）
-    return { ...INITIAL_DATA, name: username };
+    console.error(`Failed to load user data:`, e);
+    // 优化异常处理：抛出友好错误，便于前端捕获
+    throw new Error(`加载用户数据失败：${e instanceof Error ? e.message : '未知错误'}`);
   }
 };
 
+// --- 保留正常的本地存储写入（缓存后端数据）---
 export const saveUserData = (username: string, data: CharacterData) => {
   try {
     localStorage.setItem(DATA_PREFIX + username, JSON.stringify(data));
@@ -274,17 +297,19 @@ export const saveUserData = (username: string, data: CharacterData) => {
   }
 };
 
-export const loadUserHistory = (username: string): BattleRecord[] => {
+// --- loadUserHistory 适配（若后端有对应接口则调用，无则保留本地逻辑）---
+export const loadUserHistory = async (username: string): Promise<BattleRecord[]> => {
   try {
-    const saved = localStorage.getItem(HISTORY_PREFIX + username);
-    // 保留默认值（正常本地操作）
-    return saved ? JSON.parse(saved) : [];
+    // 若后端暂未实现战斗记录接口，可先返回空数组（或保留本地读取逻辑）
+    // 后续可对接后端 /player/self/history 接口
+    return [];
   } catch (e) {
     console.error(`Failed to load history for ${username}:`, e);
-    return [];
+    throw new Error(`加载用户战斗记录失败：${e instanceof Error ? e.message : '未知错误'}`);
   }
 };
 
+// --- 保留正常的本地存储写入（缓存后端数据）---
 export const saveUserHistory = (username: string, history: BattleRecord[]) => {
   try {
     localStorage.setItem(HISTORY_PREFIX + username, JSON.stringify(history));
@@ -293,11 +318,10 @@ export const saveUserHistory = (username: string, history: BattleRecord[]) => {
   }
 };
 
-// --- Legacy Support（保留正常的本地存储操作，移除后端兜底）---
+// --- Legacy Support（保留正常的本地存储操作）---
 export const loadPlayerData = (): CharacterData => {
   try {
     const saved = localStorage.getItem('qfight_save');
-    // 保留正常的本地读取+默认值（非后端兜底）
     return saved ? JSON.parse(saved) : INITIAL_DATA;
   } catch {
     return INITIAL_DATA;
@@ -305,32 +329,25 @@ export const loadPlayerData = (): CharacterData => {
 };
 
 export const savePlayerData = (data: CharacterData) => {
-  // 保留正常的本地写入
   localStorage.setItem('qfight_save', JSON.stringify(data));
 };
 
 export const loadBattleHistory = (): BattleRecord[] => {
   const saved = localStorage.getItem('qfight_history');
-  // 保留正常的本地读取+默认值
   return saved ? JSON.parse(saved) : [];
 };
 
 export const saveBattleHistory = (history: BattleRecord[]) => {
-  // 保留正常的本地写入
   localStorage.setItem('qfight_history', JSON.stringify(history));
 };
 
 export const resetGameData = () => {
-  // 保留正常的本地数据重置（非后端兜底）
   localStorage.removeItem('qfight_save');
   localStorage.removeItem('qfight_history');
-  localStorage.removeItem(TOKEN_KEY); // 同时清除Token
+  localStorage.removeItem(TOKEN_KEY);
 };
 
-// --- 退出登录（保留正常的本地Token清除）---
+// --- 退出登录（保留Token清除）---
 export const logoutUser = (username: string) => {
   localStorage.removeItem(TOKEN_KEY);
-  // 可选保留：清除当前用户本地缓存（正常本地操作，非兜底）
-  // localStorage.removeItem(DATA_PREFIX + username);
-  // localStorage.removeItem(HISTORY_PREFIX + username);
 };
