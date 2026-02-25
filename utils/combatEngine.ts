@@ -4,7 +4,7 @@ import { WEAPONS, SKILLS } from '../constants';
 
 const createSnapshot = (data: CharacterData | Friend): FighterSnapshot => {
   return {
-    name: data.name,
+    name: 'username' in data ? data.username : data.name,
     level: data.level,
     hp: 'hp' in data ? data.hp : data.maxHp,
     maxHp: 'hp' in data ? data.hp : data.maxHp,

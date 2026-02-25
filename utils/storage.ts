@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 export const INITIAL_DATA: CharacterData = {
   name: '乐斗小豆',
+  username: '乐斗小豆',
   level: 1,
   exp: 0,
   gold: 500,
@@ -259,7 +260,7 @@ export const loadUserData = async (username?: string): Promise<CharacterData> =>
       // 适配后端返回格式到 CharacterData 类型
       const userData: CharacterData = {
         ...INITIAL_DATA,
-        name: res.data.name || res.data.name, // 后端返回的是username字段，映射到name
+        name: res.data.username || res.data.name, // 后端返回的是username字段，映射到name
         level: res.data.level || INITIAL_DATA.level,
         gold: res.data.gold || INITIAL_DATA.gold,
         maxHp: res.data.maxHp || INITIAL_DATA.maxHp,

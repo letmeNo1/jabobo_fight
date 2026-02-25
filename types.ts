@@ -61,6 +61,7 @@ export interface Dressing {
 
 export interface CharacterData {
   name: string;
+  username: string;
   level: number;
   exp: number;
   role: string;

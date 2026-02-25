@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CharacterData } from '../types';
 import { DRESSINGS } from '../constants';
@@ -44,7 +43,8 @@ const Profile: React.FC<ProfileProps> = ({ player, isDebugMode = false }) => {
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-2xl font-black italic text-slate-800 uppercase">我的大乐斗</h3>
+          {/* 关键修改：仅显示玩家名字，移除"我的大乐斗" */}
+          <h3 className="text-2xl font-black italic text-slate-800 uppercase">{player.name}</h3>
           <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Combat Profile</p>
         </div>
         <div className="text-right">
