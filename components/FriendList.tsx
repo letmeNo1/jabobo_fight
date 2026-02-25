@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CharacterData } from '../types';
-import { getCurrentUser, getAllServerPlayers } from '../utils/storage';
+import { getAllServerPlayers } from '../utils/storage';
+
+// Get current user from localStorage or your auth system
+const getCurrentUser = () => {
+  try {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
+};
 
 interface FriendListProps {
   player: CharacterData;
@@ -45,8 +55,9 @@ const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge }) 
 
       try {
         // 调用修复后的接口
-        const serverPlayers = await getAllServerPlayers();
-        const validPlayers = serverPlayers.filter(p => p && p.name);
+        const response = await getAllServerPlayers();
+        const serverPlayers = response.data || [];
+        const validPlayers = serverPlayers.filter(p => p && (p as any).name);
         
         if (isMounted) {
           setAllPlayers(validPlayers);
@@ -84,8 +95,9 @@ const FriendList: React.FC<FriendListProps> = ({ player, onBack, onChallenge }) 
     }
 
     try {
-      const serverPlayers = await getAllServerPlayers();
-      const validPlayers = serverPlayers.filter(p => p && p.name);
+      const response = await getAllServerPlayers();
+      const serverPlayers = response.data || [];
+      const validPlayers = serverPlayers.filter(p => p && (p as any).name);
       setAllPlayers(validPlayers);
     } catch (fetchError) {
       console.error('刷新玩家列表失败:', fetchError);
