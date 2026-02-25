@@ -63,7 +63,7 @@ export interface CharacterData {
   name: string;
   level: number;
   exp: number;
-  role: 'Player' | 'Admin';
+  role: string;
   gold: number;
   str: number;
   agi: number;
