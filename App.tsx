@@ -12,7 +12,6 @@ import RedeemCode from './components/RedeemCode';
 import BattleHistory from './components/BattleHistory';
 import GrandmasterChallenge from './components/GrandmasterChallenge';
 import LoginScreen from './components/LoginScreen';
-import AdminPanel from './components/AdminPanel'; // 管理员面板
 
 import { initDB, getCachedAsset, cacheAsset, deleteDB } from './utils/db';
 import { playSFX, playUISound, preloadAudio, resumeAudio } from './utils/audio';
@@ -490,17 +489,6 @@ const App: React.FC = () => {
             <button onClick={() => {playUISound('CLICK'); setBattleResult(null); setView('HOME');}} className="w-full py-4 rounded-2xl font-black text-white text-lg bg-orange-500">确定</button>
           </div>
         </div>
-      )}
-
-      {/* 管理员视图 */}
-      {view === 'ADMIN' && (
-        <AdminPanel 
-          onBack={() => {
-            playUISound('CLICK');
-            setView('HOME');
-          }} 
-          currentAccountId={currentAccountId}
-        />
       )}
 
       {/* 首页视图 */}
